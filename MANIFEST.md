@@ -11,7 +11,7 @@
 | 1 | `.gitignore` | 6 | 56 | `ce5edf4bc92631a4fceb0d1ce1f08778` | 标配 |
 | 2 | `LICENSE` | 23 | 1164 | `30298cb6fbe9e6aad2724bde2eebb2ca` | 标配 |
 | 3 | `README.md` | 69 | 4811 | `105065e4ac5a1eddc92e5ae2537adaca` | 门面 |
-| 4 | `WORKFLOW.md` | 61 | 6247 | `00a9e5571c32465df621957800373490` | 主干(常驻) |
+| 4 | `WORKFLOW.md` | 61 | 6347 | `a9f9fa245b696b570370272e4dd939cf` | 主干(常驻) |
 | 5 | `ERRORS.md` | 32 | 1438 | `64a77340cf0e1fb5e7f49508f72cfed4` | 失败库(常驻记忆层) |
 | 6 | `skills/apk/SKILL.md` | 13 | 523 | `debc3dc38abe99bee852e53bd453f6a9` | 步骤7·打APK |
 | 7 | `skills/architect/SKILL.md` | 21 | 1224 | `ae2738410a13d92b3ec9c6a423ed47bd` | 通用·架构师层级 |
@@ -21,11 +21,11 @@
 | 11 | `skills/install/SKILL.md` | 18 | 1070 | `4b4eb6b2bdd3d37a84d119a00bb6cc72` | 安装工作流 |
 | 12 | `skills/split/SKILL.md` | 24 | 2607 | `e2607b08bb99da32f1ffd970f6f63109` | 步骤2·拆模块(架构师层级) |
 | 13 | `skills/test/SKILL.md` | 22 | 1160 | `ae8b1467fc8b279c0f5378406b7c79ec` | 步骤5·测试找bug |
-| 14 | `skills/track/SKILL.md` | 32 | 1712 | `bdbfa3da912f8df05c906fade9cd0f46` | 通用·授权跟踪 |
+| 14 | `skills/track/SKILL.md` | 40 | 2041 | `9f20093959f446aa1d4abfddc64412f0` | 通用·授权跟踪 |
 | 15 | `skills/verify/SKILL.md` | 26 | 1047 | `f19fddd2565569a21cd8e0ee8fbd9469` | 通用·验证 |
 | 16 | `skills/write/SKILL.md` | 19 | 1455 | `61f0690bb3e48472689d04d39e8bbd7e` | 步骤3·写模块 |
 | 17 | `scripts/dep_check.py` | 193 | 8198 | `4ee4c871e2dd25408eb3be34ec4d64b0` | 脚本·依赖图验证 |
-| 18 | `scripts/enforce.py` | 436 | 15087 | `c80d07bfc88a8546b3e60792c0c9a448` | **脚本·执行门禁** |
+| 18 | `scripts/enforce.py` | 496 | 17357 | `428f7a7a4915756af732c5cc2f6bb4e6` | **脚本·执行门禁** |
 | 19 | `scripts/install.sh` | 39 | 1983 | `02fb9704900aeb2630c3913e829f8475` | 脚本·一键安装 |
 
 **加载规则**：常驻 `WORKFLOW.md`（铁律 9 条 + 执行门禁 + 断点续作 + 入口判断 + 7 步主干）；`ERRORS.md` 为常驻记忆层，halt 触发时写入、用户定期 review，不计入每步上下文。步骤文件由主干点名加载；通用模块（track/architect/verify/fix/check/halt）由步骤在需要时点名调用，用完回主干。任意时刻上下文 = WORKFLOW + 当前步骤文件 + 至多一个通用模块。
