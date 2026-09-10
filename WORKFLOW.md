@@ -54,7 +54,7 @@
 **6｜汇报**：`python3 scripts/enforce.py gate pre-step 6` → 做了什么 / 怎么用 / 效果，附验证声明；不贴大段代码，给文件链接。
 过门：用户确认 → `python3 scripts/enforce.py check-evidence 0 "用户确认汇报"` → `python3 scripts/enforce.py gate post-step 6`；要改 → `skills/fix/SKILL.md` → 回步骤 5。
 
-**7｜交付**：`python3 scripts/enforce.py gate pre-step 7` → Web 给可访问地址；APP 读 `skills/apk/SKILL.md`；代码确保 README 可复现；追加 WORKLOG.md；提示用户 review `ERRORS.md` 与各 `.track.md`。
+**7｜交付**：`python3 scripts/enforce.py gate pre-step 7` → Web 给可访问地址；APP 读 `skills/apk/SKILL.md`；代码确保 README 可复现；追加 WORKLOG.md；提示用户 review `ERRORS.md`；**清理临时授权** `python3 scripts/enforce.py clean-temp`（交付后不再需要项目期间的临时权限）。
 过门：用户能直接打开、安装或复现 → `python3 scripts/enforce.py check-evidence 0 "用户确认交付"` → `python3 scripts/enforce.py gate post-step 7`。
 
 ---

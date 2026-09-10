@@ -120,6 +120,8 @@ def _parse_track_expiry(track_path: str) -> str:
     expiry_str = m.group(1).strip()
     if expiry_str == "-":
         return "permanent"  # 永久
+    if expiry_str == "项目结束":
+        return "valid"  # 临时，项目结束前始终有效
 
     try:
         expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
@@ -358,6 +360,60 @@ def cmd_validate_checklist() -> int:
     return 0
 
 
+def cmd_clean_temp() -> int:
+    """清理所有标记为"项目结束"的临时授权条目"""
+    cwd = os.environ.get("WORKFLOW_ROOT", os.getcwd())
+    removed = 0
+    skipped = 0
+
+    # 扫描所有 .track.md 文件
+    for root, dirs, files in os.walk(cwd):
+        # 跳过隐藏目录和 .git
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d != '.git']
+        for f in files:
+            if not f.endswith('.track.md'):
+                continue
+            fp = os.path.join(root, f)
+            try:
+                with open(fp, encoding='utf-8') as fh:
+                    content = fh.read()
+            except Exception:
+                continue
+
+            # 找到所有标记为"项目结束"的条目块
+            # 条目块格式：从 "问:" 开始到下一个 "问:" 或文件结尾
+            blocks = re.split(r'\n(?=问:)', content.strip())
+            kept = []
+            for block in blocks:
+                if re.search(r'到期日:\s*项目结束', block):
+                    # 提取摘要用于日志
+                    summary = block.split('\n')[0][:60]
+                    print(f"[enforce] ~ 清理临时授权: {summary}")
+                    removed += 1
+                else:
+                    kept.append(block)
+
+            if len(kept) == len(blocks):
+                continue  # 没变化
+
+            new_content = '\n\n'.join(kept) + '\n' if kept else ''
+            new_content = new_content.strip()
+
+            if not new_content:
+                os.remove(fp)
+                print(f"[enforce] ✓ 已删除空授权文件: {_relative_to_root(fp)}")
+            else:
+                with open(fp, 'w', encoding='utf-8') as fh:
+                    fh.write(new_content + '\n')
+                print(f"[enforce] ✓ 已清理临时授权: {_relative_to_root(fp)}")
+
+    if removed == 0:
+        print("[enforce] ✓ 无临时授权需要清理")
+    else:
+        print(f"[enforce] ✓ 共清理 {removed} 条临时授权")
+    return 0
+
+
 # ══════════════════════════════════════════════════════
 # 主入口
 # ══════════════════════════════════════════════════════
@@ -370,6 +426,7 @@ USAGE = """用法:
   enforce.py check-iron-law <文件路径>  铁律保护门禁（铁律9）
   enforce.py check-evidence <退出码> [依据描述]  判定依据验证（铁律1）
   enforce.py validate                    全局完整性检查
+  enforce.py clean-temp                  清理临时授权（步骤7交付前调用）
   enforce.py help                        本帮助
 """
 
@@ -421,6 +478,9 @@ def main():
     
     elif cmd == "validate":
         sys.exit(cmd_validate_checklist())
+    
+    elif cmd == "clean-temp":
+        sys.exit(cmd_clean_temp())
     
     elif cmd in ("help", "--help", "-h"):
         print(USAGE)
