@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 编程工作流 v5 · 案例验证报告</title>
+<style>
+:root{
+  --bg:#08111F; --panel:#0E1A2D; --code:#62F6A8; --link:#7AB7FF;
+  --text:#E6EDF7; --sub:#8EA0B8; --border:#1D2B44;
+  --ok:#62F6A8; --warn:#F5C86A; --err:#FF7A7A;
+  --mono:"JetBrains Mono","SFMono",Consolas,monospace;
+  --sans:Inter,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px}
+.wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+/* 左侧目录 */
+nav{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--border);padding:28px 18px}
+nav .logo{font-weight:700;font-size:14px;color:var(--code);margin-bottom:6px}
+nav .logo small{display:block;color:var(--sub);font-weight:400;margin-top:2px}
+nav a{display:block;color:var(--sub);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px;margin:2px 0}
+nav a:hover{color:var(--text);background:rgba(122,183,255,.08)}
+a:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:6px}
+nav .sec{color:var(--link);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 6px;padding-left:10px}
+/* 主区 */
+main{padding:44px 52px;max-width:1000px}
+h1{font-size:28px;font-weight:700;margin-bottom:8px}
+.lede{color:var(--sub);font-size:15px;margin-bottom:30px}
+h2{font-size:21px;margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border);color:#fff}
+h3{font-size:16px;margin:24px 0 10px;color:var(--code)}
+p{margin-bottom:12px;color:var(--text)}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 30px}
+.chip{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--sub)}
+.chip b{color:var(--text);font-weight:600}
+/* 代码块 */
+pre{background:#0B1526;border:1px solid var(--border);border-radius:10px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code);margin:12px 0 18px}
+code{font-family:var(--mono);font-size:.92em;background:rgba(98,246,168,.08);color:var(--code);padding:1px 5px;border-radius:4px}
+pre code{background:none;padding:0;color:inherit}
+/* 表格 */
+.tablewrap{overflow-x:auto;margin:14px 0 22px;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+caption{text-align:left;font-size:13px;color:var(--sub);padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+th{background:var(--panel);color:var(--link);text-align:left;padding:10px 14px;font-weight:600;white-space:nowrap}
+td{padding:9px 14px;border-top:1px solid rgba(29,43,68,.6);vertical-align:top}
+td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+/* 状态 */
+.ok{color:var(--ok);font-weight:600}
+.err{color:var(--err);font-weight:600}
+.warn{color:var(--warn);font-weight:600}
+/* 流程步骤 */
+.steps{counter-reset:step;margin:16px 0}
+.step{display:flex;gap:16px;padding:14px 0;border-bottom:1px dashed rgba(29,43,68,.8)}
+.step:last-child{border-bottom:none}
+.step .n{counter-increment:step;flex:0 0 34px;height:34px;border-radius:50%;background:rgba(122,183,255,.12);border:1px solid var(--link);color:var(--link);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.step .n::before{content:counter(step)}
+.step .body{flex:1}
+.step .body h3{font-size:15px;color:#fff;margin:0 0 4px}
+/* 提示框 */
+.note{border-left:3px solid var(--link);background:var(--panel);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:14px;color:var(--sub)}
+.note b{color:var(--text)}
+.note.errbox{border-left-color:var(--err)}
+.note.okbox{border-left-color:var(--ok)}
+/* 结果卡 */
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:16px 0}
+.res{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+.res .plat{font-size:15px;font-weight:700;margin-bottom:8px}
+.res ul{list-style:none}
+.res li{font-size:13px;color:var(--sub);padding:3px 0;padding-left:18px;position:relative}
+.res li::before{content:"—";position:absolute;left:0;color:var(--border)}
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--border);color:var(--sub);font-size:13px}
+@media(max-width:820px){
+  .wrap{grid-template-columns:1fr}
+  nav{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);padding:16px}
+  nav a{display:inline-block;padding:4px 8px;margin:2px}
+  nav .sec{display:none}
+  main{padding:28px 18px}
+  h1{font-size:23px}
+}
+@media print{
+  nav{display:none}
+  .wrap{grid-template-columns:1fr}
+  body{background:#fff;color:#111}
+  main{max-width:none;padding:0}
+  pre,table,.res,.note{background:#f5f5f5;border-color:#ccc;color:#111}
+  h1,h2,h3{color:#000}
+  .step .n{background:#e5e5e5;border-color:#999;color:#333}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="logo">AI 编程工作流 v5<small>案例验证报告</small></div>
+  <div class="sec">概览</div>
+  <a href="#summary">验证结论</a>
+  <a href="#project">案例项目</a>
+  <div class="sec">执行过程</div>
+  <a href="#s1">步骤 1-2 需求与拆解</a>
+  <a href="#s2">步骤 3 写模块（TDD）</a>
+  <a href="#s3">步骤 4 集成验证</a>
+  <a href="#s4">步骤 5 测试回归</a>
+  <a href="#s5">步骤 6-7 汇报交付</a>
+  <div class="sec">发现与复盘</div>
+  <a href="#bugs">发现的问题</a>
+  <a href="#learn">工作流自检</a>
+</nav>
+
+<main>
+<h1>AI 编程工作流 v5 · 案例验证报告</h1>
+<p class="lede">用真实项目完整跑一遍 v5 工作流，验证「架构师层级递归 + TDD 分支 + 依赖图验证」是否真的能闭环，并记录过程中发现的问题与修复。</p>
+
+<div class="meta">
+  <span class="chip">验证日期 <b>2026-09-07</b></span>
+  <span class="chip">工作流版本 <b>v5</b></span>
+  <span class="chip">询问用户次数 <b>0</b>（用户授权直跑）</span>
+  <span class="chip">测试 <b>8/8 通过</b></span>
+  <span class="chip">依赖图 <b>0 warning</b></span>
+</div>
+
+<section id="summary">
+<h2>验证结论</h2>
+<div class="note okbox"><b>结论：v5 工作流闭环成立。</b>按流程从接需求走到交付，TDD 分支真实抓到了 2 个实现 bug，依赖图验证又抓到了工作流自身 1 个 bug（dep_check 不识别包内模块写法）。流程本身具备「发现问题 → 定位 → 修复 → 回归」的完整闭环能力，但同时也暴露了一个工作流脚本缺陷（已修复）。</div>
+</section>
+
+<section id="project">
+<h2>案例项目</h2>
+<p>为贴近真实使用场景，选了一个与运营相关的实用工具：<b>多平台文案合规检查器</b>——输入一段文案，自动检查其在公众号 / 小红书 / 抖音三平台的适配性（标题长度、正文字数、话题数上限），纯 Python 标准库实现。</p>
+<div class="tablewrap">
+<table>
+<caption>项目信息</caption>
+<tr><th style="width:140px">维度</th><th>值</th></tr>
+<tr><td>项目规模</td><td>中小型（5 个模块，约 150 行代码 + 4 个测试文件）</td></tr>
+<tr><td>语言 / 框架</td><td>Python 3 · 标准库（unittest 测试）</td></tr>
+<tr><td>模块划分</td><td>cli（入口）/ checker（引擎）/ parser（解析）/ platform_rules（规则）/ report（渲染）</td></tr>
+<tr><td>架构分层</td><td>2 层：L0 总架构师（cli / core / report）→ L1 次级架构师（checker / parser / platform_rules）</td></tr>
+<tr><td>测试策略</td><td>TDD：先写测试（红）→ 写实现（绿）</td></tr>
+</table>
+</div>
+</section>
+
+<section id="s1">
+<h2>步骤 1-2：需求确认 + 架构师层级拆解</h2>
+<p>按 v5 规模判断入口：中型项目 → 问拆几层 → 采用默认 2 层。随后按 <code>skills/architect/SKILL.md</code> 做架构师分层递归，产出全局契约图 <code>deps.md</code>：</p>
+<pre><code># L0 总架构师：cli 入口 / core 核心域 / report 报告
+cli -&gt; checker, report
+report -&gt; checker
+# L1 次级架构师：core 域拆解
+checker -&gt; parser, platform_rules
+parser -&gt;
+platform_rules -&gt;</code></pre>
+<p>每层架构师只维护自己那层契约图；上层对下层实现只读，不越层改代码。契约块五项（职责 / 谁能调用 / 依赖谁 / 公开接口 / 改接口同步查）在写代码时逐模块落实。</p>
+</section>
+
+<section id="s2">
+<h2>步骤 3：写模块（TDD 分支）</h2>
+<p>拆模块时勾选 TDD → 先写测试再写实现。测试先行，运行确认全红（符合预期）：</p>
+<pre><code>Ran 4 tests — FAILED (errors=4)   # 实现未写，测试全红 ✓</code></pre>
+<p>随后按契约实现 5 个模块，再次运行测试：</p>
+<pre><code>Ran 8 tests — FAILED (failures=4)  # TDD 抓到 2 个真实 bug</code></pre>
+</section>
+
+<section id="bugs">
+<h2>发现的问题 ①：parser 同一行多标签没拆分</h2>
+<div class="note errbox"><b>症状：</b><code>#标签1 #标签2</code> 写在同一行时，被当成一个整体标签，导致「话题数超限」检查漏报。<br><b>根因：</b>解析逻辑按行取整段，没有按 <code>#</code> 切分同行的多个标签。<br><b>修复：</b>改用正则 <code>#([^\s#]+)</code> 提取一行内所有标签。</div>
+
+<h2>发现的问题 ②：平台规则「不支持标签」误报</h2>
+<div class="note errbox"><b>症状：</b>公众号（<code>max_tags=0</code>）把普通正文里的 <code>#</code> 符号当话题，误报「该平台不支持话题标签」，导致正常文案被判 fail。<br><b>根因：</b>规则语义设计不合理——<code>max_tags=0</code> 本意是「不检查话题数」，实现却写成「有标签就报错」。<br><b>修复：</b>改为 <code>max_tags=0</code> 时跳过话题检查，只在平台明确有上限时校验。</div>
+<p>修复后测试全绿：<code>Ran 8 tests — OK</code>。这正是 TDD 分支的价值：先写测试暴露期望，再写实现逼出真实语义问题。</p>
+</section>
+
+<section id="s3">
+<h2>步骤 4：集成 full-check（依赖图验证）</h2>
+<p>集成后运行 <code>scripts/dep_check.py</code>，按全局契约图核对代码实际 import：</p>
+<pre><code>模块数: 5
+[warn ] 图与代码不一致: deps.md 声明 checker -&gt; parser，代码中未见
+[warn ] 图与代码不一致: deps.md 声明 checker -&gt; platform_rules，代码中未见
+[warn ] 图与代码不一致: deps.md 声明 cli -&gt; checker，代码中未见
+[warn ] 图与代码不一致: deps.md 声明 report -&gt; checker，代码中未见
+依赖图验证通过（4 个 warning 可人工过目）</code></pre>
+</section>
+
+<section id="bugs2">
+<h2>发现的问题 ③：dep_check 不识别「包内模块」写法（工作流自身 bug）</h2>
+<div class="note errbox"><b>症状：</b>代码里明明写了 <code>from core.parser import parse</code>，dep_check 却报「代码中未见」——图与代码一致性检查失效。<br><b>根因：</b>dep_check 解析 import 时取 <code>token.split(".")[0]</code>，遇到包内模块 <code>core.parser</code> 只取了包名 <code>core</code>，匹配不到模块 <code>parser</code>。<br><b>影响：</b>这是工作流脚本自身的 bug——如果项目用「包内模块」组织（Python 包 / 目录模块），依赖图验证会漏检，还可能让上层误以为下层没实现契约。<br><b>修复：</b>import 解析改为取 token 各段候选（<code>core.parser</code> → <code>{core.parser, parser}</code>）匹配模块名。修复后复测：</div>
+<pre><code>模块数: 5
+依赖图验证通过（0 个 warning 可人工过目）   # 全绿 ✓</code></pre>
+</section>
+
+<section id="s4">
+<h2>步骤 5：测试回归 + 端到端验证</h2>
+<p>全量回归 8/8 通过，再用两段真实文案端到端跑 CLI：</p>
+<div class="results">
+  <div class="res"><div class="plat">正常文案</div><ul><li>公众号 ✅ 通过</li><li>小红书 ✅ 通过</li><li>抖音 ✅ 通过</li></ul><p style="margin-top:8px"><span class="ok">exit 0</span></p></div>
+  <div class="res"><div class="plat">违规文案</div><ul><li>公众号 ✅ 通过</li><li>小红书 ❌ 标题 36 字超限、话题 30 个超限</li><li>抖音 ❌ 话题 30 个超限</li></ul><p style="margin-top:8px"><span class="err">exit 1</span></p></div>
+</div>
+<p>检查逻辑符合契约：合规文案全过、违规文案按平台精准报错，退出码语义正确。</p>
+</section>
+
+<section id="s5">
+<h2>步骤 6-7：汇报 + 交付</h2>
+<div class="steps">
+  <div class="step"><div class="n"></div><div class="body"><h3>产物清单</h3><p>cli.py · report.py · core/parser.py · core/checker.py · core/platform_rules.py · tests/（4 文件）· deps.md</p></div></div>
+  <div class="step"><div class="n"></div><div class="body"><h3>测试结果</h3><p>单元测试 8/8 通过；依赖图 0 warning；端到端两场景退出码 0/1 语义正确</p></div></div>
+  <div class="step"><div class="n"></div><div class="body"><h3>过程中询问用户</h3><p>0 次（用户授权直跑，规模/层数/TDD 采用默认）</p></div></div>
+  <div class="step"><div class="n"></div><div class="body"><h3>遇到的问题</h3><p>3 个：parser 标签拆分（实现 bug）· max_tags 语义（设计 bug）· dep_check 包内模块解析（工作流 bug，已修复进 v5）</p></div></div>
+</div>
+</section>
+
+<section id="learn">
+<h2>工作流自检：v5 的验证结论</h2>
+<div class="tablewrap">
+<table>
+<caption>针对工作流自身能力的检验</caption>
+<tr><th>工作流机制</th><th>验证结果</th></tr>
+<tr><td>架构师层级递归</td><td><span class="ok">通过</span> — 2 层拆解清晰，每层只维护自己的契约图，上层未越层改下层代码</td></tr>
+<tr><td>TDD 分支</td><td><span class="ok">通过</span> — 测试先行抓到 2 个真实 bug，比「写代码再测试」多一层纠错</td></tr>
+<tr><td>依赖图验证</td><td><span class="ok">通过（修复后）</span> — 抓到自身解析 bug 并修复，0 warning 全绿</td></tr>
+<tr><td>退出码判定</td><td><span class="ok">通过</span> — 合规 0 / 违规 1，判定外置靠命令输出</td></tr>
+<tr><td>上下文最小化</td><td><span class="ok">通过</span> — 全程只读主干 + 当前步骤文件，未发生上下文膨胀</td></tr>
+</table>
+</div>
+<div class="note"><b>案例验证的附加价值：</b>用真实项目跑工作流，抓到并修复了 dep_check 一个隐藏 bug（包内模块解析）。这说明「案例验证」不是形式主义——它让工作流自身也经历一次「测试 → 发现 → 修复」的闭环，v5 的账本已随修复重算更新。</div>
+</section>
+
+<footer>
+AI 编程工作流 v5 案例验证报告 · 2026-09-07 · 案例项目：多平台文案合规检查器（case-content-checker）
+</footer>
+</main>
+</div>
+</body>
+</html>

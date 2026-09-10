@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>v5.1 执行门禁 — 硬规则代码化报告</title>
+<style>
+:root {
+  --bg: #08111F;
+  --panel: #0E1A2D;
+  --surface: #131F35;
+  --border: #1D2B44;
+  --text: #E6EDF7;
+  --sub: #8EA0B8;
+  --accent: #62F6A8;
+  --blue: #7AB7FF;
+  --red: #FF6B6B;
+  --orange: #FFB347;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  --radius: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  display: flex;
+  min-height: 100vh;
+}
+/* Sidebar */
+nav.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: 260px; height: 100vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  z-index: 10;
+}
+nav.sidebar h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sub);
+  margin: 20px 0 8px 8px;
+}
+nav.sidebar h2:first-child { margin-top: 0; }
+nav.sidebar a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--sub);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background .15s, color .15s;
+}
+nav.sidebar a:hover, nav.sidebar a.active {
+  background: rgba(98, 246, 168, 0.08);
+  color: var(--text);
+}
+/* Main */
+main {
+  margin-left: 260px;
+  flex: 1;
+  padding: 40px 48px 80px;
+  max-width: 960px;
+}
+/* Headings */
+h1 { font-size: 2rem; font-weight: 700; margin-bottom: 4px; color: #fff; }
+h1 + p.meta { color: var(--sub); font-size: 0.9rem; margin-bottom: 32px; }
+h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 40px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: #fff;
+}
+h3 { font-size: 1.1rem; font-weight: 600; margin: 24px 0 12px; color: var(--accent); }
+h4 { font-size: 1rem; font-weight: 600; margin: 20px 0 8px; }
+p, li { margin-bottom: 8px; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+  font-family: var(--mono);
+  background: rgba(98, 246, 168, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+  color: var(--accent);
+}
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 12px 0;
+  color: #d4dcec;
+}
+pre .kw { color: #c792ea; }
+pre .fn { color: #82aaff; }
+pre .str { color: #c3e88d; }
+pre .cm { color: #546e7a; font-style: italic; }
+pre .num { color: #f78c6c; }
+pre .op { color: #89ddff; }
+/* Cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 16px 0;
+}
+.card.pass { border-left: 3px solid var(--accent); }
+.card.fail { border-left: 3px solid var(--red); }
+.card.warn { border-left: 3px solid var(--orange); }
+.card h4 { margin-top: 0; }
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.92rem;
+}
+th, td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  background: var(--panel);
+  color: var(--sub);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+tr:hover td { background: rgba(255,255,255,0.03); }
+/* Tag */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.tag.hard { background: rgba(255, 107, 107, 0.2); color: var(--red); }
+.tag.soft { background: rgba(98, 246, 168, 0.15); color: var(--accent); }
+.tag.new { background: rgba(122, 183, 255, 0.2); color: var(--blue); }
+/* Badge */
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+.badge.ok { background: rgba(98,246,168,0.2); color: var(--accent); }
+.badge.err { background: rgba(255,107,107,0.2); color: var(--red); }
+.badge.warn { background: rgba(255,179,71,0.2); color: var(--orange); }
+/* Responsive */
+@media (max-width: 768px) {
+  nav.sidebar { position: static; width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  main { margin-left: 0; padding: 24px 16px; }
+}
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+  html { scroll-behavior: auto; }
+}
+/* Focus visible */
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+/* Print */
+@media print {
+  body { background: #fff; color: #000; display: block; }
+  nav.sidebar { display: none; }
+  main { margin-left: 0; padding: 20px; }
+  .card { background: #f5f5f5; border-color: #ccc; page-break-inside: avoid; }
+  pre { background: #f5f5f5; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h2>报告目录</h2>
+  <a href="#intro">概述</a>
+  <h2>执行门禁</h2>
+  <a href="#enforce">enforce.py 架构</a>
+  <a href="#gate5">铁律5 · 文件保护</a>
+  <a href="#gate8">铁律8 · 授权强制</a>
+  <a href="#gate9">铁律9 · 铁律保护</a>
+  <a href="#gate-breakpoint">断点强制 · WORKLOG</a>
+  <a href="#gate-evidence">铁律1 · 判定依据</a>
+  <h2>改动清单</h2>
+  <a href="#changes">文件改动</a>
+  <a href="#integration">工作流嵌入</a>
+  <h2>验证</h2>
+  <a href="#verify">实测验证</a>
+  <a href="#regression">回归确认</a>
+  <a href="#conclusion">结论与遗留</a>
+</nav>
+
+<main>
+
+<h1>v5.1 · 执行门禁</h1>
+<p class="meta">2026-09-10 · 将不可绕过的硬规则固化为代码执行</p>
+
+<section id="intro">
+<h2>概述</h2>
+<p>此前 v5.1 工作流的 9 条铁律和断点纪律<strong>全部是文本规则</strong>——写在 <code>WORKFLOW.md</code> 里，靠 AI 自觉遵守，没有任何代码层面的强制力。</p>
+<p>本次新增 <code>scripts/enforce.py</code>（<strong>执行门禁</strong>），将以下硬规则转为实际运行的 Python 脚本。每步过门自动触发，退出码非 0 即阻断流程，无法跳过：</p>
+
+<table>
+<thead><tr><th>硬规则</th><th>来源</th><th>门禁命令</th><th>触发时机</th><th>阻断</th></tr></thead>
+<tbody>
+<tr><td>红区文件保护</td><td>铁律5</td><td><code>check-write &lt;路径&gt;</code></td><td>每次写文件前</td><td>红区无授权 → halt</td></tr>
+<tr><td>授权强制检查</td><td>铁律8</td><td><code>check-auth &lt;track&gt;</code></td><td>授权操作前</td><td>无有效track → halt</td></tr>
+<tr><td>铁律不可覆盖</td><td>铁律9</td><td><code>check-iron-law &lt;文件&gt;</code></td><td>full-check 阶段</td><td>铁律被删 → halt</td></tr>
+<tr><td>断点强制</td><td>断点节</td><td><code>gate post-step N</code></td><td>每步过门</td><td>无 WORKLOG → 不准过</td></tr>
+<tr><td>判定有依据</td><td>铁律1</td><td><code>check-evidence &lt;码&gt; [描述]</code></td><td>每步过门</td><td>无依据描述 → 警告</td></tr>
+<tr><td>全局完整性</td><td>—</td><td><code>validate</code></td><td>入口处</td><td>脚本缺失/铁律不完整 → halt</td></tr>
+</tbody>
+</table>
+
+<p><span class="tag hard">代码强制</span> 以上 5 条硬规则写入 <code>enforce.py</code> 运行，失败即阻断。弹性规则（铁律 2/3/4/6/7、规模判断细节、TDD 分支等）保持文本规则不变。</p>
+</section>
+
+<section id="enforce">
+<h2>enforce.py 架构</h2>
+<p>436 行，纯标准库，零外部依赖。6 个子命令各自独立，退出码约定：</p>
+<ul>
+<li><span class="badge ok">0</span> 通过</li>
+<li><span class="badge err">1</span> 硬规则违例 → 调用方应 halt</li>
+<li><span class="badge warn">2</span> 用法错误</li>
+</ul>
+
+<h3>子命令一览</h3>
+<pre><span class="kw">用法</span>:
+  enforce.py <span class="fn">gate</span> <span class="op">pre-post</span> <span class="str">&lt;步骤名&gt;</span>    步骤前门禁：前置检查
+  enforce.py <span class="fn">gate</span> <span class="op">post-step</span> <span class="str">&lt;步骤名&gt;</span>   步骤后门禁：WORKLOG 强制校验
+  enforce.py <span class="fn">check-write</span> <span class="str">&lt;文件路径&gt;</span>    写文件门禁：铁律5 红黄区保护
+  enforce.py <span class="fn">check-auth</span> <span class="str">&lt;track名&gt;</span>      授权门禁：铁律8 强制查 track
+  enforce.py <span class="fn">check-iron-law</span> <span class="str">&lt;文件&gt;</span>    铁律保护门禁：铁律9 防覆盖
+  enforce.py <span class="fn">check-evidence</span> <span class="str">&lt;码&gt;</span> [描述]    判定依据验证：铁律1
+  enforce.py <span class="fn">validate</span>                     全局完整性检查
+</pre>
+
+<h3>红区模式匹配</h3>
+<pre><span class="cm"># 命中以下路径模式即判定为红区文件，无授权禁止自动修改</span>
+RED_ZONE_PATTERNS = [
+    r<span class="str">'(^|/)\.env'</span>,            <span class="cm"># .env / path/.env</span>
+    r<span class="str">'(^|/)auth'</span>,             <span class="cm"># auth/ 目录</span>
+    r<span class="str">'(^|/)secrets?'</span>,        <span class="cm"># secret/ secrets/</span>
+    r<span class="str">'(^|/)deploy'</span>,           <span class="cm"># deploy/</span>
+    r<span class="str">'(^|/)ci/'</span>,              <span class="cm"># .github/workflows 等</span>
+    r<span class="str">'(^|/)requirements\.txt$'</span>,
+    r<span class="str">'(^|/)Pipfile$'</span>,
+    r<span class="str">'(^|/)package-lock\.json$'</span>,
+    r<span class="str">'(^|/)yarn\.lock$'</span>,
+    r<span class="str">'(^|/)go\.mod$'</span>,
+    r<span class="str">'(^|/)\.gitignore$'</span>,
+]
+
+<span class="cm"># 黄区只警告不阻断</span>
+YELLOW_ZONE_PATTERNS = [
+    r<span class="str">'(^|/)config\.'</span>,
+    r<span class="str">'(^|/)settings\.'</span>,
+    r<span class="str">'(^|/)routes?\.'</span>,
+    r<span class="str">'(^|/)models?\.'</span>,
+    r<span class="str">'(^|/)migrations?/'</span>,
+    r<span class="str">'(^|/)main\.'</span>,
+    r<span class="str">'(^|/)app\.'</span>,
+    r<span class="str">'(^|/)index\.'</span>,
+]</pre>
+
+<h3>授权解析</h3>
+<p><code>check-auth</code> 子命令自动查找 <code>.track.md</code> 文件（同名、<code>tracks/</code>、<code>skills/&lt;name&gt;/</code> 三级），解析到期日：</p>
+<ul>
+<li><code>-</code> → 永久有效</li>
+<li><code>YYYY-MM-DD</code> 未过期 → 有效</li>
+<li><code>YYYY-MM-DD</code> 已过期 / 字段缺失 / 文件不存在 → <span class="tag hard">阻断</span></li>
+</ul>
+</section>
+
+<section id="gate5">
+<h2>铁律5 · 文件保护 <span class="tag hard">代码强制</span></h2>
+<div class="card pass">
+<h4>规则原文</h4>
+<p>红区文件（.env、auth、secrets、deploy、CI 配置、依赖文件）禁自动改；黄区（config、routes、models、入口文件）改前告知。</p>
+</div>
+<h3>代码实现：<code>check-write</code></h3>
+<p>在 <code>skills/write/SKILL.md</code> 中新增第 6 步：写文件前先跑 <code>enforce.py check-write &lt;目标文件&gt;</code>。红区文件无 track 授权 → 退出码 1，调用方必须 halt。黄区文件 → 仅警告（退出码 0），不阻断。</p>
+<h3>实测结果</h3>
+<table>
+<thead><tr><th>场景</th><th>命令</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>红区无授权</td><td><code>check-write .env</code></td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>红区已有永久授权</td><td><code>check-write .env</code>（有track）</td><td><span class="badge ok">✓ 放行</span></td></tr>
+<tr><td>黄区文件</td><td><code>check-write config/settings.py</code></td><td><span class="badge warn">⚠ 仅警告</span></td></tr>
+<tr><td>普通文件</td><td><code>check-write src/main.py</code></td><td><span class="badge ok">✓ 放行</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="gate8">
+<h2>铁律8 · 授权强制 <span class="tag hard">代码强制</span></h2>
+<div class="card pass">
+<h4>规则原文</h4>
+<p>任何权限 / 决策授权，先查对应 <code>.track.md</code>：文件存在且未过期 = 有效，直接执行不再问；否则按 <code>skills/track/SKILL.md</code> 询问落盘。</p>
+</div>
+<h3>代码实现：<code>check-auth</code></h3>
+<p>在 <code>skills/track/SKILL.md</code> 中新增规则 1：执行任何授权依赖操作前，先跑 <code>enforce.py check-auth &lt;track名&gt;</code>。退出码非 0 即暂停，不可跳过。</p>
+<h3>实测结果</h3>
+<table>
+<thead><tr><th>场景</th><th>命令</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>无 track 文件</td><td><code>check-auth write_skills</code></td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>track 已过期</td><td>到期日早于今日</td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>track 有效（90天）</td><td><code>check-auth write_skills</code>（有track）</td><td><span class="badge ok">✓ 放行</span></td></tr>
+<tr><td>track 永久</td><td>到期日 = <code>-</code></td><td><span class="badge ok">✓ 放行</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="gate9">
+<h2>铁律9 · 铁律保护 <span class="tag hard">代码强制</span></h2>
+<div class="card pass">
+<h4>规则原文</h4>
+<p>铁律不可被后续指令覆盖；删除 / 清空 / 覆盖等不可逆操作，先要用户确认，确认后按铁律 8 落盘。</p>
+</div>
+<h3>代码实现：<code>check-iron-law</code></h3>
+<p>在 <code>skills/check/SKILL.md</code> full-check 中新增第 6 项：<code>enforce.py check-iron-law WORKFLOW.md</code>。校验逻辑：</p>
+<ol>
+<li>检查 <code>WORKFLOW.md</code> 中是否包含铁律章节（正则 <code>^\s*#+.*铁律</code>）</li>
+<li>检查铁律编号条数（<code>^\d+\.</code>）是否为 ≥9 条</li>
+<li>任一条件不满足 → <span class="badge err">退出码 1，halt</span></li>
+</ol>
+<h3>实测结果</h3>
+<table>
+<thead><tr><th>场景</th><th>命令</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>铁律被删除（sed 移除）</td><td><code>check-iron-law</code></td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>铁律被替换关键词</td><td>"铁律"→"规则"</td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>铁律完整（9条）</td><td><code>check-iron-law WORKFLOW.md</code></td><td><span class="badge ok">✓ 通过</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="gate-breakpoint">
+<h2>断点强制 · WORKLOG <span class="tag hard">代码强制</span></h2>
+<div class="card pass">
+<h4>规则原文</h4>
+<p>每步过门 → 往 <code>WORKLOG.md</code> 追加一行（时间 + 步骤 + 过门产物）；"继续上次"从它定位。</p>
+</div>
+<h3>代码实现：<code>gate post-step</code></h3>
+<p>7 个主干步骤的过门处全部嵌入 <code>enforce.py gate post-step N</code>。检查 <code>WORKLOG.md</code> 中是否已记录对应步骤名称。无记录 → <span class="badge err">退出码 1，不准过</span>。</p>
+<p><code>gate pre-step</code> 负责在步骤开始时确保 <code>WORKLOG.md</code> 存在并自动创建。</p>
+<h3>实测结果</h3>
+<table>
+<thead><tr><th>场景</th><th>命令</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>无 WORKLOG 文件</td><td><code>gate pre-step 1</code></td><td><span class="badge ok">✓ 自动创建</span></td></tr>
+<tr><td>有文件但无步骤记录</td><td><code>gate post-step 1</code></td><td><span class="badge err">✗ 阻断</span></td></tr>
+<tr><td>已记录步骤</td><td><code>gate post-step 1</code>（有记录）</td><td><span class="badge ok">✓ 通过</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="gate-evidence">
+<h2>铁律1 · 判定依据 <span class="tag hard">代码强制</span></h2>
+<div class="card pass">
+<h4>规则原文</h4>
+<p>判定靠命令输出（测试通过 / grep 为 0 / 退出码 0），禁止说"应该没问题"。</p>
+</div>
+<h3>代码实现：<code>check-evidence</code></h3>
+<p>每步过门处同步调用 <code>enforce.py check-evidence &lt;退出码&gt; "描述"</code>。接受整数退出码和依据描述，退出码格式错误 → 阻断；空描述 → 警告。确保每步决策都有可验证的命令输出依据。</p>
+</section>
+
+<section id="changes">
+<h2>改动清单</h2>
+<p>本次新增 <strong>1 个文件</strong>，修改 <strong>4 个文件</strong>，其余 15 个文件不变。</p>
+
+<table>
+<thead><tr><th>文件</th><th>操作</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>scripts/enforce.py</code></td><td><span class="tag new">新增</span></td><td>436 行 / 15KB · 执行门禁脚本，6 个子命令</td></tr>
+<tr><td><code>WORKFLOW.md</code></td><td>修改</td><td>新增「执行门禁」节 + 7 步嵌入 enforce.py 调用</td></tr>
+<tr><td><code>skills/write/SKILL.md</code></td><td>修改</td><td>写文件前加 check-write 门禁</td></tr>
+<tr><td><code>skills/track/SKILL.md</code></td><td>修改</td><td>规则 1 加 check-auth 代码强制</td></tr>
+<tr><td><code>skills/check/SKILL.md</code></td><td>修改</td><td>full-check 加 validate + check-iron-law</td></tr>
+<tr><td><code>README.md</code></td><td>修改</td><td>enforce.py 说明 + 边界更新</td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="integration">
+<h2>工作流嵌入</h2>
+<p>enforce.py 的调用点已嵌入主干流程的每个关口：</p>
+
+<pre><span class="cm">## 主干步骤</span>
+<span class="fn">步骤1 | 接需求</span>
+  gate pre-step 1 → 需求确认 → check-evidence → gate post-step 1
+
+<span class="fn">步骤2 | 拆模块</span>
+  gate pre-step 2 → 产出契约图 → 用户确认 → check-evidence → gate post-step 2
+
+<span class="fn">步骤3 | 写模块</span>
+  gate pre-step 3 → 写文件（<span class="op">check-write</span> 每文件触发）→ quick-check → gate post-step 3
+
+<span class="fn">步骤4 | 集成</span>
+  gate pre-step 4 → full-check（<span class="op">validate + check-iron-law</span>）→ gate post-step 4
+
+<span class="fn">步骤5 | 测试找bug</span>
+  gate pre-step 5 → 测试 → check-evidence → gate post-step 5
+
+<span class="fn">步骤6 | 汇报</span>
+  gate pre-step 6 → 汇报 → 用户确认 → check-evidence → gate post-step 6
+
+<span class="fn">步骤7 | 交付</span>
+  gate pre-step 7 → 交付 → check-evidence → gate post-step 7
+
+<span class="cm">## 入口处</span>
+  从零做 → validate → 步骤1
+  ...</pre>
+
+<p>任意步骤的 <code>gate post-step</code> 失败 → 不准过门，流程暂停，读 <code>skills/halt/SKILL.md</code>。</p>
+</section>
+
+<section id="verify">
+<h2>实机验证</h2>
+
+<div class="card pass">
+<h4>门禁自检</h4>
+<pre>[enforce] ✓ WORKFLOW.md 铁律完整（9 条）
+[enforce] ✓ scripts/dep_check.py 存在
+[enforce] ✓ scripts/enforce.py 在运行
+[enforce] ✓ 全局完整性检查通过</pre>
+</div>
+
+<div class="card pass">
+<h4>全流程门禁链模拟</h4>
+<pre>$ enforce.py gate pre-step 1
+[enforce] ✓ 已创建 WORKLOG.md
+[enforce] gate pre-step [1]: 3/3 通过
+
+$ enforce.py check-evidence 0 "用户确认需求"
+[enforce] ✓ 判定依据：退出码 0 | 用户确认需求
+
+$ echo '2026-09-10 10:35 | 步骤1 | 用户确认需求' >> WORKLOG.md
+$ enforce.py gate post-step 1
+[enforce] ✓ WORKLOG 已记录步骤 1</pre>
+</div>
+
+<div class="card fail">
+<h4>红区阻断（铁律5）</h4>
+<pre>$ enforce.py check-write .env
+[enforce] ✗ 铁律5 违例：.env 属于【红区文件】
+[enforce]   红区: .env / auth / secrets / deploy / CI 配置 / 依赖锁文件
+[enforce]   未经授权禁止自动修改！请先按 track 流程获取批准。
+exit=1</pre>
+</div>
+
+<div class="card fail">
+<h4>授权阻断（铁律8）</h4>
+<pre>$ enforce.py check-auth write_skills
+[enforce] ✗ 铁律8 违例：未找到授权记录 `write_skills.track.md`
+[enforce]   必须按 track/SKILL.md 先获取用户授权再执行
+exit=1</pre>
+</div>
+
+<div class="card fail">
+<h4>铁律删除阻断（铁律9）</h4>
+<pre>$ enforce.py check-iron-law WORKFLOW.md  <span class="cm"># 铁律被移除后</span>
+[enforce] ✗ 铁律9 违例：WORKFLOW.md 中铁律章节丢失或被移除！
+[enforce]   铁律是所有步骤的强制约束，不可被删除或覆盖
+exit=1</pre>
+</div>
+
+<div class="card fail">
+<h4>断点强制（无WORKLOG）</h4>
+<pre>$ enforce.py gate post-step 1  <span class="cm"># 没有步骤1记录</span>
+[enforce] ✗ WORKLOG 中无步骤 1 记录！
+[enforce] → 请追加：`2026-09-10 10:35 | 步骤1 | 过门产物`
+exit=1</pre>
+</div>
+</section>
+
+<section id="regression">
+<h2>回归确认</h2>
+
+<div class="card pass">
+<h4>dep_check 真实回归（未修改，结果不变）</h4>
+<pre>$ cd robust-test/real-clairvoyance && python3 <em>scripts</em>/dep_check.py deps.md --root .
+模块数: 13
+依赖图验证通过（0 个 warning 可人工过目）
+
+$ cd robust-test/multilang-test && python3 <em>scripts</em>/dep_check.py deps.md --root .
+模块数: 11
+依赖图验证通过（0 个 warning 可人工过目）</pre>
+</div>
+
+<div class="card pass">
+<h4>账本一致性（20 文件指纹）</h4>
+<pre>✓ .gitignore       ✓ LICENSE          ✓ README.md        ✓ WORKFLOW.md
+✓ ERRORS.md        ✓ apk/SKILL.md     ✓ architect/SKILL.md ✓ check/SKILL.md
+✓ fix/SKILL.md     ✓ halt/SKILL.md    ✓ install/SKILL.md ✓ split/SKILL.md
+✓ test/SKILL.md    ✓ track/SKILL.md   ✓ verify/SKILL.md   ✓ write/SKILL.md
+✓ dep_check.py     ✓ <span class="fn">enforce.py</span>      ✓ install.sh
+
+共对比 19 条，错误 0 项</pre>
+</div>
+</section>
+
+<section id="conclusion">
+<h2>结论与遗留</h2>
+
+<h3>完成状态</h3>
+<ul>
+<li><span class="badge ok">✓</span> <strong>硬规则代码化</strong>：铁律5/8/9、断点强制、判定依据验证 → 5 项硬规则全部固化为 <code>enforce.py</code> 代码执行，失败即阻断</li>
+<li><span class="badge ok">✓</span> <strong>弹性规则保留</strong>：铁律2/3/4/6/7、规模判断、TDD 分支等保持文本规则</li>
+<li><span class="badge ok">✓</span> <strong>工作流嵌入</strong>：7 个步骤 × 3 道门禁（pre-step → check-evidence → post-step）+ 入口 validate + write check-write + full-check 铁律保护</li>
+<li><span class="badge ok">✓</span> <strong>实机验证</strong>：6 项子命令全通，阻断场景/放行场景均正确</li>
+<li><span class="badge ok">✓</span> <strong>回归确认</strong>：dep_check 0 warn 0 error、账本 20 文件一致</li>
+</ul>
+
+<h3>遗留事项</h3>
+<ul>
+<li><strong>GitHub 上传</strong>：等待 Token+仓库名（替换 README 与 install/SKILL.md 中 <code>&lt;仓库地址&gt;</code> 占位符）</li>
+<li><strong>ERRORS.md docker 条目</strong>：待用户裁定（固化/留档/删除）</li>
+<li><strong>dep_check 已知局限</strong>：相对导入 <code>./x</code>、路径别名 <code>@/</code> 不解析 → 落入 warning 兜底</li>
+<li><strong>子 agent 纪律</strong>（共享文件不并行写）仍为文本规则，暂未代码化——涉及多进程协调，当前 design 保留为纪律约束</li>
+</ul>
+</section>
+
+</main>
+
+<script>
+document.querySelectorAll('nav.sidebar a').forEach(function(link) {
+  link.addEventListener('click', function(e) {
+    var target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+});
+// Highlight active section
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      var id = entry.target.getAttribute('id');
+      document.querySelectorAll('nav.sidebar a').forEach(function(a) {
+        a.classList.remove('active');
+        if (a.getAttribute('href') === '#' + id) a.classList.add('active');
+      });
+    }
+  });
+}, { rootMargin: '-80px 0px -60% 0px' });
+document.querySelectorAll('section').forEach(function(s) { observer.observe(s); });
+</script>
+</body>
+</html>

@@ -8,7 +8,7 @@ description: 把本工作流安装到用户项目（一键脚本或手动）。�
 优先跑一键脚本（无依赖、纯文件复制，自动识别工具）：
 ```sh
 sh scripts/install.sh            # 在仓库目录本地安装
-curl -s https://raw.githubusercontent.com/17838629573/-my-ai-project-/main/scripts/install.sh | sh   # 远程一键（地址见 README）
+curl -s https://raw.githubusercontent.com/17838629573/-my-ai-project-/main/scripts/install.sh | sh   # 远程一键
 ```
 
 脚本按环境自动落位：CodeBuddy → `.codebuddy/skills/`；Trae → `.trae/skills/`；Claude Code → `.claude/skills/`；Cursor → `.cursor/rules/`；VS Code + Copilot → `.github/copilot-instructions.md`；识别不出 → 复制到 `./ai-workflow/` 并提示手动放置。`WORKFLOW.md` 一律放项目根目录。

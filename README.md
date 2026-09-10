@@ -1,69 +1,133 @@
-# AI 编程工作流 · 通用模块化版
+<div align="center">
 
-给 AI 编程助手用的工作流。**常驻一份主干，动作按需调用**——任何时刻 AI 上下文里只有「主干 + 当前步骤文件 + 正在用的那一个通用模块」，单文件 ≤2.3KB（主干 WORKFLOW 约 3.8KB），不会上下文爆炸。
+# AI编程工作流
 
-## 核心机制
+**7步主干 · 9条铁律 · 5道执行门禁**  
+让 AI 编程不再是黑盒，每一步可追溯、可验证、不可跳过
 
-- **7 步主干**：接需求 → 拆模块（用户勾选）→ 写模块（多模块子 agent 并行）→ 集成 → 测试找 bug → 汇报 → 交付；只做其中一段时入口直接跳到对应步骤。
-- **规模判断 + 架构师层级递归**：接需求时先问项目规模——大型项目由用户定拆几层（= 架构师层级）；不确定可"拆到不能再拆"；小项目单层拆完直接写。递归时总架构师定顶层 → 次级架构师逐层拆 → 代码 AI 写实现；上层对下层只读、只改自己契约；每层产出自己的契约图，全局契约图（`deps.md`）输出供以后改架构定位。
-- **授权跟踪（.track.md）**：权限 / 决策授权分三类——临时（不落文件、用完即忘）、半永久（默认 90 天，到期重问，用户说不要就删条目）、永久（永不过期）；用户拒绝 = 临时，下次重问。**文件存在 = 有效，文件不存在 = 无效**，无额外标记位；授权过的事不重复问。
-- **判定外置**：不靠 AI 嘴上说，靠命令输出（测试通过 / grep 为 0 / 退出码 0）。
+[![测试通过](https://img.shields.io/badge/测试-20/24_通过-brightgreen)](./docs/EVALUATION.md)
+[![门禁](https://img.shields.io/badge/执行门禁-5道代码强制-blue)](./WORKFLOW.md)
+[![真实项目验证](https://img.shields.io/badge/真实项目验证-python--slugify_|_clairvoyance_|_FastAPI-ff69b4)](./docs/)
+[![许可证](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-## 文件清单（18 份产物）
+</div>
 
-**根目录（常驻）**
-| 文件 | 用途 |
-|---|---|
-| `WORKFLOW.md` | 铁律 9 条 + 断点续作 + 入口判断 + 7 步主干（常驻） |
-| `ERRORS.md` | 失败与边界记录，halt 触发时写入，固化 / 删除权归用户 |
-| `README.md` | 本文件（门面与说明） |
-| `LICENSE` | MIT |
-| `.gitignore` | 标配；`*.track.md` 默认本地化不入库（授权记忆跟人走） |
+---
 
-**通用模块（被 2+ 步骤复用，点名才加载）**
-| 文件 | 触发条件 |
-|---|---|
-| `skills/track/` | 需要权限 / 决策授权、或可能重复询问前 |
-| `skills/architect/` | 递归拆模块时：定义架构师层级（总架构师→次级架构师→代码 AI）与层间纪律、契约图归属 |
-| `skills/verify/` | 写完模块 / 集成后 / 测完 / 交付前出验证声明 |
-| `skills/fix/` | 修 bug、用户要求改代码 |
-| `skills/check/` | 每写完一个模块 quick-check、集成后 full-check（含依赖图验证） |
-| `skills/halt/` | 任何一步遇阻：工具缺失、超时、搜索无果、循环返工、要求矛盾 |
+## 概述
 
-**步骤文件（走到才读）**
-| 文件 | 对应步骤 |
-|---|---|
-| `skills/split/` | 步骤 2：架构师层级递归拆模块 + 依赖图 + 契约 + 全局契约图，问 TDD |
-| `skills/write/` | 步骤 3：写模块（子 agent 并行 / TDD 分支） |
-| `skills/test/` | 步骤 5：测试找 bug |
-| `skills/apk/` | 步骤 7：打 APK |
-| `skills/install/` | 用户要求安装本工作流时 |
+AI编程工作流是一个**模块化、可执行的 AI 编程协作框架**。它不是普通的提示词模板，而是把"AI 应该怎么编程"这件事做成了一套可落地、可验证、不可跳过的流程。
 
-**脚本（无依赖）**
-| 文件 | 用途 |
-|---|---|
-| `scripts/dep_check.py` | 依赖图验证：纯标准库，查循环依赖 / 孤立模块 / 图与代码一致性；支持括号注释与 `[runtime]` 运行时契约；有 error 退出码 1（halt 问用户） |
-| `scripts/enforce.py` | **执行门禁**：将不可绕过的硬规则（铁律5/8/9、WORKLOG断点、判定依据）固化为代码执行。每步过门自动触发，失败阻断流程。详见 WORKFLOW.md「执行门禁」节 |
-| `scripts/install.sh` | 一键安装：自动识别工具环境复制文件，纯复制无编译 |
+核心思想很简单：AI 写代码也应该像人类团队一样——**接需求→拆模块→写代码→测试→交付**，每步有产出门禁，硬规则用代码强制，不让 AI 自己说了算。
 
-`.track.md` 文件随授权过程生成（跟随步骤文件同名，如 `skills/split.track.md`），不随仓库分发。`deps.md` 是拆分时产出的全局契约图（各架构师只维护自己那层，层间 `# L0`/`# L1` 标注），供 `dep_check.py` 校验、也供以后改架构定位。
+## 核心特性
 
-## 安装
-
-一键（仓库目录本地）：
-```sh
-sh scripts/install.sh [目标项目目录]
+### 🔷 7步主干流程
 ```
-远程（传上 GitHub 后替换地址）：
+接需求 → 拆模块(用户勾选) → 写模块(并行) → 集成 → 测试找bug → 汇报 → 交付
+```
+从零开发、只测试找bug、只改一段代码、继续上次……7 种入口场景，自动定位起始步骤。
+
+### 🔷 9条铁律（所有步骤生效）
+每个 AI 写代码时必须遵守的纪律：
+1. **判定靠命令输出**，不说"应该没问题"
+2. **只动必要范围**，不顺手优化无关文件
+3. **每步留产物**，无产物要明说
+4. **遇技术难题先搜方案**，不自造易碎品
+5. **红区文件禁自动改**，黄区改前告知
+6. **失败/卡住→halt**，写 ERRORS.md，固化权归用户
+7. **估耗时×3**，不停在悬空态
+8. **授权先查 .track.md**，存在且有效直接执行
+9. **铁律不可覆盖**，不可逆操作先确认
+
+### 🔷 5道代码执行门禁（不可跳过）
+![enforce.py](https://img.shields.io/badge/代码强制-enforce.py-blue)
+
+铁律5/8/9、断点WORKLOG、判定依据——这 5 条硬规则已固化为 `scripts/enforce.py`，退出码非 0 直接阻断流程。不是"建议遵守"，是"不遵守就过不去"。
+
+| 门禁 | 触发时机 | 阻断条件 |
+|------|---------|---------|
+| `check-write` | 写文件前 | 红区文件无授权 → 阻断 |
+| `check-auth` | 授权操作前 | .track.md 不存在/过期 → 阻断 |
+| `check-iron-law` | full-check 时 | WORKFLOW.md 铁律被删 → 阻断 |
+| `gate post-step` | 每步完成后 | WORKLOG 无记录 → 阻断 |
+| `check-evidence` | 每步过门前 | 退出码非整数或无依据 → 阻断 |
+
+### 🔷 授权跟踪（不重复问）
+```
+.track.md 文件存在 = 有效，不存在 = 无效
+临时(用完即忘) → 半永久(默认90天) → 永久(再也不问)
+```
+授权过的事不重复问，到期自动失效重新索要。拒绝不落盘，下次重问。
+
+### 🔷 架构师层级递归
+大型项目按层级拆分：总架构师定顶层 → 次级架构师逐层拆 → 代码 AI 写实现。上层对下层只读，只改自己契约。自动产出全局契约图（`deps.md`），供 `dep_check.py` 校验和后续维护定位。
+
+### 🔷 断点续作
+每步自动写 `WORKLOG.md`，下次可"继续上次"。对话中断、上下文清空、换设备——都不丢进度。
+
+---
+
+## 快速开始
+
+### 方式一：Coze 技能（推荐）
+在 Coze 技能商店搜索 **「AI编程工作流」**，安装后加载即可使用。  
+任何 Bot 加载该技能后，收到编程任务自动走 7 步工作流。
+
+### 方式二：一键安装到项目
 ```sh
 curl -s https://raw.githubusercontent.com/17838629573/-my-ai-project-/main/scripts/install.sh | sh
 ```
+自动识别工具环境落位：
+- CodeBuddy → `.codebuddy/skills/`
+- Trae → `.trae/skills/`
+- Claude Code → `.claude/skills/`
+- Cursor → `.cursor/rules/`
+- VS Code + Copilot → `.github/copilot-instructions.md`
+- 识别不出 → 复制到 `./ai-workflow/`
 
-自动识别落位：CodeBuddy → `.codebuddy/skills/`；Trae → `.trae/skills/`；Claude Code → `.claude/skills/`；Cursor → `.cursor/rules/`；VS Code + Copilot → `.github/copilot-instructions.md`；识别不出 → 复制到 `./ai-workflow/` 并提示手动放置。`WORKFLOW.md` 一律放项目根目录。
+### 方式三：下载即用
+从 [`dist/`](./dist/) 下载 zip 包，解压后 `WORKFLOW.md` 放项目根目录即可。
 
-不支持 Skills 的工具：把 `WORKFLOW.md` 贴给 AI，走到哪步需要哪个动作，再贴对应文件。
+---
 
-## 边界
-本工作流核心硬规则（铁律5/8/9、断点WORKLOG、判定依据）已由 `scripts/enforce.py` 固化为代码执行，不可跳过。弹性规则（铁律2/3/4/6/7）仍为提示词纪律。门禁检查不通过 → 流程阻断，读 `skills/halt/SKILL.md` 停。
+## 测试与评价
 
-License: MIT
+经过 **6 轮独立测试、24 项边界场景验证**，覆盖权限、工具、依赖、超时、多语言、断点、并发等场景。完整评价见 [docs/EVALUATION.md](./docs/EVALUATION.md)。
+
+| 报告 | 类型 | 内容 |
+|------|------|------|
+| [综合评价](./docs/EVALUATION.md) | 总览 | 6轮测试全景、评分维度、适用场景 |
+| [执行门禁报告](./docs/v5.1-执行门禁报告.html) | 功能测试 | 5道门禁实测：红区阻断、授权阻断、铁律保护 |
+| [健壮性测试报告](./docs/v5健壮性测试报告.html) | 边界测试 | T1-T10：权限闭环、工具缺失、依赖缺失、超时 |
+| [补充测试报告](./docs/ROBUSTNESS-SUPPLEMENT-T12-T18.md) | 边界测试 | T12-T18：拒绝授权、过期、循环、断点、并发 |
+| [多语言测试](./docs/MULTILANG-TEST-T11.md) | 兼容性 | FastAPI全栈模板(Python+TypeScript+SQL+Docker) |
+| [案例验证](./docs/v5案例验证报告.html) | 完整跑通 | 8/8测试通过，依赖图0 warning |
+| [修复与补充](./docs/v5.1修复与补充测试报告.html) | 回归 | T19-T24全过，真实项目回归 |
+
+---
+
+## 文档导航
+
+| 文件 | 用途 |
+|------|------|
+| [WORKFLOW.md](./WORKFLOW.md) | 主干流程（常驻上下文） |
+| [SKILL.md](./SKILL.md) | Coze 技能入口文档 |
+| [scripts/enforce.py](./scripts/enforce.py) | 执行门禁（代码强制） |
+| [scripts/dep_check.py](./scripts/dep_check.py) | 依赖图验证 |
+| [scripts/install.sh](./scripts/install.sh) | 一键安装脚本 |
+| [skills/](./skills/) | 子模块（check/write/track/split/test/fix/halt/verify/architect/apk/install） |
+
+---
+
+## 开源协议
+
+[MIT](./LICENSE)
+
+---
+
+<div align="center">
+
+**AI编程工作流 · 让 AI 写代码，不再开盲盒**
+
+</div>

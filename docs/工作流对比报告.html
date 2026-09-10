@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 编程工作流对比报告 · v3 vs 业内最佳实践</title>
+<style>
+  :root{
+    --bg:#08111F; --panel:#0E1A2D; --panel2:#11203a; --border:#1D2B44;
+    --fg:#E6EDF7; --muted:#8EA0B8; --green:#62F6A8; --blue:#7AB7FF;
+    --amber:#F5C26B; --red:#FF7A7A; --purple:#B79CFF;
+    --mono:'JetBrains Mono',SFMono-Regular,Consolas,'Liberation Mono',monospace;
+    --sans:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.75;font-size:15px}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:focus-visible,nav.toc a:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:4px}
+  .layout{display:flex;max-width:1200px;margin:0 auto}
+  /* 侧边导航 */
+  nav.toc{position:sticky;top:0;align-self:flex-start;width:230px;height:100vh;overflow-y:auto;
+    padding:28px 18px;border-right:1px solid var(--border);flex-shrink:0}
+  nav.toc .brand{font-family:var(--mono);font-size:13px;color:var(--green);margin-bottom:22px;line-height:1.5}
+  nav.toc a{display:block;color:var(--muted);font-size:13.5px;padding:6px 10px;border-radius:6px;margin-bottom:2px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--fg);background:var(--panel);text-decoration:none;border-left-color:var(--blue)}
+  main{flex:1;min-width:0;padding:36px 44px 90px}
+  /* 头部 */
+  header.hero{border-bottom:1px solid var(--border);padding-bottom:26px;margin-bottom:34px}
+  .kicker{font-family:var(--mono);font-size:12.5px;color:var(--green);letter-spacing:1px;margin-bottom:10px}
+  h1{font-size:28px;margin:0 0 10px;line-height:1.35}
+  .meta{color:var(--muted);font-size:13.5px}
+  h2{font-size:21px;margin:46px 0 16px;padding-left:12px;border-left:3px solid var(--blue);scroll-margin-top:20px}
+  h3{font-size:16.5px;margin:26px 0 10px;color:var(--fg)}
+  p{margin:10px 0}
+  code{font-family:var(--mono);background:var(--panel);border:1px solid var(--border);padding:1.5px 6px;border-radius:5px;font-size:13px;color:var(--green)}
+  /* 结论卡 */
+  .verdict{background:linear-gradient(135deg,#0e1a2d 0%,#12264a 100%);border:1px solid var(--border);border-radius:14px;padding:24px 26px;margin:18px 0}
+  .verdict .tag{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--bg);background:var(--green);padding:2px 12px;border-radius:20px;font-weight:700;margin-bottom:12px}
+  .verdict p{margin:8px 0}
+  .scene{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .scene .box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .scene .box h3{margin:0 0 6px;font-size:14.5px}
+  .scene .box.good h4{color:var(--green)}
+  .scene .box.bad h4{color:var(--amber)}
+  .scene .box p{font-size:13.5px;color:var(--muted);margin:4px 0}
+  /* 表格 */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin:16px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px}
+  caption{text-align:left;color:var(--muted);font-size:12.5px;padding:10px 4px 0}
+  th,td{border-bottom:1px solid var(--border);padding:10px 13px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--fg);font-size:13px;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  td.dim{color:var(--muted)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:1px 8px;border-radius:12px;white-space:nowrap}
+  .p-ok{background:rgba(98,246,168,.13);color:var(--green);border:1px solid rgba(98,246,168,.35)}
+  .p-mid{background:rgba(245,194,107,.13);color:var(--amber);border:1px solid rgba(245,194,107,.35)}
+  .p-no{background:rgba(255,122,122,.12);color:var(--red);border:1px solid rgba(255,122,122,.3)}
+  .p-info{background:rgba(122,183,255,.12);color:var(--blue);border:1px solid rgba(122,183,255,.3)}
+  /* 对标卡 */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:15px 17px}
+  .card h3{margin:0 0 6px;font-size:14.5px;color:var(--blue)}
+  .card p{font-size:13px;color:var(--muted);margin:5px 0}
+  .card .src{font-size:12px}
+  ul.tight{margin:8px 0;padding-left:20px}
+  ul.tight li{margin:5px 0;font-size:14px}
+  .callout{border-left:3px solid var(--amber);background:rgba(245,194,107,.06);padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .callout.blue{border-color:var(--blue);background:rgba(122,183,255,.06)}
+  .callout b{color:var(--fg)}
+  /* 改进清单 */
+  ol.improve{counter-reset:imp;list-style:none;padding:0;margin:16px 0}
+  ol.improve li{counter-increment:imp;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px 14px 56px;position:relative;margin-bottom:10px}
+  ol.improve li::before{content:counter(imp);position:absolute;left:16px;top:14px;width:28px;height:28px;border-radius:50%;
+    background:var(--panel2);border:1px solid var(--blue);color:var(--blue);font-family:var(--mono);font-weight:700;
+    display:flex;align-items:center;justify-content:center;font-size:13.5px}
+  ol.improve li h3{margin:0 0 4px;font-size:14.5px}
+  ol.improve li p{margin:3px 0;font-size:13.5px;color:var(--muted)}
+  .effort{font-family:var(--mono);font-size:11px;margin-left:8px}
+  /* 来源 */
+  .refs{font-size:13px;color:var(--muted)}
+  .refs li{margin:7px 0}
+  footer{margin-top:60px;border-top:1px solid var(--border);padding-top:18px;color:var(--muted);font-size:12.5px}
+  @media (max-width:860px){
+    nav.toc{display:none}
+    main{padding:24px 18px 60px}
+    .scene,.grid2{grid-template-columns:1fr}
+    h1{font-size:23px}
+  }
+  @media print{
+    nav.toc{display:none}
+    body{background:#fff;color:#111}
+    .card,.verdict,.table-wrap,ol.improve li{break-inside:avoid}
+    a{color:#0645ad}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="目录">
+  <div class="brand">// workflow<br>// comparison</div>
+  <a href="#verdict">① 最终结论</a>
+  <a href="#rivals">② 对比对象</a>
+  <a href="#matrix">③ 七维对比</a>
+  <a href="#align">④ 不谋而合</a>
+  <a href="#gaps">⑤ 差距与风险</a>
+  <a href="#improve">⑥ 改进清单</a>
+  <a href="#refs">⑦ 资料来源</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">AI CODING WORKFLOW · 2026-09</div>
+  <h1>自研工作流 v3 对比业内最佳实践</h1>
+  <div class="meta">对比对象：自研「主干 + 通用模块懒加载」工作流（v3）｜对照：Spec Kit、BMAD Method、Claude Code（subagents/hooks）、Aider、Anthropic 上下文工程指南</div>
+</header>
+
+<!-- ① 结论 -->
+<section id="verdict">
+<h2>① 最终结论：分场景，不和稀泥</h2>
+
+<div class="verdict">
+  <span class="tag">总评</span>
+  <p><b>v3 的架构思想与 2025-2026 年业内主流最佳实践高度同频</b>——「主干常驻 + 动作按需加载」正是 Anthropic 官方总结的 <i>just-in-time context</i>；「子 agent 各写各的、只回传摘要」正是 sub-agent 隔离上下文模式；「判定靠命令输出」与 Spec Kit「任务可独立验证」、Aider「跑测试迭代到通过」是同一思路。它不是野路子，而是把这些理念压缩成了极简形态。</p>
+  <p>但它本质上是<b>「提示词纪律（软约束）的精简版」</b>：整套体系靠 AI 自觉读、自觉遵守，没有任何运行时强制。这决定了它的可靠上限低于成熟框架。</p>
+
+  <div class="scene">
+    <div class="box good">
+      <h3>✅ v3 更合适的场景</h3>
+      <p>个人 / 小团队、中小项目、快速试错；用的是不支持 hooks/skills 的轻量 AI 工具（DeepSeek、通用聊天助手、CodeBuddy/Trae 等）。</p>
+      <p><b>轻、通用、零依赖、拷过去就能用</b>——这是它对 Spec Kit / BMAD 的明确优势：那两套一个要 slash 命令生态、一个有 12 个 agent + 34 个工作流的体量。</p>
+    </div>
+    <div class="box bad">
+      <h3>⚠️ 成熟方案更合适的场景</h3>
+      <p>团队协作、中大型产品、合规/安全要求高：用 <b>Claude Code + hooks</b>（硬约束，AI 没法跳过门禁）或 <b>Spec Kit</b>（spec/plan/tasks 持久文档 + TDD 契约测试先行）。</p>
+      <p>企业级全流程：用 <b>BMAD Method</b>（PRD/架构/UX 多角色 + 规模自适应规划）。这类项目里 v3 缺的规划文档层、测试先行、对抗式评审都会变成真实风险。</p>
+    </div>
+  </div>
+
+  <p style="margin-top:14px"><b>一句话排名：</b>在「纯 markdown 提示词工作流」这个类别里，v3 属于<span class="pill p-ok">上游水平，结构克制程度甚至优于多数同类</span>；但跨类别和「软+硬约束结合」的成熟工程体系比，它是<span class="pill p-mid">理念对齐、执行力差一层的轻量版</span>。作者自己写的「下一步：从软约束跃迁到 hooks 代码」——方向完全正确，这也正是它和顶尖实践之间最主要的那道坎。</p>
+</div>
+</section>
+
+<!-- ② 对比对象 -->
+<section id="rivals">
+<h2>② 业内最好的几套在怎么做</h2>
+<div class="grid2">
+  <div class="card">
+    <h3>GitHub Spec Kit</h3>
+    <p>规范驱动开发（SDD）：<code>specify</code>（写什么/为什么，用户旅程）→ <code>plan</code>（技术栈/架构）→ <code>tasks</code>（拆成可独立实现和验证的小任务）→ <code>implement</code>（人变审查者）。另有 constitution（项目宪法，九条原则）和 <b>Phase -1 门禁</b>（简单性/反抽象/契约测试先行）。</p>
+    <p class="src">来源：<a href="https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/" target="_blank" rel="noopener noreferrer">GitHub Blog</a> · <a href="https://github.com/github/spec-kit/blob/main/spec-driven.md" target="_blank" rel="noopener noreferrer">spec-driven.md</a></p>
+  </div>
+  <div class="card">
+    <h3>BMAD Method</h3>
+    <p>AI-native 敏捷框架：12 个专家 agent（PM/架构师/开发/测试架构师/UX…）、34 个工作流、<b>三档规模自适应规划</b>（Quick Flow 修小 bug → BMAD 全流程 PRD+架构+UX → Enterprise 加安全/DevOps/测试策略）、just-in-time context 故事驱动开发、对抗式代码评审。</p>
+    <p class="src">来源：<a href="https://bmadcodes.com/" target="_blank" rel="noopener noreferrer">bmadcodes.com</a> · <a href="https://github.com/TheSDEs/BMAD-METHOD" target="_blank" rel="noopener noreferrer">GitHub 仓库</a></p>
+  </div>
+  <div class="card">
+    <h3>Claude Code（subagents + hooks）</h3>
+    <p>子代理各自独立上下文窗口、可限定工具权限，主代理只收摘要。<b>Hooks 是硬约束</b>：PreToolUse/PostToolUse 等生命周期节点挂脚本，退出码 2 直接阻断操作——「CLAUDE.md 管方向，Hooks 管纪律」，AI 没有跳过余地。</p>
+    <p class="src">来源：<a href="https://docs.anthropic.com/en/docs/claude-code/sub-agents" target="_blank" rel="noopener noreferrer">Anthropic 官方文档·Subagents</a> · <a href="https://blog.csdn.net/qing_gee/article/details/162315258" target="_blank" rel="noopener noreferrer">CLAUDE.md/Hooks 解析</a></p>
+  </div>
+  <div class="card">
+    <h3>Aider + 上下文工程共识</h3>
+    <p>Aider：<b>repo map</b>（整仓函数签名地图喂模型）、每次改动自动 git commit 可回滚、auto-lint/auto-test 循环跑到通过。Anthropic 2025 上下文工程指南：just-in-time 动态检索（只存文件路径等轻量标识）、子代理隔离、结构化笔记（NOTES.md）、压缩——核心原则「最小高信噪比 token」。</p>
+    <p class="src">来源：<a href="https://github.com/Aider-AI/aider" target="_blank" rel="noopener noreferrer">Aider GitHub</a> · <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-agents" target="_blank" rel="noopener noreferrer">Anthropic·上下文工程</a></p>
+  </div>
+</div>
+</section>
+
+<!-- ③ 对比矩阵 -->
+<section id="matrix">
+<h2>③ 七维对比矩阵</h2>
+<div class="table-wrap">
+<table>
+  <caption>七维对比矩阵：✔ 为相对优势，标注依据见正文</caption>
+  <thead>
+  <tr><th scope="col">维度</th><th scope="col">自研 v3</th><th scope="col">Spec Kit</th><th scope="col">BMAD</th><th scope="col">Claude Code</th><th scope="col">Aider</th></tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td><b>上下文管理</b></td>
+    <td><span class="pill p-ok">优</span> 常驻 2.5KB + 单文件≤1KB 懒加载</td>
+    <td class="dim">分阶段产物驱动，单阶段聚焦</td>
+    <td><span class="pill p-ok">优</span> JIT 故事级上下文</td>
+    <td><span class="pill p-ok">优</span> 子代理独立窗口</td>
+    <td><span class="pill p-mid">中</span> repo map 全量喂入</td>
+  </tr>
+  <tr>
+    <td><b>结果可靠性</b></td>
+    <td><span class="pill p-mid">中</span> 验证声明+命令判定，但靠自觉</td>
+    <td><span class="pill p-ok">强</span> 契约测试先行+checklist 验收</td>
+    <td><span class="pill p-ok">强</span> 对抗式评审+测试架构师</td>
+    <td><span class="pill p-ok">强</span> hooks 物理阻断</td>
+    <td><span class="pill p-ok">强</span> auto-test 循环+git 回滚</td>
+  </tr>
+  <tr>
+    <td><b>约束强度</b></td>
+    <td><span class="pill p-no">软</span> 纯 markdown 提示词</td>
+    <td><span class="pill p-mid">半硬</span> 模板门禁+命令流</td>
+    <td><span class="pill p-mid">半硬</span> 流程+角色分工</td>
+    <td><span class="pill p-ok">硬</span> hooks 脚本强制</td>
+    <td><span class="pill p-ok">硬</span> 工具内置循环</td>
+  </tr>
+  <tr>
+    <td><b>用户控制点</b></td>
+    <td><span class="pill p-ok">优</span> 拆模块勾选确认+红区禁改+中断报告</td>
+    <td><span class="pill p-ok">优</span> 每阶段 checkpoint 人批准</td>
+    <td><span class="pill p-ok">优</span> PO 确认计划</td>
+    <td class="dim">权限规则配置</td>
+    <td class="dim">改动后 review diff</td>
+  </tr>
+  <tr>
+    <td><b>规划文档层</b></td>
+    <td><span class="pill p-mid">薄</span> 契约清单，无 spec/plan 持久文档</td>
+    <td><span class="pill p-ok">强</span> spec→plan→tasks 三级文档</td>
+    <td><span class="pill p-ok">强</span> PRD+架构+UX 全套</td>
+    <td class="dim">靠 CLAUDE.md/笔记</td>
+    <td><span class="pill p-no">无</span></td>
+  </tr>
+  <tr>
+    <td><b>并行编排</b></td>
+    <td><span class="pill p-ok">有</span> ≥3 无环模块拆子 agent，契约隔离</td>
+    <td class="dim">tasks 可并行实现</td>
+    <td><span class="pill p-ok">强</span> 多 agent Party Mode</td>
+    <td><span class="pill p-ok">强</span> 子代理原生支持</td>
+    <td><span class="pill p-no">无</span> 单线程结对</td>
+  </tr>
+  <tr>
+    <td><b>上手成本/通用性</b></td>
+    <td><span class="pill p-ok">极低</span> 贴文件即用，不绑工具不绑语言</td>
+    <td><span class="pill p-mid">中</span> 需支持 slash 命令的 agent</td>
+    <td><span class="pill p-no">高</span> npx 安装+学习整套框架</td>
+    <td><span class="pill p-mid">中</span> 限 Claude Code</td>
+    <td><span class="pill p-mid">中</span> 终端工具+git 习惯</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+<p class="meta" style="font-size:12.5px">注：评级为相对定性判断。「强/优」不代表无缺陷，「中/薄」不代表不可用——关键看场景匹配。</p>
+</section>
+
+<!-- ④ 不谋而合 -->
+<section id="align">
+<h2>④ 你的设计已被业内验证的部分</h2>
+<ul class="tight">
+  <li><b>懒加载 = just-in-time context</b>：Anthropic 明确建议「只维护文件路径等轻量标识，执行时才动态加载」，v3 的「主干点名才读专项文件」是同一模式，且执行得更彻底（峰值上下文约 4.5KB）。</li>
+  <li><b>子 agent 契约隔离 = sub-agent 架构</b>：每个子 agent 干净上下文、只回传 1-2K 摘要，官方称该模式在复杂任务上显著优于单 agent；v3 的「只看契约块、不看别人实现」与官方「单一明确职责的聚焦子代理」建议一致。</li>
+  <li><b>判定外置 = 可验证任务</b>：Spec Kit 要求每个 task「可独立实现和验证，类似给 AI 的 TDD」；v3 的「grep 为 0 / 退出码 0 才算过」同理。</li>
+  <li><b>修复环上限+中断诊断</b>：与 Aider「auto-test 迭代到通过」+ 工程界「限重试次数防烧预算」共识一致；halt 模块的「四选项等用户选」比多数方案更显式。</li>
+  <li><b>红黄绿文件分级</b>：对应 Claude Code 的权限规则/hooks 阻断思想，v3 用提示词实现了它的软版本。</li>
+  <li><b>旁路入口 = BMAD 规模自适应的朴素版</b>：「只测试就跳步骤 5」与 BMAD「修 bug 走 Quick Flow、大项目走全流程」是同一思路。</li>
+</ul>
+<div class="callout blue">
+  <b>特色亮点（别人没这么做的）：</b>把「跨步骤复用的动作」抽成 verify/fix/check/halt 四个通用模块、步骤文件只留独有动作——这种「动作级 DRY」切法在 Spec Kit/BMAD 里都没有对应物，它们的复用靠模板和角色，v3 靠文件加载点。对「防止上下文爆炸」这个目标，这是最直接的一刀。
+</div>
+</section>
+
+<!-- ⑤ 差距 -->
+<section id="gaps">
+<h2>⑤ 真实差距与风险</h2>
+
+<h3>差距 1：软约束是天花板 <span class="pill p-no">最关键</span></h3>
+<p>CLAUDE.md 式提示词「AI 读了会参考，但不保证每次遵守，它认为不适用就会跳过」；hooks 则是「不满足条件就阻断，没有跳过的余地」。v3 的十道门禁全是文字——AI 完全可能在第 4 轮对话后忘记读 halt、或把 quick-check 降级成「我看过了没问题」。<b>你设计的所有精妙门禁，执行力上限是模型的自觉性。</b></p>
+
+<h3>差距 2：缺 spec/plan 持久文档层</h3>
+<p>Spec Kit 的核心资产是 spec.md / plan.md / tasks.md 三份<b>落盘且可追溯</b>的文档；BMAD 有 PRD/架构文档。v3 的模块契约清单是口头确认级的产物，没有要求落盘成版本化文档——长周期项目里上下文一旦压缩/重置，「当初为什么这么设计」就丢了。v3 只有 WORKLOG 事后记录，缺事前/事中的规格文档。</p>
+
+<h3>差距 3：测试在事后，不在事前</h3>
+<p>Spec Kit 要求 LLM「先生成定义行为的测试、获批后才写实现」、契约测试强制先行。v3 是「写完模块→检查→测试找 bug」，测试是验证手段而非设计驱动。对 bug 率要求高的项目，TDD 路线的可靠性已被大量实践证明更高。</p>
+
+<h3>差距 4：缺独立对抗视角</h3>
+<p>BMAD 有专门的代码评审 agent 和测试架构师（TEA），写代码的和挑毛病的不是同一个上下文。v3 的 check/test 都由同一个 AI 自写自查——「又当运动员又当裁判」，概率性偏差在这里没有冗余对冲。</p>
+
+<h3>差距 5：无 git 安全网</h3>
+<p>Aider 每次改动自动 commit，改坏了一键 /undo。v3 完全没提版本控制节奏——AI 精准修改（fix）一旦判断失误，没有天然回滚点。</p>
+
+<div class="callout">
+  <b>一个小风险：</b>极致精简本身也是双刃剑。单文件 ≤1KB 意味着每条规则都被压到一句话，新手 AI（弱模型）可能缺乏足够示例去理解「契约块到底长什么样」——Anthropic 特别强调「精选的 few-shot 示例比规则枚举更有效」。v3 目前几乎没有示例。
+</div>
+</section>
+
+<!-- ⑥ 改进清单 -->
+<section id="improve">
+<h2>⑥ v3 改进清单（按性价比排序）</h2>
+<ol class="improve">
+  <li>
+    <h3>给关键门禁配最小硬约束 <span class="effort pill p-ok">收益最高</span></h3>
+    <p>不必全套 hooks 化，先做两件事：① 一个 pre-commit 脚本自动跑 lint+测试，不过就阻止提交（替代 check/verify 的自觉执行）；② 红区文件路径列表交给 .gitignore 式的保护机制或 CI 检查。软约束负责「告诉 AI 该做什么」，硬约束负责「没做也跑不坏」。</p>
+  </li>
+  <li>
+    <h3>步骤 2 产物落盘为 docs/<span class="effort pill p-info">低成本</span></h3>
+    <p>把用户确认过的模块契约清单写成 <code>docs/spec.md</code>（职责/接口/依赖），任务拆解写 <code>docs/tasks.md</code>（带勾选框）。上下文重置后 AI 读这两个文件就能无缝接续——这正是 Anthropic 说的「结构化笔记」模式，v3 现在只有事后 WORKLOG。</p>
+  </li>
+  <li>
+    <h3>test 模块增加「测试先行」可选档 <span class="effort pill p-info">低成本</span></h3>
+    <p>核心模块/公共接口：先写契约测试再实现（学 Spec Kit Article IX）；原型/一次性脚本：维持现有事后测试。给用户在步骤 1 选档位，而不是一刀切。</p>
+  </li>
+  <li>
+    <h3>fix 模块强制 git 节奏 <span class="effort pill p-info">低成本</span></h3>
+    <p>加一条铁律：「每次精准修改前确保工作区干净或先 commit，修改完成自动 commit」。一句话规则，换来 Aider 级别的回滚安全网。</p>
+  </li>
+  <li>
+    <h3>评审与实现分离 <span class="effort pill p-mid">中成本</span></h3>
+    <p>步骤 4/5 的全量检查，条件允许时派一个独立子 agent 做（它没写过代码、上下文干净、只拿契约和 diff），而不是写代码的主 agent 自查。对应 BMAD 的对抗式评审。</p>
+  </li>
+  <li>
+    <h3>每个模块文件补 1 个微型示例 <span class="effort pill p-info">低成本</span></h3>
+    <p>比如 verify 附一段「合格验证声明」实例、split 附一个契约块实例。Anthropic 的经验：少量典型示例 &gt; 更多规则文字。文件仍可控制在 1.5KB 内。</p>
+  </li>
+  <li>
+    <h3>规划深度分档 <span class="effort pill p-mid">中成本</span></h3>
+    <p>学 BMAD 三档：小改/原型 → 跳过步骤 2 的完整契约，一句话方案即可；正式产品 → 现有 7 步；多模块大项目 → 加 spec/plan 文档和架构评审。入口判断里加一问「这是一次性脚本还是要长期维护」。</p>
+  </li>
+</ol>
+<div class="callout blue">
+  <b>做完 1-4 项后，v3 的定位会变成</b>：「轻量版 Spec Kit 纪律 + Claude Code 式硬兜底」，在个人和小团队场景几乎没有短板，且依然保持「贴个文件就能用」的低门槛——这是它相对两套重框架的差异化生态位，建议守住，不要往 BMAD 那种大而全方向膨胀。
+</div>
+</section>
+
+<!-- ⑦ 来源 -->
+<section id="refs">
+<h2>⑦ 资料来源</h2>
+<ul class="refs tight">
+  <li><a href="https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/" target="_blank" rel="noopener noreferrer">GitHub Blog · Spec-driven development with AI（Spec Kit 官方介绍）</a></li>
+  <li><a href="https://github.com/github/spec-kit/blob/main/spec-driven.md" target="_blank" rel="noopener noreferrer">GitHub · Spec Kit 的 spec-driven.md（九条原则与 Phase -1 门禁）</a></li>
+  <li><a href="https://bmadcodes.com/" target="_blank" rel="noopener noreferrer">BMad Code 官网（BMAD Method v6，12 agents / 三档规划）</a></li>
+  <li><a href="https://github.com/TheSDEs/BMAD-METHOD" target="_blank" rel="noopener noreferrer">GitHub · BMAD-METHOD 仓库</a></li>
+  <li><a href="https://docs.anthropic.com/en/docs/claude-code/sub-agents" target="_blank" rel="noopener noreferrer">Anthropic 官方文档 · Claude Code Subagents（独立上下文/权限隔离）</a></li>
+  <li><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-agents" target="_blank" rel="noopener noreferrer">Anthropic Engineering · Effective Context Engineering for Agents（just-in-time/子代理/笔记）</a></li>
+  <li><a href="https://blog.csdn.net/qing_gee/article/details/162315258" target="_blank" rel="noopener noreferrer">CSDN · CLAUDE.md、Hooks、Skills、Subagents 深度解析（「CLAUDE.md 管方向，Hooks 管纪律」）</a></li>
+  <li><a href="https://github.com/Aider-AI/aider" target="_blank" rel="noopener noreferrer">GitHub · Aider（repo map / auto commit / auto-test 循环）</a></li>
+  <li><a href="https://cr0nu3.github.io/posts/Effective_context_engineering_for_AI_Agents/" target="_blank" rel="noopener noreferrer">Anthropic 上下文工程指南解读（轻量标识 + 动态检索）</a></li>
+</ul>
+</section>
+
+<footer>
+  本报告基于 2026-09-05 公开资料整理对比；自研工作流内容来自本地 v3 文件（WORKFLOW.md + 9 份 SKILL.md）。评级为定性判断，工程决策请结合自身团队与项目规模。
+</footer>
+
+</main>
+</div>
+
+<script>
+  // 页内导航平滑滚动（原生 scroll-behavior 兜底之外，确保 toc 高亮可用）
+  document.querySelectorAll('nav.toc a').forEach(function(a){
+    a.addEventListener('click', function(e){
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if(el){ e.preventDefault(); el.scrollIntoView({behavior:'smooth', block:'start'}); }
+    });
+  });
+</script>
+</body>
+</html>

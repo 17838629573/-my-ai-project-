@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v5.1 修复与补充测试报告 · AI 编程工作流</title>
+<style>
+:root{
+  --bg:#08111F; --panel:#0E1A2D; --code:#62F6A8; --link:#7AB7FF; --text:#E6EDF7; --sub:#8EA0B8; --border:#1D2B44;
+  --ok:#62F6A8; --warn:#FFD166; --bad:#FF6B6B; --info:#7AB7FF;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
+.wrap{display:flex;min-height:100vh}
+nav.side{position:sticky;top:0;height:100vh;overflow-y:auto;width:250px;flex:0 0 250px;background:var(--panel);border-right:1px solid var(--border);padding:22px 16px}
+nav.side .brand{font-weight:700;font-size:14px;color:var(--code);margin-bottom:4px}
+nav.side .brand-sub{font-size:11px;color:var(--sub);margin-bottom:18px}
+nav.side a{display:block;color:var(--sub);text-decoration:none;font-size:13px;padding:7px 10px;border-radius:6px;border-left:2px solid transparent}
+nav.side a:hover{color:var(--text);background:#13233c}
+nav.side a.active{color:var(--code);border-left-color:var(--code);background:#13233c}
+main{flex:1;min-width:0;padding:40px 44px 80px}
+h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+.subtitle{color:var(--sub);font-size:14px;margin-bottom:30px}
+h2{font-size:20px;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:16px;margin:26px 0 10px;color:var(--code)}
+p{margin:10px 0}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:5px 0}
+code{font-family:"JetBrains Mono",SFMono,Consolas,monospace;font-size:.9em;background:#0d1a2e;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--code)}
+pre{background:#0d1a2e;border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;line-height:1.55}
+pre code{background:none;border:none;padding:0}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin:14px 0}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+.sum-item{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+.sum-item .num{font-size:26px;font-weight:700;color:var(--code)}
+.sum-item .lbl{font-size:12px;color:var(--sub)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+caption{caption-side:top;text-align:left;font-weight:600;color:var(--sub);padding:6px 0;font-size:13px}
+th,td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:#12233c;color:var(--text);font-weight:600;white-space:nowrap}
+td.num{text-align:right;font-family:"JetBrains Mono",SFMono,Consolas,monospace}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.tag.ok{background:rgba(98,246,168,.12);color:var(--ok);border:1px solid rgba(98,246,168,.35)}
+.tag.warn{background:rgba(255,209,102,.12);color:var(--warn);border:1px solid rgba(255,209,102,.35)}
+.tag.bad{background:rgba(255,107,107,.12);color:var(--bad);border:1px solid rgba(255,107,107,.35)}
+.tag.info{background:rgba(122,183,255,.12);color:var(--info);border:1px solid rgba(122,183,255,.35)}
+a{color:var(--link)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--code);outline-offset:2px}
+.note{font-size:13px;color:var(--sub);border-left:3px solid var(--border);padding-left:12px;margin:12px 0}
+.footer{margin-top:60px;padding-top:18px;border-top:1px solid var(--border);color:var(--sub);font-size:12.5px}
+@media(max-width:820px){
+  .wrap{flex-direction:column}
+  nav.side{position:static;height:auto;width:100%;border-right:none;border-bottom:1px solid var(--border)}
+  main{padding:24px 18px 60px}
+  h1{font-size:22px}
+}
+@media print{
+  nav.side{display:none}
+  body{background:#fff;color:#111}
+  main{padding:0}
+  .card,.sum-item,pre,th,td{background:#fff;border-color:#bbb}
+  a{color:#000}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="side" aria-label="目录">
+  <div class="brand">v5.1 修复报告</div>
+  <div class="brand-sub">AI 编程工作流 · 2026-09-09</div>
+  <a href="#summary">摘要与结论</a>
+  <a href="#fixes">修复总览</a>
+  <a href="#depcheck">dep_check 深度修复</a>
+  <a href="#regression">真实回归数据</a>
+  <a href="#extra">补充测试 T19-T24</a>
+  <a href="#left">结论与遗留</a>
+</nav>
+<main>
+<header>
+  <h1>v5.1 修复与补充测试报告</h1>
+  <div class="subtitle">基于 DuMate T11（多语言）+ T12-T18（边界场景）暴露问题的最小改动修复 · 测试日期 2026-09-09</div>
+</header>
+
+<section id="summary">
+  <h2>摘要与结论</h2>
+  <p>对 DuMate AI 补充测试暴露的 7 项问题做了最小改动修复（不改整体架构、不加 changelog、文件能瘦则瘦），并补做了 6 项新方向测试。全部修复经真实项目回归验证，账本 18 条 md5 全一致。</p>
+  <div class="summary-grid">
+    <div class="sum-item"><div class="num">6</div><div class="lbl">修复文件</div></div>
+    <div class="sum-item"><div class="num">3</div><div class="lbl">dep_check 解析缺陷</div></div>
+    <div class="sum-item"><div class="num">5</div><div class="lbl">设计缺口已补</div></div>
+    <div class="sum-item"><div class="num">6</div><div class="lbl">补充测试 T19-T24 全过</div></div>
+  </div>
+  <p><strong>核心结论：</strong>T12 拒绝授权、T15 断点续作、T16 超大项目降级、T17 并发冲突、T18 提示词注入五个设计缺口全部有明确规则；dep_check 在真实 clairvoyance 项目上从 <span class="tag warn">13 假 warning + 1 假 error</span> 变为 <span class="tag ok">0 warning 0 error</span>，且漏声明 / 循环依赖的负例检测能力完好。</p>
+  <p class="note">修复遵循用户一贯约束：每文件只管一步、自然语言精简、无 changelog、专项文件不进上下文。版本史交给 GitHub commit（待上传）。</p>
+</section>
+
+<section id="fixes">
+  <h2>修复总览</h2>
+  <table>
+    <caption>测试暴露问题 → v5.1 修复落点</caption>
+    <thead><tr><th>测试项</th><th>原结果</th><th>缺口</th><th>v5.1 修复</th><th>落点文件</th></tr></thead>
+    <tbody>
+      <tr><td>T12 用户拒绝授权</td><td><span class="tag warn">部分通过</span></td><td>track 只定义临时/半永久/永久，无"拒绝"分支</td><td>规则 6：拒绝 → 不落盘（等同临时，用完即忘），走 halt 或换路径，下次重新问</td><td><code>skills/track/SKILL.md</code></td></tr>
+      <tr><td>T15 断点续作</td><td><span class="tag bad">未覆盖</span></td><td>无状态记录、无恢复机制</td><td>新增"断点"节：每步过门写 WORKLOG；入口新增"继续上次 → 读 WORKLOG 定位"</td><td><code>WORKFLOW.md</code></td></tr>
+      <tr><td>T16 超大项目降级</td><td><span class="tag warn">部分通过</span></td><td>"超出不必中止"非强制、无降级方案</td><td>步骤 1：超出 → 走规模判断给降级选项（只拆核心模块 / 分层交付 / 只出契约图）</td><td><code>WORKFLOW.md</code></td></tr>
+      <tr><td>T17 并发冲突</td><td><span class="tag bad">未覆盖</span></td><td>并行子 agent 无共享文件纪律</td><td>子 agent 纪律：共享文件（utils/config 等）不并行写，留集成步骤主 agent 串行合并</td><td><code>skills/write/SKILL.md</code></td></tr>
+      <tr><td>T18 提示词注入</td><td><span class="tag bad">未覆盖</span></td><td>无铁律保护、无危险操作确认</td><td>铁律 9：铁律不可被后续指令覆盖；删除/清空/覆盖等不可逆操作先要用户确认</td><td><code>WORKFLOW.md</code></td></tr>
+      <tr><td>T11 多语言契约</td><td><span class="tag warn">部分通过</span></td><td>deps.md 无跨语言/跨进程表达</td><td>split 第 8 条：模块名用实际 import 路径；跨语言依赖行尾标 <code>[runtime]</code> + 括号说明</td><td><code>skills/split/SKILL.md</code> + <code>dep_check.py</code></td></tr>
+      <tr><td>T5 解析缺陷（上轮遗留）</td><td><span class="tag warn">13 假 warning</span></td><td>多级包引用匹配不到、from-import 混淆、多目录归属失败</td><td>重写扫描：逐级剥前缀候选、from/import 区分、路径段归属、括号剥除、ESM 支持</td><td><code>scripts/dep_check.py</code></td></tr>
+    </tbody>
+  </table>
+  <p>README 与 MANIFEST 账本已同步（铁律 8 → 9 条、dep_check 能力描述、18 条 md5 重算全一致）。</p>
+</section>
+
+<section id="depcheck">
+  <h2>dep_check.py 深度修复</h2>
+  <p>这是本版改动最大的文件（112 行 → 193 行）。修复过程中用真实项目逐文件核对 import，发现并确认了 3 个解析缺陷 + 2 项新能力需求：</p>
+  <h3>1. 多级包内引用匹配不到（T5 假 warning 根源）</h3>
+  <p>代码写 <code>from clairvoyance.entities.context import log</code>，旧逻辑候选只取 <code>{token, 最后一段}</code>，匹配不到 deps.md 的短名模块 <code>entities.context</code>。修复为逐级剥前缀生成全部后缀候选：</p>
+  <pre><code># token = "clairvoyance.entities.context" → 候选
+#   clairvoyance.entities.context / entities.context / context
+parts = re.split(r"[./]", token)
+for i in range(len(parts)):
+    cand = ".".join(parts[i:])
+    if cand in modules and cand != owner:
+        found[owner].add(cand)</code></pre>
+  <h3>2. from X import Y 把 Y 当模块（T5 假 error 根源，上轮误判为真 bug）</h3>
+  <p><code>from clairvoyance.entities.context import client, config, log</code> 中 <code>client</code> / <code>config</code> 是变量名，旧正则把 import 列表当模块路径，导致上轮报告"oracle 实际依赖 client"的 <strong>假 error</strong>（真实代码里 oracle 根本不 import client）。修复：from 语句中 X 能匹配模块 → 只依赖 X，Y 列表忽略；X 匹配不到（如 <code>from pkg import submodule</code>）→ Y 列表项才当候选。</p>
+  <pre><code># from X import Y：X 可匹配模块时，Y 是名字/属性，不参与依赖
+if any(".".join(xparts[i:]) in modules for i in range(len(xparts))):
+    toks.add(x)                    # 只依赖 X
+else:
+    # from pkg import submodule → submodule 当候选
+    for item in re.split(r"[,\s]+", m.group(2).strip()):
+        if item and not item.startswith("*"):
+            toks.add(item)</code></pre>
+  <h3>3. 多目录概念模块归属失败（T11 多语言漏检根源）</h3>
+  <p>FastAPI 模板中 deps.md 概念模块 <code>backend.api</code> 对应代码 <code>backend/app/api/</code>，旧 owner 匹配（文件名/目录名）匹配不到。修复为"路径段保序子序列 + 最后匹配位置优先"：</p>
+  <pre><code># 模块名段 ["backend","api"] 是文件路径段 ["backend","app","api","routes","users"] 的保序子序列
+# 多个候选（backend / app.api / backend.api）选最后匹配位置最靠后的（最贴近文件的模块）
+pos = _match_pos(ms, fsegs)
+if pos >= 0 and pos > owner_pos:
+    owner, owner_pos = m, pos</code></pre>
+  <p>同时约定：<strong>仅出现在 <code>-&gt;</code> 左侧的主模块才有代码归属权</strong>，[runtime] 契约目标（如 <code>backend.api</code>）不参与归属，避免假归属。</p>
+  <h3>4. 括号注释与 [runtime] 运行时契约（T11 新能力）</h3>
+  <ul>
+    <li><code>(HTTP/OpenAPI)</code> 括号内容不再被拆成"模块"（旧逻辑会产生假模块 + 假 warning）</li>
+    <li>行尾 <code>[runtime]</code> 标记跨语言/跨进程契约（HTTP API、数据库 Schema）：跳过代码存在性验证、仍查循环依赖</li>
+    <li>依赖按逗号切分（不再按空白切），<code>frontend/client -&gt; backend/api (HTTP/OpenAPI)[runtime]</code> 可正确解析</li>
+  </ul>
+  <h3>5. ESM 导入支持（T11 真实发现）</h3>
+  <p>TS/JS 主流写法 <code>import { fetchApi } from "frontend/lib"</code> 旧正则完全漏检，新增 from-import 形式匹配。已知局限：相对导入 <code>./helpers</code>、路径别名 <code>@/lib</code> 不解析，落入 warning 兜底（不误报 error）。</p>
+</section>
+
+<section id="regression">
+  <h2>真实回归数据</h2>
+  <h3>回归 A：真实 clairvoyance 项目（13 模块）</h3>
+  <table>
+    <caption>dep_check 修复前后对比与负例检测</caption>
+    <thead><tr><th>场景</th><th>v5 旧逻辑</th><th>v5.1 修复后</th></tr></thead>
+    <tbody>
+      <tr><td>精确 deps.md 全量扫描</td><td><span class="tag warn">13 warn + 1 error（假）</span></td><td><span class="tag ok">0 warning 0 error</span></td></tr>
+      <tr><td>负例：删真实依赖 <code>cli -&gt; oracle</code></td><td>—</td><td><span class="tag bad">1 error 准确报出</span></td></tr>
+      <tr><td>负例：注入循环 <code>utils -&gt; cli</code></td><td>—</td><td><span class="tag bad">循环依赖 error 准确报出</span></td></tr>
+    </tbody>
+  </table>
+  <p class="note">关键修正：上轮报告"oracle 实际依赖 client 未声明"是 <strong>假 error</strong>（from-import 变量名误判），并非真实 bug；真实代码 oracle.py 无 client 依赖。</p>
+  <h3>回归 B：多语言全栈模拟项目（11 模块：Python 后端 + TS 前端 + 部署层）</h3>
+  <table>
+    <caption>括号注释 / [runtime] / 多级目录 / ESM 综合验证</caption>
+    <thead><tr><th>场景</th><th>结果</th></tr></thead>
+    <tbody>
+      <tr><td>全量扫描（含 <code>(HTTP/OpenAPI)[runtime]</code>、<code>(数据库迁移)</code> 注释）</td><td><span class="tag ok">0 warning 0 error</span></td></tr>
+      <tr><td>负例：漏声明 <code>app.api -&gt; app.models</code></td><td><span class="tag bad">1 error 准确报出</span></td></tr>
+      <tr><td>负例：注入循环 <code>app.models -&gt; app.api</code></td><td><span class="tag bad">循环依赖 error 准确报出</span></td></tr>
+    </tbody>
+  </table>
+  <p>语法校验：<code>py_compile</code> 与 <code>bash -n</code> 通过；zip 打包 19 文件 25547B；账本 18 条 md5 全部一致。</p>
+</section>
+
+<section id="extra">
+  <h2>补充测试 T19-T24</h2>
+  <p>修复后按用户要求补做新方向测试，前两项为真实文件级模拟，后四项为规则核验：</p>
+  <table>
+    <caption>补充测试结果</caption>
+    <thead><tr><th>测试</th><th>方向</th><th>结果</th><th>验证内容</th></tr></thead>
+    <tbody>
+      <tr><td>T19 断点续作</td><td>真实模拟</td><td><span class="tag ok">通过</span></td><td>构造 WORKLOG（记录到步骤 3 中断）→ 入口"继续上次"读 WORKLOG 定位 → 检查产物状态（mod_a 存在 / mod_b 缺失）→ 从断点继续写 mod_b → 追加过门记录，全程可操作</td></tr>
+      <tr><td>T20 拒绝授权</td><td>真实模拟</td><td><span class="tag ok">通过</span></td><td>模拟用户拒绝写黄区文件 → 按 track 规则 6 不落盘 → tracks/ 无记录 → 下次会话重新索要（拒绝不被永久记住）</td></tr>
+      <tr><td>T21 并发纪律</td><td>规则核验</td><td><span class="tag ok">通过</span></td><td>write/SKILL.md 已含"共享文件不并行写、集成时主 agent 串行合并"</td></tr>
+      <tr><td>T22 铁律保护</td><td>规则核验</td><td><span class="tag ok">通过</span></td><td>WORKFLOW 铁律 9：铁律不可被覆盖；删除/清空/覆盖先确认（危险操作走铁律 8 授权通道）</td></tr>
+      <tr><td>T23 超大降级</td><td>规则核验</td><td><span class="tag ok">通过</span></td><td>步骤 1 token 超出 → 规模判断给降级选项（只拆核心 / 分层交付 / 只出契约图）</td></tr>
+      <tr><td>T24 账本一致性</td><td>校验</td><td><span class="tag ok">通过</span></td><td>MANIFEST 18 条 md5 / 行数 / 字节全部与磁盘文件一致；README 铁律描述同步为 9 条</td></tr>
+    </tbody>
+  </table>
+  <p class="note">T19 模拟中补了一个操作细节：WORKLOG 既可记"过门"也可记"进行中"（如 <code>步骤3 进行中（mod_a 完成，mod_b 未写）</code>），断点恢复时按最后一行定位、按产物状态判断该步从哪里续。</p>
+</section>
+
+<section id="left">
+  <h2>结论与遗留</h2>
+  <h3>结论</h3>
+  <ul>
+    <li>DuMate T12-T18 中 5 个设计缺口（拒绝分支 / 断点 / 降级 / 并发 / 注入）已全部补齐为可执行规则，T11 多语言依赖表达已扩展；修复均为最小改动，未动架构、无 changelog。</li>
+    <li>dep_check 从"能跑但有噪声"变为"真实项目零噪声且负例检测准确"，是本次最大收益；顺带纠正了上轮报告中一个假 bug 误判。</li>
+  </ul>
+  <h3>遗留事项</h3>
+  <ul>
+    <li><strong>ERRORS.md docker 条目</strong>（2026-09-08 追加）待你三选一：固化 / 留档 / 删除，AI 不自作主张。</li>
+    <li><strong>dep_check 已知局限</strong>：相对导入 <code>./x</code>、路径别名 <code>@/</code> 不解析 → 产生 warning 可人工过目，不误报 error。</li>
+    <li><strong>slugify 外部 bug</strong>（依赖声明 text-unidecode 与代码 import unidecode 不一致）是第三方项目问题，与工作流无关。</li>
+    <li><strong>GitHub 上传</strong>仍待你提供 Token 与仓库名；上传后替换 README / install 中远程安装占位符。</li>
+  </ul>
+  <div class="footer">
+    测试对象：ai-coding-workflow-v5.1（19 文件 / 账本 18 条 md5 全一致 / zip 25547B）· 测试场地：robust-test/（real-clairvoyance、multilang-test、breakpoint-test）· 依据：DuMate T11 多语言测试 + T12-T18 补充测试
+  </div>
+</section>
+</main>
+</div>
+<script>
+document.querySelectorAll('nav.side a').forEach(function(a){
+  a.addEventListener('click', function(e){
+    var id = a.getAttribute('href');
+    if (id && id.charAt(0) === '#') {
+      e.preventDefault();
+      var el = document.querySelector(id);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  });
+});
+</script>
+</body>
+</html>
