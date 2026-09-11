@@ -25,37 +25,41 @@
 每步过门 → `python3 scripts/enforce.py gate post-step <步骤>` 强制校验 WORKLOG 记录；失败不准过。"继续上次"从 `WORKLOG.md` 定位。
 
 ## 入口判断
-- **从零做** → 先 `python3 scripts/enforce.py validate` → 步骤 1→7 顺序走
-- **只测试 / 找 bug** → 先 `python3 scripts/enforce.py validate` → 步骤 5
-- **只改一段代码** → 先 `python3 scripts/enforce.py validate` → 读 `skills/fix/SKILL.md`，改完走步骤 5 回归
-- **拆模块 / 重构 / 导入旧代码** → 先 `python3 scripts/enforce.py validate` → 读 `skills/split/SKILL.md`
-- **打安装包** → 先 `python3 scripts/enforce.py validate` → 步骤 7
+- **没方向想找现成方案** → `enforce.py validate` → 步骤0 → 步骤1→7
+- **从零做已有方向** → `enforce.py validate` → 步骤1→7
+- **只测试 / 找 bug** → `enforce.py validate` → 步骤5
+- **只改一段代码** → `enforce.py validate` → 读 `skills/fix/SKILL.md` → 步骤5
+- **拆模块 / 重构** → `enforce.py validate` → 读 `skills/split/SKILL.md`
+- **打安装包** → `enforce.py validate` → 步骤7
 - **安装本工作流** → 读 `skills/install/SKILL.md`
-- **继续上次** → 读 `WORKLOG.md` 定位到上次步骤，从该步继续
+- **继续上次** → 读 `WORKLOG.md` 定位继续
 - 认不出 → 问用户，不许默认猜路
 
 ## 主干步骤
-**1｜接需求**：`python3 scripts/enforce.py gate pre-step 1` → 复述需求 + 3-5 个功能点 + 明确"不做什么"；粗估 token 作提示（简单~10K / 中等~50K / 复杂~200K，超出 → 走规模判断给降级选项：只拆核心模块 / 分层交付 / 只出契约图）；定测试档位（契约先行 / 事后测试，见 test）。
-**规模判断**：问"这是大型项目吗？" → 是 → 问"拆几层？"（= 架构师层级，读 `skills/architect/SKILL.md`），说几层拆几层；否 → 单层拆完直接写；不知道 → 问"是否拆到不能再拆？"，是 → 递归到每模块不可再拆（总架构师→次级架构师→代码 AI），否 → 按默认层数。
-过门：`python3 scripts/enforce.py check-evidence 0 "用户确认需求"` → `python3 scripts/enforce.py gate post-step 1`。
 
-**2｜拆模块**：`python3 scripts/enforce.py gate pre-step 2` → 读 `skills/split/SKILL.md`（架构师层级递归：总架构师→次级架构师→…→代码 AI，上层只读下层、只改自己契约）+ 依赖图 + 契约，产出**全局契约图**（`deps.md`，层间 `# L0`/`# L1` 标注），结构化摆出供用户勾选；顺带问是否用 TDD。
-过门：用户确认划分 → `python3 scripts/enforce.py check-evidence 0 "用户确认划分"` → `python3 scripts/enforce.py gate post-step 2`。
+**0｜推荐方案**：读 `skills/recommend/SKILL.md` → 搜索网上成熟项目 → 按权威数据推荐 → 用户选择（选方案 / 从零做 / 重搜）。
+过门：`check-evidence 0 "用户已选: {选择结果}"` → `gate post-step 0`。
 
-**3｜写模块**：`python3 scripts/enforce.py gate pre-step 3` → 读 `skills/write/SKILL.md`（模块够多拆子 agent 并行；TDD 走先测试后实现）。每写完一个 → `skills/check/SKILL.md` quick-check → `skills/verify/SKILL.md` 验证声明，再写下一个。
-过门：quick-check 通过 + 验证声明完整 → `python3 scripts/enforce.py check-evidence 0 "quick-check通过"` → `python3 scripts/enforce.py gate post-step 3`。
+**1｜接需求**：`gate pre-step 1` → 复述需求 + 3-5 功能点 + 定测试档位；读 `skills/architect/SKILL.md` 做规模判断。
+过门：`check-evidence 0 "用户确认需求"` → `gate post-step 1`。
 
-**4｜集成**：`python3 scripts/enforce.py gate pre-step 4` → 拼合 → `skills/check/SKILL.md` full-check（含依赖图验证 `scripts/dep_check.py`：循环依赖 / 孤立模块 / 契约图与代码不一致 → halt 问用户）→ `skills/verify/SKILL.md`；可问用户是否派独立子 agent 对抗评审。
-过门：高危 = 0 → `python3 scripts/enforce.py check-evidence 0 "full-check通过"` → `python3 scripts/enforce.py gate post-step 4`。
+**2｜拆模块**：`gate pre-step 2` → 读 `skills/split/SKILL.md` → 产出全局契约图 → 问是否用 TDD。
+过门：`check-evidence 0 "用户确认划分"` → `gate post-step 2`。
 
-**5｜测试找 bug**：`python3 scripts/enforce.py gate pre-step 5` → 读 `skills/test/SKILL.md`；发现问题 → `skills/fix/SKILL.md` 精准修 → 回归重跑。
-过门：测试全过、错误清零 → `python3 scripts/enforce.py check-evidence 0 "测试全过"` → `python3 scripts/enforce.py gate post-step 5`。
+**3｜写模块**：`gate pre-step 3` → 读 `skills/write/SKILL.md` → 循规写模块（check-write 门禁 / quick-check / verify）。
+过门：`check-evidence 0 "quick-check通过"` → `gate post-step 3`。
 
-**6｜汇报**：`python3 scripts/enforce.py gate pre-step 6` → 做了什么 / 怎么用 / 效果，附验证声明；不贴大段代码，给文件链接。
-过门：用户确认 → `python3 scripts/enforce.py check-evidence 0 "用户确认汇报"` → `python3 scripts/enforce.py gate post-step 6`；要改 → `skills/fix/SKILL.md` → 回步骤 5。
+**4｜集成**：`gate pre-step 4` → 拼合 → 读 `skills/check/SKILL.md` 做 full-check → 读 `skills/verify/SKILL.md`。
+过门：`check-evidence 0 "full-check通过"` → `gate post-step 4`。
 
-**7｜交付**：`python3 scripts/enforce.py gate pre-step 7` → Web 给可访问地址；APP 读 `skills/apk/SKILL.md`；代码确保 README 可复现；追加 WORKLOG.md；提示用户 review `ERRORS.md`；**清理临时授权** `python3 scripts/enforce.py clean-temp`（交付后不再需要项目期间的临时权限）。
-过门：用户能直接打开、安装或复现 → `python3 scripts/enforce.py check-evidence 0 "用户确认交付"` → `python3 scripts/enforce.py gate post-step 7`。
+**5｜测试找 bug**：`gate pre-step 5` → 读 `skills/test/SKILL.md` → 发现问题读 `skills/fix/SKILL.md` 精准修 → 回归。
+过门：`check-evidence 0 "测试全过"` → `gate post-step 5`。
+
+**6｜汇报**：`gate pre-step 6` → 做了什么 / 怎么用 / 效果 + 验证声明。
+过门：`check-evidence 0 "用户确认汇报"` → `gate post-step 6`；要改 → `skills/fix/SKILL.md` → 回步骤 5。
+
+**7｜交付**：`gate pre-step 7` → 可访问地址 / README / WORKLOG + `clean-temp` 清理临时授权。
+过门：`check-evidence 0 "用户确认交付"` → `gate post-step 7`。
 
 ---
 能力不足、时间明显超出、搜索无果、修复循环约超 5 轮 → 读 `skills/halt/SKILL.md` 按协议停，并写 `ERRORS.md`。

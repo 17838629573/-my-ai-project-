@@ -167,7 +167,7 @@ def cmd_gate_pre_step(step_name: str) -> int:
     
     # 3. 如果这不是第一步，检查上一步的 worklog 条目
     checks += 1
-    if step_name not in ("1", "接需求", "入口"):
+    if step_name not in ("0", "1", "推荐", "接需求", "入口"):
         try:
             content = open(worklog, encoding="utf-8").read().strip()
             if content and content != "# WORKLOG":
