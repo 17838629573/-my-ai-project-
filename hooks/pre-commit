@@ -1,0 +1,53 @@
+#!/bin/sh
+# pre-commit 钩子：git 提交前做最后一道门禁
+# 拦截：红区文件未授权 / 铁律被改 / 依赖未声明
+# Fail-Close：钩子崩了 → 拒绝提交
+set -u
+
+echo "[pre-commit] 运行工作流门禁检查..."
+
+# 1. 检查暂存的红区文件是否有授权
+STAGED_RED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.env|secrets?|deploy|ci/|\.github/workflows|requirements\.txt|package-lock\.json|yarn\.lock|go\.mod' || true)
+
+if [ -n "$STAGED_RED" ]; then
+  for f in $STAGED_RED; do
+    if [ -f "scripts/enforce.py" ]; then
+      python3 scripts/enforce.py check-write "$f" || {
+        echo "[pre-commit] ✗ 红区文件 $f 未授权，拒绝提交"
+        exit 1
+      }
+    fi
+  done
+fi
+
+# 2. 检查 WORKFLOW.md 铁律是否被改
+if git diff --cached --name-only 2>/dev/null | grep -q 'WORKFLOW\.md'; then
+  if [ -f "scripts/enforce.py" ]; then
+    python3 scripts/enforce.py check-iron-law WORKFLOW.md || {
+      echo "[pre-commit] ✗ WORKFLOW.md 铁律被篡改，拒绝提交"
+      exit 1
+    }
+  fi
+fi
+
+# 3. 检查 enforce.py 是否被篡改（核心区自保护）
+if git diff --cached --name-only 2>/dev/null | grep -q 'scripts/enforce\.py'; then
+  echo "[pre-commit] ⚠ 提交包含 enforce.py 修改，请确保已获单次授权且 selftest 通过"
+  if [ -f "selftest.py" ]; then
+    python3 selftest.py || {
+      echo "[pre-commit] ✗ selftest 未通过，拒绝提交"
+      exit 1
+    }
+  fi
+fi
+
+# 4. 依赖声明检查（如有 deps.md）
+if [ -f "deps.md" ] && [ -f "scripts/dep_check.py" ]; then
+  python3 scripts/dep_check.py || {
+    echo "[pre-commit] ✗ 依赖图验证失败，拒绝提交"
+    exit 1
+  }
+fi
+
+echo "[pre-commit] ✓ 门禁检查全部通过"
+exit 0

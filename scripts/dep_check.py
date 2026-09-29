@@ -56,6 +56,14 @@ _PAT_IMP = re.compile(r"""import\s+['"]?([A-Za-z_][\w./-]*(?:\s*,\s*['"]?[A-Za-z
 _PAT_REQ = re.compile(r"""require\(\s*['"]([A-Za-z_][\w./-]*)""")
 _PAT_IMP_FROM = re.compile(r"""import\s+[^;\n]*?\bfrom\s+['"]([A-Za-z_][\w./-]*)""")   # ESM: import {...} from "mod"
 
+def _project_roots():
+    """项目内的顶层目录：用于判断 import 是否指向本项目代码（而非第三方/标准库）"""
+    skip = {".git", "node_modules", "__pycache__", "venv", ".venv", "env",
+            "scripts", "dist", "docs", "skills", "tracks", "build", "site-packages"}
+    return {d for d in os.listdir(".")
+            if os.path.isdir(d) and d not in skip and not d.startswith(".")}
+
+
 def collect_tokens(text, modules):
     """提取可能指向本项目模块的 import token。
     from X import Y：X 的剥前缀候选能匹配模块 → 只依赖 X（Y 是名字/属性，忽略）；
@@ -65,8 +73,12 @@ def collect_tokens(text, modules):
     for m in _PAT_FROM.finditer(text):
         x = m.group(1).strip()
         xparts = re.split(r"[./]", x)
-        if any(".".join(xparts[i:]) in modules for i in range(len(xparts))):
-            toks.add(x)
+        # 候选 = 全部后缀 + 全部前缀（修复：原文只试后缀，导致 from auth.verify import X 认不到 auth）
+        cands = [".".join(xparts[i:]) for i in range(len(xparts))] + \
+                [".".join(xparts[:i+1]) for i in range(len(xparts))]
+        toks.add(x)      # 保留原始路径，供「项目内未声明依赖」检测
+        if any(c in modules for c in cands):
+            pass
         else:
             for item in re.split(r"[,\s]+", m.group(2).strip()):
                 item = item.strip()
@@ -99,6 +111,8 @@ def scan_imports(modules, owner_modules):
     owner_modules = 主模块集合（出现在 deps.md -> 左侧），才有代码归属权；
     仅作依赖目标（如 [runtime] 契约目标）的模块不参与归属。"""
     found = {m: set() for m in modules}
+    undeclared = {m: set() for m in modules}
+    roots = _project_roots()
     msegs = {m: m.replace(".", "/").split("/") for m in owner_modules}
     for root, _, files in os.walk("."):
         if any(x in root for x in (".git", "node_modules", "__pycache__", "scripts")):
@@ -125,13 +139,26 @@ def scan_imports(modules, owner_modules):
             except OSError:
                 continue
             for token in collect_tokens(text, modules):
-                # token 可能是 "core.parser"（包内模块），逐级剥前缀生成候选匹配模块名
+                # token 可能是 "core.parser"（包内模块）：后缀 + 前缀都要试
                 parts = re.split(r"[./]", token)
-                for i in range(len(parts)):
-                    cand = ".".join(parts[i:])
+                cands = [".".join(parts[i:]) for i in range(len(parts))] + \
+                        [".".join(parts[:i+1]) for i in range(len(parts))]
+                hit = None
+                for cand in cands:
                     if cand in modules and cand != owner:
-                        found[owner].add(cand)
-    return found
+                        hit = cand; break
+                if hit:
+                    found[owner].add(hit)
+                    continue
+                # 未在任何已知模块中：若指向项目内真实路径 → 记为「未声明依赖」
+                parts2 = re.split(r"[./]", token)
+                for i in range(len(parts2) - 1, -1, -1):   # 从最长前缀开始，报错更精确
+                    pref = "/".join(parts2[:i+1])
+                    if pref.split("/")[0] in roots and (
+                            os.path.isdir(pref) or os.path.isfile(pref + ".py")):
+                        undeclared[owner].add(".".join(parts2[:i+1]))
+                        break
+    return found, undeclared
 
 def find_cycles(graph):
     cycles, stack, state = [], [], {}
@@ -166,11 +193,14 @@ def main():
         if not graph[m] and indeg.get(m, 0) == 0 and len(mods) > 1:
             warns.append(f"孤立模块: {m}（既不依赖谁也无人调用，确认是否多余）")
 
-    actual = scan_imports(mods, mods_main)
+    actual, undeclared = scan_imports(mods, mods_main)
     for m, ds in actual.items():
         for d in ds:
             if d not in graph.get(m, set()):
                 errors.append(f"图与代码不一致: {m} 实际依赖 {d}，但 deps.md 未声明")
+    for m, ds in undeclared.items():
+        for d in sorted(ds):
+            errors.append(f"未声明依赖: {m} 实际引用了 {d}，deps.md 未声明（契约先行：先改 deps.md 再写代码）")
     for m, ds in graph.items():
         for d in ds:
             if d not in actual.get(m, set()):
