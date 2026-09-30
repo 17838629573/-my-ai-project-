@@ -85,7 +85,7 @@ python3 scripts/src_stack.py upgrade --lang python
 
 ### 规则硬化：文档只留提问
 
-v2.5 把可判定的规则全部搬进 `src_gate.py`：
+v2.5.x 把可判定的规则全部搬进 `src_gate.py`：
 
 ```bash
 python3 scripts/src_gate.py rules      # 看全部硬规则
