@@ -44,6 +44,14 @@ def step(key, name, detects, script):
     STEPS[key] = {"name": name, "detects": detects, "script": script}
 
 
+step("P-1", "版本升级敞口（开工第一问）",
+     ["升级", "upgrade", "迁移", "migration", "版本变更", "breaking change",
+      "废弃", "deprecated", "弃用", "移除", "removed", "重命名", "renamed",
+      "兼容", "兼容开关", "fallback", "回归", "regression",
+      "add-opens", "add-exports", "illegal-access", "默认行为", "default change",
+      "cve-2026-59178", "esphome", "pep 594", "pep 649", "jep 403"],
+     "src_stack.py upgrade --lang <lang>")
+
 step("P2", "资产测绘与暴露面",
      ["泄露", "暴露", "备份", "swagger", "actuator", "目录", "未授权访问",
       "默认口令", "配置不当", "信息泄露", "遍历可枚举"],
