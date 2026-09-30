@@ -196,6 +196,100 @@ PROTO_POOL = [
     ("IP", "BGP 前缀劫持", "更长前缀匹配劫持流量（Virtualizor 被劫持 22 小时）", "无源认证是根因"),
 ]
 
+# ── 成熟开源架构池（P14 · 指纹匹配 + 低频验证）─────────────────────────────
+# 逻辑：先识别目标用了哪些"最成熟的开源架构"，再拿该架构的已知问题去低频验证。
+# 成熟架构的优势：洞被研究得最透、PoC 最多；劣势：补丁快、竞争大。
+# 所以差异化不在"找新洞"，在"目标是不是用了老版本 / 非默认配置"。
+ARCH_POOL = {
+    "建站/CMS": [
+        ("WordPress", "wp-login.php / wp-content/ / readme.txt", "icon_hash / /wp-admin/ 200",
+         "插件生态是主战场，核心修得快"),
+        ("Joomla", "/administrator/ / Joomla! 错误页", "Set-Cookie 含 joomla",
+         "扩展组件未授权上传常见"),
+        ("Drupal", "/core/CHANGELOG.txt / X-Generator: Drupal", "CHANGELOG 泄露版本",
+         "版本号是唯一坐标，先取版本"),
+        ("ThinkPHP", "错误页 ThinkPHP 商标 / __PUBLIC__", "Trace 页面含框架名",
+         "历史 RCE 多，老版本存量极大"),
+        ("若依 RuoYi", "/login 默认页 / ruoyi 字样", "favicon 或 JS 路径含 ruoyi",
+         "国内 SRC 高频，默认口令/未授权常见"),
+        ("织梦 DedeCMS", "/plus/ / data/admin/ 目录", "后台路径 /dede/",
+         "老版本存量巨大"),
+    ],
+    "后端框架": [
+        ("Spring Boot", "/actuator / Whitelabel Error Page", "响应 Server 头 / 错误页",
+         "actuator 未授权是首要检查点"),
+        ("Django", "DEBUG=True 错误页 / csrftoken", "Set-Cookie csrftoken",
+         "DEBUG 未关 = 完整栈泄露"),
+        ("Laravel", "XSRF-TOKEN / laravel_session", "Cookie 名",
+         "APP_DEBUG / .env 泄露"),
+        ("FastAPI", "/docs /openapi.json", "OpenAPI 200",
+         "文档端点未授权即暴露全部接口"),
+        ("Express", "X-Powered-By: Express", "响应头",
+         "原型污染 / 依赖链"),
+        ("Gin(Go)", "响应头无特征，靠错误格式", "—",
+         "路由匹配与尾部斜杠差异"),
+        ("Rails", "X-Runtime / _session_id", "响应头",
+         "CVE-2026-44842 类响应头注入"),
+    ],
+    "AI/自动化": [
+        ("Dify", "/console/api/ 特征 / 登录页样式", "JS 包含 dify",
+         "CVE-2026-44941 未授权访问"),
+        ("n8n", "/rest/ /healthz", "healthz 返回体",
+         "CVE-2026-54309 MCP 端点未授权"),
+        ("Langflow", "登录页 langflow 字样", "未授权自动登录是默认配置",
+         "CVE-2026-5027 路径遍历"),
+        ("LangChain/LangGraph", "无前端特征，靠 API 形态", "—",
+         "checkpointer SQLi + 反序列化链"),
+        ("FastGPT / MaxKB / RagFlow", "各自登录页与 API 前缀", "—",
+         "国内 SRC 高频，多租户隔离是薄弱点"),
+    ],
+    "中间件/网关": [
+        ("Nginx", "Server: nginx", "响应头", "版本泄露 + 配置类问题"),
+        ("Traefik", "dashboard 路径 / X-Traefik", "中间件改写路径",
+         "StripPrefix 使匹配路径≠执行路径"),
+        ("Kong", "X-Kong-* 响应头", "Kong-Admin-Token",
+         "管理端口暴露"),
+        ("Tomcat", "Server: Apache-Coyote", "默认错误页",
+         "管理端弱口令 / 老版本 RCE"),
+    ],
+    "运维/DevOps": [
+        ("Jenkins", "X-Jenkins / /script", "响应头", "脚本控制台 = RCE"),
+        ("GitLab", "X-GitHub-Request-Id 风格 / /users/sign_in", "版本串",
+         "SAML 根因族两年两连，第三次值得查"),
+        ("Grafana", "grafana_session / /api/health", "登录页样式",
+         "未授权读数据源"),
+        ("SonarQube", "/api/system/health", "—", "未授权 API"),
+        ("Gogs/Gitea", "登录页样式 / /api/v1/version", "版本端点",
+         "组织名路径穿越类"),
+    ],
+    "数据/缓存": [
+        ("Redis", "无 HTTP 特征，靠端口", "-ERR wrong number of args",
+         "未授权访问是首要检查点"),
+        ("Elasticsearch", ":9200 / {\"version\":{\"number\"", "版本 JSON",
+         "未授权读全量索引"),
+        ("MongoDB", ":27017 无认证", "—", "未授权读库"),
+    ],
+}
+
+# 低频验证：针对架构已知问题的最小验证动作
+LOW_FREQ_PROBE = {
+    "原则": "只读、随机 marker、可逆、单请求、极低速",
+    "速率": "0.2-0.5 req/s（比常规探测再低一档，避免触发风控与 WAF  ban）",
+    "顺序": [
+        "1. 指纹确认（响应头 / favicon icon_hash / 特定路径 200）",
+        "2. 版本确认（CHANGELOG / /api/version / 错误页 / 版本号端点）",
+        "3. 只验证「该架构已知问题在当前版本是否仍存在」——不构造新 payload",
+        "4. 命中即停，不扩展、不遍历",
+    ],
+    "禁止": [
+        "不扫全站路径（只打架构特征路径）",
+        "不并发、不爆破、不批量",
+        "不下载、不改数据、不用破坏性验证",
+    ],
+    "判据": "命中 = 该架构已知问题在目标上复现出客观差异；"
+            "未命中 = 版本已修 / 配置已关 / 不在 SRC 范围",
+}
+
 # ── 版本升级敞口（P0 前置检查）─────────────────────────────────────────────
 # 判读规则：不是所有变更都意味着旧版有洞，要分层
 UPGRADE_SIGNAL_TIERS = [
@@ -280,6 +374,58 @@ FRAME_POOL = [
     ("WordPress", "CVE-2026-87902 模板路径遍历", "CVSS 9.2，需 page- 目录 + 本地可利用 php", "占全球 40% 网站"),
     ("WordPress", "CVE-2026-63030 REST batch RCE", "CVSS 9.8", ""),
 ]
+
+
+def show_arch(a):
+    print("=" * 74)
+    print(" 成熟开源架构池（P14 · 指纹匹配 → 低频验证）")
+    print("=" * 74)
+    print("""
+逻辑：先识别目标用了哪些「最成熟的开源架构」，
+再拿该架构的已知问题去低频验证。
+
+成熟架构的优势：洞被研究得最透、PoC 最多。
+成熟架构的劣势：补丁快、竞争大。
+
+所以差异化不在「找新洞」，在
+  ① 目标是不是用了老版本
+  ② 目标是不是非默认配置（如 Langflow 默认未授权自动登录）
+""")
+    if a.cat:
+        cats = [a.cat] if a.cat in ARCH_POOL else []
+        if not cats:
+            print(f"[!] 未收录 {a.cat}，可选: {', '.join(ARCH_POOL)}")
+            return 1
+    else:
+        cats = list(ARCH_POOL)
+    for cat in cats:
+        print(f"\n── {cat} ──")
+        for name, fp, how, note in ARCH_POOL[cat]:
+            print(f"\n   ● {name}")
+            print(f"     指纹: {fp}")
+            print(f"     识别: {how}")
+            print(f"     要点: {note}")
+    print("\n" + "=" * 74)
+    print(" 低频验证（针对架构已知问题的最小动作）")
+    print("=" * 74)
+    print(f"\n原则: {LOW_FREQ_PROBE['原则']}")
+    print(f"速率: {LOW_FREQ_PROBE['速率']}")
+    print("\n顺序:")
+    for x in LOW_FREQ_PROBE["顺序"]:
+        print(f"   {x}")
+    print("\n禁止:")
+    for x in LOW_FREQ_PROBE["禁止"]:
+        print(f"   {x}")
+    print(f"\n判据: {LOW_FREQ_PROBE['判据']}")
+    print("""
+── 为什么低频 ──
+架构类问题通常只需 1-3 个请求就能确认（看响应头 / 看版本端点 / 看特征路径）。
+批量扫既没必要，又会触发风控，还违反多数 SRC 的限速条款。
+
+低频的额外好处：不会污染后续测试。
+被 WAF ban 之后，真正的深挖就做不了了。
+""")
+    return 0
 
 
 def show_upgrade(a):
@@ -505,6 +651,10 @@ def main():
     s = sub.add_parser("lang", help="语言/运行时攻击面（P13）")
     s.add_argument("--lang", required=True, choices=list(LANG_RISK))
     s.set_defaults(func=show_lang)
+
+    s = sub.add_parser("arch", help="成熟开源架构池（P14：指纹匹配+低频验证）")
+    s.add_argument("--cat", choices=list(ARCH_POOL), help="只看某一类")
+    s.set_defaults(func=show_arch)
 
     s = sub.add_parser("upgrade", help="版本升级敞口（P0 前置检查）")
     s.add_argument("--lang", choices=list(UPGRADE_WATCHLIST))
