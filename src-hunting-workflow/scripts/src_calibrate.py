@@ -39,9 +39,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STEPS = OrderedDict()
 
 
-def step(key, name, detects, script):
-    """detects: 漏洞满足什么特征时，这一步能发现它"""
-    STEPS[key] = {"name": name, "detects": detects, "script": script}
+def step(key, name, detects, script, observe=False):
+    """detects: 漏洞满足什么特征时，这一步能发现它
+    observe=True: 观察态（连续多轮 0 命中已降级），不计入主干要求"""
+    STEPS[key] = {"name": name, "detects": detects, "script": script,
+                  "observe": observe}
 
 
 step("P-1", "版本升级敞口（开工第一问）",
@@ -62,10 +64,10 @@ step("P3", "越权与未授权（含入口一致性）",
       "任意用户", "任意查看", "遍历ID", "批量接口", "缺失鉴权"],
      "run.py p1 / src_scout.py idor")
 
-step("P4", "业务逻辑（并发、状态机、金额）",
+step("P4", "业务逻辑（并发、状态机、金额）[观察态·已降级]",
      ["逻辑", "并发", "竞态", "超领", "超卖", "金额", "支付", "优惠券",
       "库存", "状态机", "步骤跳过", "重放", "复用"],
-     "手工 + 并发脚本")
+     "手工 + 并发脚本", observe=True)
 
 step("P5", "注入与服务端（含语义复活化）",
      ["注入", "sqli", "命令执行", "rce", "反序列化", "ssti", "模板",
@@ -388,7 +390,8 @@ def cmd_load(a):
 
     # ── 零命中步骤追踪（R2）──
     _contrib = contribution(rows)
-    zero = [k for k in STEPS if _contrib.get(k, 0) == 0]
+    zero = [k for k in STEPS
+            if _contrib.get(k, 0) == 0 and not STEPS[k].get("observe")]
     if zero:
         print("─" * 74)
         print(" 零命中步骤（R2：连续三轮须处置）")
