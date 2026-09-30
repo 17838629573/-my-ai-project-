@@ -3,6 +3,8 @@ name: write
 description: 步骤3 写模块。拆模块经用户确认后读，含子 agent 并行与 TDD 分支；其他时候不读。
 ---
 
+> 本文件仅本步骤有效，完成后不再引用；需要回溯时按 `WORKLOG.md` 索引取回。
+
 # 写模块
 
 输入：用户确认过的分层模块契约清单 + TDD 选择。
@@ -13,7 +15,8 @@ description: 步骤3 写模块。拆模块经用户确认后读，含子 agent �
 3. **子 agent 纪律**：每个子 agent 只写自己的模块，只看该模块的契约块，不看其他模块的实现；TDD 模式下它连测试带实现一起交付并自行跑绿。共享文件（utils / config 等被多模块引用）不并行写，留集成步骤由主 agent 串行合并。
 4. 每个模块头部照契约块写；函数加结构化注释（用途 / 参数 / 返回），不写废话注释。
 5. 从底层模块往上写。
-6. **写文件前先跑门禁**：`python3 scripts/enforce.py check-write <目标文件>` → 红区无授权则阻断（铁律5代码强制）。
+6. **契约先行**：需要引用新模块 → 先改 `deps.md`，再写代码；禁止先写后补（`dep_check.py` 会阻断）。
+7. **写文件前先跑门禁**：`python3 scripts/enforce.py check-write <目标文件>` → 红区无授权则阻断（铁律5代码强制）。
 7. 每写完一个模块 → 读 `skills/check/SKILL.md` 跑 quick-check → 通过后读 `skills/verify/SKILL.md` 出验证声明 → 再写下一个。
 
 工具缺失 → 读 `skills/halt/SKILL.md`。
