@@ -375,18 +375,20 @@ def cmd_load(a):
     # ── 非知名样本单独覆盖率（R3 核心）──
     if non:
         nrows, nunc = calibrate([v for v, _ in non], a.top)
-        covered = len([r for r in nrows if r[1] > 0]) if nrows else 0
+        covered = len([r for r in nrows if r["covered"]])
         print("─" * 74)
         print(f" 非知名样本单独覆盖率（真信号）：{covered}/{len(non)}"
               f" = {covered / len(non):.0%}")
         print("─" * 74)
-        for k, c in nrows:
+        ncontrib = contribution(nrows)
+        for k, c in sorted(ncontrib.items(), key=lambda x: -x[1]):
             print(f"   {k}  {c}")
         if nunc:
-            print(f"\n   非知名样本里的缺口: {', '.join(str(x) for x in nunc)}")
+            print(f"\n   非知名样本里的缺口: {', '.join(str(x.get('title', '?')) for x in nunc)}")
 
     # ── 零命中步骤追踪（R2）──
-    zero = [k for k, c in rows if c == 0]
+    _contrib = contribution(rows)
+    zero = [k for k in STEPS if _contrib.get(k, 0) == 0]
     if zero:
         print("─" * 74)
         print(" 零命中步骤（R2：连续三轮须处置）")
