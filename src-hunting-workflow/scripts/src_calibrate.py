@@ -80,6 +80,32 @@ step("P9", "根因族关联（规则库/跨年复发）",
       "saml", "jwt", "hmac", "digest"],
      "src_rules.py cwe / vendor / coord")
 
+step("P10", "框架自身攻击面（框架≠应用）",
+     ["框架", "framework", "sdk", "中间件", "协议设计", "specification",
+      "设计缺陷", "by design", "厂商拒绝修复", "架构缺陷",
+      "langchain", "langgraph", "langflow", "mcp", "autogen", "crewai",
+      "traefik", "nextcloud", "gogs", "n8n", "kestra"],
+     "src_rules.py cwe / vendor + 框架 CVE 池")
+
+step("P11", "多 Agent 信任边界（confused deputy / 权限继承）",
+     ["多agent", "multi-agent", "委托", "delegation", "confused deputy",
+      "权限继承", "信任传递", "内部流量", "inter-agent", "a2a",
+      "沙箱逃逸", "sandbox escape", "权限提升", "scope"],
+     "头变异 / 委托链测试")
+
+step("P12", "协议层根因映射（自下而上）",
+     ["协议", "protocol", "nat", "dns", "bgp", "tls", "http语义",
+      "rfc", "specification", "natjack", "rebirthday", "ecs",
+      "conntrack", "声明长度", "caplen", "rrsig"],
+     "src_rules.py cwe + 协议 CVE → 应用层映射")
+
+step("P13", "运行时根因映射（语言/标准库）",
+     ["cpython", "openjdk", "jvm", "v8", "runtime", "标准库",
+      "tarfile", "zipfile", "pickle", "eval", "反序列化",
+      "原型污染", "protobuf", "dataview", "正则回溯",
+      "o(n", "复杂度", "栈溢出", "递归"],
+     "src_stack.py lang --lang python / runtime")
+
 step("P8", "AI / Agent 决策边界",
      ["提示注入", "prompt", "agent", "工具调用", "llm", "rag",
       "mcp", "语音", "asr", "模型", "指令"],
