@@ -91,8 +91,33 @@ def parse(path):
     d = {"path": path, "file": os.path.basename(path)}
 
     def one(k):
-        m = re.search(r"^\s*%s:?\s*(.+)$" % re.escape(k), s, re.M)
-        return m.group(1).strip() if m else None
+        """单行取值；若遇到 YAML 块标量（| 或 >），拼接后续缩进行。
+
+         nuclei 模板的 description 常写成：
+             description: |
+               AAA
+               BBB
+         只取首行会丢掉绝大部分内容。
+        """
+        m = re.search(r"^\s*%s:?\s*(.*)$" % re.escape(k), s, re.M)
+        if not m:
+            return None
+        val = m.group(1).strip()
+        if val in ("|", ">", "|-", ">-", "|+"):
+            # 块标量：收集后续比当前行缩进更深的行
+            base_indent = len(m.group(0)) - len(m.group(0).lstrip())
+            lines = s[m.end():].split("\n")
+            out = []
+            for ln in lines:
+                if not ln.strip():
+                    out.append("")
+                    continue
+                ind = len(ln) - len(ln.lstrip())
+                if ind <= base_indent:
+                    break
+                out.append(ln.strip())
+            return " ".join(x for x in out if x).strip() or None
+        return val or None
 
     for k in ("id", "name", "severity", "description", "impact",
               "remediation", "vendor", "product", "verified"):
