@@ -1,0 +1,11 @@
+案例,来源类型,抽象漏洞模式
+Playwright MCP Origin 缺失,官方补丁提交,可信边界仅在协议层建立
+RebirthDay 缓存污染,CCS 2025 / Black Hat Asia 2026,元数据一致性未跨路径同步
+CVE-2025-65720 GPT Researcher 命令注入,GitHub Security Advisory,不可信数据进入执行上下文
+LLM 连接器间接提示注入,Black Hat 2025,不可信内容被当作权威指令
+CVE-2025-54416 tj-actions 分支名注入,GitHub Security Advisory,转义后又被还原为可执行文本
+Wasm WASI 资源隔离,USENIX Security 2025,资源预算未覆盖新接口
+GhostCache 弱一致性缓存,CCS 2025,跨域状态观察缺少同步
+共振峰 ASR 对抗样本,IEEE S&P 2025,模型决策特征未被策略边界约束
+Training Solo 分支历史隔离,2025 年 CPU 研究,安全域间共享可训练状态
+CVE-2026-3854 GitHub X-Stat 覆盖,漏洞研究团队原始披露,可信头部被请求数据覆盖
