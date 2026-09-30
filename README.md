@@ -40,7 +40,10 @@ AI编程工作流是一个**模块化、可执行的 AI 编程协作框架**。�
 - 铁律有没有被删掉 → 代码检查
 - 步骤有没有走过门 → 代码检查
 
-退出码不是 0 就直接阻断，AI 绕不过去。剩下的弹性规则（如"只动必要范围""先搜方案"）才是文本提示——**硬规则代码锁死，弹性的给 AI 自由度**，在最少约束和确定性之间取得平衡。
+退出码不是 0 就直接阻断。剩下的弹性规则（如"只动必要范围""先搜方案"）才是文本提示——**硬规则代码锁死，弹性的给 AI 自由度**，在最少约束和确定性之间取得平衡。
+
+> ⚠️ **前提**：五道门禁需 AI **主动调用** `enforce.py` 才生效。若直接用编辑工具落盘而不调用，门禁不会触发 —— 这是「自觉遵守型」，不是「结构强制型」。
+> 要使其真正不可跳过，请安装 `hooks/` 下的 PreToolUse 钩子或 git pre-commit（见 [hooks/README.md](./hooks/README.md)）。
 
 ---
 
@@ -111,7 +114,7 @@ curl -s https://raw.githubusercontent.com/17838629573/-my-ai-project-/main/scrip
 自动识别工具环境落位：
 - CodeBuddy → `.codebuddy/skills/`
 - Trae → `.trae/skills/`
-- Claude Code → `.claude/skills/`
+- Claude Code → `.claude/skills/`（⚠️ 该宿主只自动加载 `CLAUDE.md`，需在其中加一行 `@WORKFLOW.md` 引用才常驻）
 - Cursor → `.cursor/rules/`
 - VS Code + Copilot → `.github/copilot-instructions.md`
 - 识别不出 → 复制到 `./ai-workflow/`
@@ -124,6 +127,8 @@ curl -s https://raw.githubusercontent.com/17838629573/-my-ai-project-/main/scrip
 ## 测试与评价
 
 经过 **六轮独立测试、二十四项边界场景验证**，覆盖权限、工具、依赖、超时、多语言、断点、并发等场景。完整评价见 [docs/评价报告.md](./docs/评价报告.md)。
+
+> ⚠️ **阅读须知**：上述为作者自测结论。第三方独立复测发现 9 项门禁缺陷（含 1 项"装完即废"），修复后自检 16/16。**修复前"硬规则不可跳过""铁律绕不过去"等表述不成立**，详见 [docs/第三方独立验证报告.md](./docs/第三方独立验证报告.md)。
 
 | 报告 | 类型 | 内容 |
 |------|------|------|
