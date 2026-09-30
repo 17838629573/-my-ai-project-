@@ -2,7 +2,7 @@
 
 # SRC 挖洞工作流
 
-**十四步主干 · 三条铁律 · 根因族抽象层 · 底层根因映射层**  
+**开工第一问 + 十四步主干 · 三条铁律 · 根因族抽象层 · 底层根因映射层**  
 让挖洞从"看运气"变成"有保底"，每一步可追溯、可校准、不漏扫
 
 </div>
@@ -12,6 +12,7 @@
 ## 概述
 
 SRC 挖洞工作流是一套**面向授权众测平台（SRC / Bug Bounty）的漏洞挖掘执行框架**。
+
 核心目标：
 
 > **用最少的规则，让每一步都有判据；用判据换覆盖率，用校准换进化。**
@@ -25,6 +26,7 @@ SRC 挖洞工作流是一套**面向授权众测平台（SRC / Bug Bounty）的�
 - 列表接口 `pageSize` 调大能拿全量
 - 老版本路径没人管，校验比新版松得多
 - **同一个根因在协议层、运行时层、应用层各出现一次**
+- **升级成功 ≠ 安全迁移**：升级后安全控制可能静默消失
 
 最后一条是本工作流最重要的发现：
 
@@ -35,6 +37,7 @@ SRC 挖洞工作流是一套**面向授权众测平台（SRC / Bug Bounty）的�
 | 运行时 | OpenJDK DataView | offset 限定窗口 | 用绝对索引，忽略 offset |
 | 应用 | GitLab SAML | 签名覆盖的内容 | 实际取的 NameID |
 | 应用 | Traefik StripPrefix | 匹配到的路径 | 实际执行的路径 |
+| 升级 | ESPHome CVE-2026-59178 (9.8) | 凭证环境变了 | 认证全部静默禁用 |
 
 **同一个设计错误在不同抽象层的投影。** 这意味着底层 CVE 可以当**导航图**用。
 
@@ -53,6 +56,23 @@ SRC 挖洞工作流是一套**面向授权众测平台（SRC / Bug Bounty）的�
 
 ---
 
+## 开工第一问（P-1，每次必答）
+
+> **目标的语言 / 框架 / 运行时，近 3-5 个月是否升过级？**
+
+这是唯一一个**不用挖就有答案**的前置检查——纯客观事实。
+
+```bash
+python3 scripts/src_stack.py upgrade --lang python
+```
+
+**没升级** → 旧版本本身就是敞口（已知 CVE 未修 + 废弃 API 无补丁）
+**升过级** → 追问：**升的是哪部分？升级过程暴露了什么？**
+
+**升级成功 ≠ 安全迁移。** 判据一句话：**升级后，未认证访问是否被拒绝？**
+
+---
+
 ## 三层分工
 
 | 层 | 谁做 | 做什么 |
@@ -65,7 +85,13 @@ SRC 挖洞工作流是一套**面向授权众测平台（SRC / Bug Bounty）的�
 
 ---
 
-## 十四步
+## 步骤总览
+
+### 前置（必做）
+
+```
+P-1  版本升级敞口 —— 开工第一问
+```
 
 ### 常规主干
 
@@ -77,15 +103,16 @@ P0 收割校准 → P1 情报泛化 → P2 资产测绘 → P3 越权未授权 �
 ### 专家模块（按需调取）
 
 ```
-P10 框架自身   挖框架而非应用
-P11 多Agent边界 权限继承 / confused deputy
-P12 协议层映射  自下而上（NAT/DNS/BGP/TLS）
-P13 运行时映射  语言/标准库（CPython/OpenJDK/V8）
+P10 框架自身    挖框架而非应用
+P11 多Agent边界  权限继承 / confused deputy
+P12 协议层映射   自下而上（NAT/DNS/BGP/TLS）
+P13 运行时映射   语言/标准库（CPython/OpenJDK/V8）
 ```
 
 | 目标类型 | 调哪些 |
 |---|---|
 | 常规 Web | P0–P9，跳过 P10–P13 |
+| 近 3-5 月升过级 | 优先 P-1 + P6 |
 | AI / Agent 类 | + P10、P11 |
 | 有协议解析/网络组件 | + P12 |
 | 做源码审计 | + P13 |
@@ -96,46 +123,67 @@ P13 运行时映射  语言/标准库（CPython/OpenJDK/V8）
 
 | 脚本 | 作用 | 步骤 |
 |---|---|---|
+| `src_stack.py` | 版本升级敞口 + 底层根因映射 | P-1/P10/P12/P13 |
 | `src_calibrate.py` | 用近三月漏洞反向校准工作流 | P0 |
-| `src_variant.py` | 模式泛化（24 维） | P1 |
+| `src_variant.py` | 模式泛化（26 维） | P1 |
 | `src_intel.py` | 情报打分排序 | P1 |
 | `run.py` | 确定性步骤编排器 | P2/P3 |
 | `src_patchdiff.py` | 补丁前后行为对比 | P6 |
 | `src_rules.py` | 公开检测规则库挖掘 | P9 |
-| `src_stack.py` | 底层根因映射（框架/协议/运行时） | P10/P12/P13 |
 | `src_gitpatch.py` | GitHub 静默补丁 / 源码分析 | P1/P6 |
 | `src_scout.py` | 未授权/越权/泄露探测 | P3 |
 | `mock_target.py` `mock_patchdiff.py` | 本地靶场（验证判据用） | — |
 
 ---
 
+## 泛化引擎：26 维
+
+```bash
+python3 scripts/src_variant.py demo --top 6
+```
+
+| 维度 | 分 | 一句话 |
+|---|---|---|
+| `sig_separation` | 95 | 签名/校验对象与取值对象分离 |
+| `invariant_conflict` | 95 | 同一对象的两种表示走不同校验路径 |
+| `declared_boundary` | 92 | 声明边界 ≠ 实际处理边界（跨三层） |
+| `vendor_recurrence` | 92 | 同厂商同组件跨年复发 |
+| `silent_patch` | 92 | 描述平淡但改动在守卫的 commit |
+| `repeated_patch` | 90 | 同模块短周期连环修复 |
+| `upgrade_regression` | 90 | 升级后安全控制静默消失 |
+| `api_misuse` | 85 | 不当 API / 查找路径误用 |
+| `migration_exemption` | 80 | 为兼容而开的永久豁免 |
+
+---
+
 ## 快速开始
 
 ```bash
-# 0. 反向校准（用你收集的近三月漏洞）
+# P-1 开工第一问（必做）
+python3 src_stack.py upgrade --lang python
+
+# P0 反向校准
 python3 src_calibrate.py load --file vulns.json
 
-# 1. 挖规则库里的根因族
+# P9 挖规则库根因族
 python3 src_rules.py download
 python3 src_rules.py cwe --cwe CWE-347
-python3 src_rules.py vendor
 
-# 2. 底层根因映射（专家模块）
-python3 src_stack.py frame                          # 框架自身
-python3 src_stack.py proto                          # 协议层
-python3 src_stack.py lang --lang python             # 运行时
-python3 src_stack.py map --family declared_boundary # 根因→应用层
+# 底层根因映射（专家模块）
+python3 src_stack.py frame
+python3 src_stack.py proto
+python3 src_stack.py map --family declared_boundary
 
-# 3. 日常开工：跑完确定性步骤，再输出引导提问
+# 日常开工
 python3 run.py daily --dir ./work
 python3 run.py ask p3
 ```
 
 ---
 
-## 两条容易踩的纪律
+## 三条容易踩的纪律
 
-### 疑似 vs 臆测
+### 1. 疑似 vs 臆测
 
 ```
 疑似 = 有客观差异（两版本响应不同 / 换凭证返回他人数据）
@@ -144,12 +192,17 @@ python3 run.py ask p3
 
 Atmail 规则：*"three or more invalid reports within 90 days → 6 个月封禁"*。
 
-### 底层 CVE 是导航图，不是靶子
+### 2. 底层 CVE 是导航图，不是靶子
 
 协议层/运行时层/框架层的漏洞本身报不了 SRC——
 你证明不了"某网站受 NAT 漏洞影响"。
 
 **能提交的是映射后的应用层形态**：它在目标的代码里，在 SRC 范围内，复现得出来。
+
+### 3. 升级验收
+
+升级类目标**不能只看"服务起来了"**。从每个能触达的网络段确认
+**认证·授权·加密·日志·网络绑定** 五类控制仍生效。
 
 ---
 
@@ -169,7 +222,7 @@ Atmail 规则：*"three or more invalid reports within 90 days → 6 个月封�
 1. **脚本判据只在本地靶场验证过**。相似度阈值 0.85 是拍的，
    真实环境有 WAF / CDN 缓存 / 风控，大概率要调。
 2. **泛化假设的实际命中率未实测**，估计 20%-40%。
-3. **P4 业务逻辑校准 0 命中**，连续两轮——大概率是取样偏了。
+3. **P4 业务逻辑校准 0 命中**，连续多轮——大概率是取样偏了。
 4. 框架层竞争最激烈，跟"静默补丁零竞争"正好相反。
 
 ---
@@ -180,4 +233,4 @@ Atmail 规则：*"three or more invalid reports within 90 days → 6 个月封�
 两者**完全独立，互不干扰**，可并存使用。
 
 - 根目录 = AI 编程协作（七步主干 · 九条铁律 · 五道门禁）
-- `src-hunting-workflow/` = SRC 漏洞挖掘（十四步 · 三条铁律 · 根因族 + 底层映射层）
+- `src-hunting-workflow/` = SRC 漏洞挖掘（开工第一问 + 十四步 · 三条铁律）
