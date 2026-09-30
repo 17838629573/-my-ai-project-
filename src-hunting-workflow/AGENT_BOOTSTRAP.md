@@ -25,6 +25,28 @@
 
 ---
 
+## 0.3 规则已硬化：能判定的交给脚本，别靠记忆
+
+**本工作流的确定性规则已搬进代码。** 不要背诵条文，跑脚本即可：
+
+```bash
+python3 scripts/src_gate.py rules                # 看全部硬规则
+python3 scripts/src_gate.py check ...            # 一次跑完所有闸门
+python3 scripts/src_gate.py rate --platform <平台> --rps <值>
+python3 scripts/src_gate.py evidence --file items.json
+python3 scripts/src_gate.py merge --file items.json
+python3 scripts/src_gate.py intel --epss <值> --kev --cve <CVE>
+python3 scripts/src_gate.py quota --add N
+python3 scripts/src_gate.py preflight
+```
+
+六个闸门：限速 · 证据链 · 合并判定 · 情报验证 · 注意力配额 · 开工前置。
+
+**硬化的边界是「判据」，不是「路径」。**
+往哪找、这个根因像什么、要不要换角度——这些仍然靠你，文档里以提问形式保留。
+
+---
+
 ## 0.5 开工第一问（不管你走哪条路径，先答这一句）
 
 > **目标的语言 / 框架 / 运行时，近 3-5 个月是否升过级？**
@@ -184,6 +206,7 @@ FOFA 语法错了还能重扫，**优先级排错了是浪费整个周期**。
 把它们当主要探测集等于浪费时间。
 
 **目标类型须与后续步骤能力匹配**——纯静态官网这类"探测器照不到"的目标尽早换掉。
+（`src_gate.py preflight` 会检查这四项：授权范围 / 限速 / 凭证 / 目标非纯静态）
 
 ---
 
@@ -203,6 +226,9 @@ FOFA 语法错了还能重扫，**优先级排错了是浪费整个周期**。
 ```
 
 **臆测一律丢弃，不写进任何报告。**
+
+以上由 `src_gate.py evidence` 判定——四项证据（请求/响应/判定数值/前置条件）
+缺任一项就会被拦下，不需要你自己判断。
 
 为什么这么严？Atmail 的规则：
 
