@@ -274,6 +274,7 @@ def cmd_check(a):
     print(" 全部闸门检查")
     print("=" * 70 + "\n")
     rc = 0
+    errored = []
     for name, fn in (("限速", lambda: gate_rate(a)),
                      ("证据链", lambda: gate_evidence(a)),
                      ("情报验证", lambda: gate_intel(a)),
@@ -285,9 +286,17 @@ def cmd_check(a):
         except SystemExit:
             pass
         except Exception as e:
-            print(f"   (跳过: {e})")
+            # 静默吞异常会让 check 谎报「全部通过」——必须记为失败
+            errored.append(f"{name}: {type(e).__name__}: {e}")
+            print(f"   [!!] 闸门执行出错: {type(e).__name__}: {e}")
+            print(f"        本闸门未执行，结果不可信")
         print()
     print("=" * 70)
+    if errored:
+        print(f" [!!] {len(errored)} 个闸门执行出错，无法判定——不得当作通过")
+        for e in errored:
+            print(f"      - {e}")
+        return 2
     print(" [OK] 全部通过" if rc == 0 else " [x] 存在未通过项")
     return rc
 
@@ -342,8 +351,9 @@ def main():
     s.add_argument("--src", action="store_true")
     s.add_argument("--parse", action="store_true")
     s.add_argument("--api", action="store_true")
+    s.add_argument("--add", type=int, default=0)
     s.add_argument("--scope", action="store_true")
-    s.add_argument("--rate", dest="rate_ok", action="store_true")
+    s.add_argument("--rate", action="store_true")
     s.add_argument("--cred", action="store_true")
     s.add_argument("--interactive", action="store_true")
     s.set_defaults(func=cmd_check)
