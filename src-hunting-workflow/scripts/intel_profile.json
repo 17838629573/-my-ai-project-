@@ -1,0 +1,61 @@
+{
+  "stack": [
+    "spring",
+    "shiro",
+    "fastjson",
+    "jackson",
+    "log4j",
+    "struts",
+    "thinkphp",
+    "laravel",
+    "django",
+    "flask",
+    "express",
+    "nginx",
+    "tomcat",
+    "jenkins",
+    "gitlab",
+    "redis",
+    "elasticsearch",
+    "weblogic",
+    "jboss",
+    "solr",
+    "nacos",
+    "apollo",
+    "xxl-job",
+    "webpack",
+    "vllm"
+  ],
+  "lang": [
+    "java",
+    "php",
+    "python",
+    "node",
+    "go"
+  ],
+  "vuln_pref": [
+    "rce",
+    "代码执行",
+    "远程代码执行",
+    "未授权",
+    "unauth",
+    "鉴权绕过",
+    "auth bypass",
+    "idor",
+    "越权",
+    "ssrf",
+    "sql注入",
+    "sqli",
+    "反序列化",
+    "deserial",
+    "文件上传",
+    "路径穿越",
+    "path traversal",
+    "任意文件读"
+  ],
+  "vuln_avoid": [
+    "dos",
+    "拒绝服务",
+    "denial of service"
+  ]
+}
