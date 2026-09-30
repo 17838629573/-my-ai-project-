@@ -116,6 +116,16 @@ step("P13", "运行时根因映射（语言/标准库）",
       "o(n", "复杂度", "栈溢出", "递归"],
      "src_stack.py lang --lang python / runtime")
 
+step("P14", "成熟架构指纹匹配 + 低频验证",
+     ["wordpress", "joomla", "drupal", "thinkphp", "ruoyi", "若依", "织梦",
+      "spring", "spring boot", "django", "laravel", "fastapi", "express",
+      "dify", "n8n", "langflow", "langchain", "fastgpt", "maxkb", "ragflow",
+      "nginx", "traefik", "kong", "tomcat", "jenkins", "gitlab", "grafana",
+      "gogs", "gitea", "redis", "elasticsearch", "mongodb", "sonarqube",
+      "架构", "中间件", "cms", "框架版本", "默认配置", "未授权访问",
+      "actuator", "icon_hash", "指纹"],
+     "src_stack.py arch")
+
 step("P8", "AI / Agent 决策边界",
      ["提示注入", "prompt", "agent", "工具调用", "llm", "rag",
       "mcp", "语音", "asr", "模型", "指令"],
