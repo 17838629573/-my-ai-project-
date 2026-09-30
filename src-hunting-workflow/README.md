@@ -83,6 +83,28 @@ python3 scripts/src_stack.py upgrade --lang python
 
 **判断标准**：这个答案能不能写成可判定的条件？能 → 交给脚本。
 
+### 规则硬化：文档只留提问
+
+v2.5 把可判定的规则全部搬进 `src_gate.py`：
+
+```bash
+python3 scripts/src_gate.py rules      # 看全部硬规则
+python3 scripts/src_gate.py check ...  # 一次跑完所有闸门
+```
+
+| 已硬化 | 未硬化（留给模型） |
+|---|---|
+| 限速、证据链、合并判定、情报验证、注意力配额、开工前置 | 往哪找、像什么、要不要换角度、业务语义 |
+
+**为什么这么做**：硬化前 WORKFLOW.md 557 行里引导提问只占 21%，
+而"必须/禁止/一律"这类要记住并执行的措辞出现 44 次。
+
+规则要逐条比对、持续占用注意力；提问读完就理解。
+硬化后**常驻的只剩提问**（占比升至 24%，表格从 12% 降到 5%）。
+
+**硬化的边界是「判据」，不是「路径」。**
+如果连往哪想都硬化了，AI 就退化成脚本执行器，那还要模型干什么。
+
 ---
 
 ## 步骤总览
@@ -124,6 +146,7 @@ P13 运行时映射   语言/标准库（CPython/OpenJDK/V8）
 | 脚本 | 作用 | 步骤 |
 |---|---|---|
 | `src_stack.py` | 版本升级敞口 + 底层根因映射 | P-1/P10/P12/P13 |
+| `src_gate.py` | **确定性规则硬化引擎**（六个闸门） | 全程 |
 | `src_calibrate.py` | 用近三月漏洞反向校准工作流 | P0 |
 | `src_variant.py` | 模式泛化（26 维） | P1 |
 | `src_intel.py` | 情报打分排序 | P1 |
@@ -159,6 +182,9 @@ python3 scripts/src_variant.py demo --top 6
 ## 快速开始
 
 ```bash
+# 开工前置（必做，六项闸门一次跑完）
+python3 src_gate.py preflight
+
 # P-1 开工第一问（必做）
 python3 src_stack.py upgrade --lang python
 
