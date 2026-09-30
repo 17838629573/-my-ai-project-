@@ -196,6 +196,73 @@ PROTO_POOL = [
     ("IP", "BGP 前缀劫持", "更长前缀匹配劫持流量（Virtualizor 被劫持 22 小时）", "无源认证是根因"),
 ]
 
+# ── 版本升级敞口（P0 前置检查）─────────────────────────────────────────────
+# 判读规则：不是所有变更都意味着旧版有洞，要分层
+UPGRADE_SIGNAL_TIERS = [
+    ("强", "变更描述含 security / unsafe / safer / harden / vulnerability",
+     "官方已定性为安全相关，旧行为多半不安全"),
+    ("强", "默认行为变更",
+     "旧默认被判定为不安全 → 未升级的实例全部暴露"),
+    ("强", "移除或重命名配置项 / 凭证项",
+     "迁移断裂高危：升级后控制可能静默失效"),
+    ("中", "移除无人维护的模块（dead batteries）",
+     "无补丁可领，但未必可利用"),
+    ("弱", "纯功能新增 / 性能改进",
+     "与安全无关，不要据此推断旧版有洞"),
+]
+
+UPGRADE_WATCHLIST = {
+    "python": {
+        "窗口": "近 3-5 个月：3.13.x 维护版 → 3.14.x",
+        "关键变更": [
+            ("3.13", "PEP 594 移除 19 个 stdlib 模块",
+             "cgi/telnetlib/nntplib/crypt/imghdr/pipessndhdr/aifc/audioop/chunk/mailcap/nis/uu/xdrlib 等",
+             "移除理由是长期无人维护 → 3.13 之前用它们的系统永无补丁"),
+            ("3.14", "multiprocessing 默认 start method 改为更安全的（非 fork）",
+             "gh-84559，Linux 默认从 fork 改更安全的启动方式",
+             "强信号：旧默认被判定为不安全"),
+            ("3.14", "注解默认延迟求值（PEP 649/749）",
+             "读 __annotations__ 的代码行为改变",
+             "静默失败：不报 ImportError，而是拿到 ForwardRef"),
+            ("3.13.11", "加急发布修回归 + 安全修复",
+             "multiprocessing 升级中异常、insertdict 段错误、re.Scanner 捕获组崩溃",
+             "「升级过程中暴露」的活标本"),
+        ],
+        "查法": "python -W error::DeprecationWarning -m pytest 让废弃用法直接报错",
+    },
+    "java": {
+        "窗口": "JDK 8/11 → 17/21 是最大断裂带；17+ 仍有季度安全公告",
+        "关键变更": [
+            ("JDK 17", "JEP 403 强封装 java.* 内部 API",
+             "反射访问非公开字段默认抛 InaccessibleObjectException",
+             "加固项，但迁移需 --add-opens/--add-exports 开豁免"),
+            ("JDK 17", "--illegal-access 选项作废",
+             "JDK 9-16 的 permit/warn/debug/deny 一律无效",
+             "无法再用旧开关放行，只能逐个 --add-opens"),
+            ("JDK 11", "JAXB / JAF 移出 JDK",
+             "javax.xml.bind 不存在，需 jakarta.xml.bind",
+             "老代码编译失败 → 常见临时解法引入老依赖"),
+            ("JDK 21", "Thread.stop/suspend/resume 移除",
+             "应在 17 就替换", "功能类，安全相关性低"),
+        ],
+        "查法": "jdeps --jdk-internals / jdeprscan --for-removal；同时查启动脚本里的 --add-opens",
+    },
+    "go": {
+        "窗口": "Go 1.x 半年一版，标准库变更温和",
+        "关键变更": [
+            ("Go 1.22+", "net/http 路由增强", "路径匹配更严格", "旧版通配可能被绕过"),
+        ],
+        "查法": "go vet + 对照 release notes 的 security 小节",
+    },
+    "js": {
+        "窗口": "Node 大版本切换快，注意 EOL 版本",
+        "关键变更": [
+            ("Node 20+", "权限模型实验性引入", "--experimental-permission", "默认无，需显式开启"),
+        ],
+        "查法": "npm outdated + 检查 EOL 版本是否仍在跑",
+    },
+}
+
 # ── 框架池（P10）─────────────────────────────────────────────────────────
 FRAME_POOL = [
     ("MCP", "STDIO 传输命令注入", "设计缺陷，厂商拒绝修复",
@@ -213,6 +280,61 @@ FRAME_POOL = [
     ("WordPress", "CVE-2026-87902 模板路径遍历", "CVSS 9.2，需 page- 目录 + 本地可利用 php", "占全球 40% 网站"),
     ("WordPress", "CVE-2026-63030 REST batch RCE", "CVSS 9.8", ""),
 ]
+
+
+def show_upgrade(a):
+    print("=" * 74)
+    print(" 版本升级敞口（P0 前置检查 · 开工第一问）")
+    print("=" * 74)
+    print("""
+第一问：目标的语言/框架/运行时，近 3-5 个月是否升过级？
+
+  没升级  → 旧版本本身就是敞口（已知 CVE + 无补丁的废弃 API）
+  升过级  → 追问：升的是哪部分？升级过程暴露了什么？
+
+为什么是 3-5 个月：短于 3 个月变更太少，长于 5 个月
+早已被别人扫过，时间窗关闭。
+""")
+    print("── 变更信号分级（避免误报的关键）──")
+    for tier, cond, why in UPGRADE_SIGNAL_TIERS:
+        print(f"   [{tier}] {cond}")
+        print(f"        {why}")
+    print()
+    if a.lang:
+        key = a.lang.lower()
+        if key not in UPGRADE_WATCHLIST:
+            print(f"[!] 未收录 {key}，可选: {', '.join(UPGRADE_WATCHLIST)}")
+            return 1
+        d = UPGRADE_WATCHLIST[key]
+        print(f"── {key} · {d['窗口']} ──")
+        for ver, change, detail, why in d["关键变更"]:
+            print(f"\n   ● {ver}  {change}")
+            print(f"     {detail}")
+            print(f"     → {why}")
+        print(f"\n   查法: {d['查法']}")
+    else:
+        for lang, d in UPGRADE_WATCHLIST.items():
+            print(f"── {lang} · {d['窗口']} ──")
+            for ver, change, detail, why in d["关键变更"][:2]:
+                print(f"   ● {ver}  {change}")
+                print(f"     → {why}")
+            print()
+        print("用 --lang 看完整清单")
+    print("""
+══════════════════════════════════════════════════════════════════════
+ 升级类目标必须做的验收测试
+══════════════════════════════════════════════════════════════════════
+
+不要只看「服务起来了」。从每个能触达的网络段确认五类控制仍然生效：
+
+   认证 · 授权 · 加密 · 日志 · 网络绑定
+
+任何一类在升级后消失或降级，且无显式报错 = upgrade_regression 命中。
+
+判据：升级后未认证访问是否被拒绝？
+（成功启动 ≠ 安全迁移 —— CVE-2026-59178 就是只打 banner、容器 detached 看不到）
+""")
+    return 0
 
 
 def show_families(a):
@@ -383,6 +505,10 @@ def main():
     s = sub.add_parser("lang", help="语言/运行时攻击面（P13）")
     s.add_argument("--lang", required=True, choices=list(LANG_RISK))
     s.set_defaults(func=show_lang)
+
+    s = sub.add_parser("upgrade", help="版本升级敞口（P0 前置检查）")
+    s.add_argument("--lang", choices=list(UPGRADE_WATCHLIST))
+    s.set_defaults(func=show_upgrade)
 
     sub.add_parser("proto", help="协议层根因池（P12）").set_defaults(func=show_proto)
     sub.add_parser("frame", help="框架自身攻击面（P10）").set_defaults(func=show_frame)
