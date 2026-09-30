@@ -76,6 +76,53 @@ dim(
 )
 
 dim(
+    "declared_boundary", "★声明边界 ≠ 实际处理边界（跨协议/运行时/应用三层）",
+    lambda v: True,
+    "审查每一处「声明的长度/范围/状态」与「实际读取或使用的范围」是否一致。"
+    "协议层：CapLen=0 却读后续字节、RRSIG.Labels 与实际 label 数不符、"
+    "NAT 表项标记关闭却仍在内存可复用。"
+    "运行时层：tarfile 用解析后路径做包含检查但中间路径组件未校验、"
+    "DataView 用绝对索引忽略 offset、zip 声明大小与实际解压量不符。"
+    "应用层：Content-Length vs 实际读取、chunked 边界、multipart boundary、"
+    "签名覆盖范围 vs 实际取值字段、路由匹配路径 vs 实际执行路径",
+    "系统按声明值分配/校验，但实际读写的范围超出该声明",
+    92,
+    "10+ 跨层实证：GoBGP CapLen、Unbound RRSIG.Labels、NatJack 表项复用、"
+    "CPython tarfile 三次连环修复、OpenJDK DataView offset、"
+    "GitLab SAML、Traefik StripPrefix、Kestra 后缀路径匹配",
+)
+
+dim(
+    "api_misuse", "不当 API / 查找路径误用（非校验缺失）",
+    lambda v: True,
+    "这类洞不是「少了校验」，而是「用了错误的查找方式」——"
+    "正常输入下完美工作，只在攻击者控制的键名下崩溃或越界。"
+    "重点查：实例属性覆盖原型方法（message.hasOwnProperty 被字段名遮蔽 → "
+    "应改 Object.hasOwnProperty.call）、以绝对索引替代相对偏移、"
+    "依赖未规范化的路径字符串做包含判断、用可变对象作默认参数/缓存键、"
+    "黑名单式函数名过滤（可用 getattr/importlib/编码绕过）",
+    "攻击者控制某个名称（字段名/方法名/键名）后，"
+    "程序走到了与预期不同的内部实现路径",
+    85,
+    "实证：protobufjs CVE-2026-54269（字段名 hasOwnProperty/rpcCall 遮蔽内部方法）、"
+    "OpenJDK CVE-2026-47058（DataView 忽略 offset）。"
+    "特征：正常输入完全正常，代码审查难发现，只在特定键名下触发",
+)
+
+dim(
+    "repeated_patch", "★同模块短周期连环修复（补手法不重构）",
+    lambda v: True,
+    "查同一模块/组件在数月内是否被反复修复同一类问题。"
+    "若是，说明修复是「堵具体形态」而非「重构校验模型」，必有下一种形态。"
+    "手法：按模块名聚合该项目的历史 CVE，看 CWE 是否重复、时间间隔是否很短",
+    "同一模块 3-6 个月内出现 2 个以上同 CWE 修复，"
+    "且每次修复针对的是具体输入形态",
+    90,
+    "实证：CPython tarfile 三个月三连修（19672 名离返/82049 硬链指软链/"
+    "87910 fallback 双调用）、GitLab SAML 两年两连（删签名→CDATA）",
+)
+
+dim(
     "sig_separation", "★签名/校验对象与取值对象分离（CWE-347族）",
     lambda v: (v.get("root_cause") in ("incomplete_fix", "trust_client")
                or "347" in str(v.get("vuln_class", "")) + str(v.get("cwe", ""))
