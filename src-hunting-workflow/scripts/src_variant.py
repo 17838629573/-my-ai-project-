@@ -76,6 +76,38 @@ dim(
 )
 
 dim(
+    "upgrade_regression", "★升级后安全控制消失（迁移断裂）",
+    lambda v: True,
+    "升级成功 ≠ 安全迁移。重点查：配置项/凭证项改名后旧名无 fallback、"
+    "默认行为变更导致依赖旧假设的校验失效、升级后认证/授权/加密/日志/网络绑定"
+    "任一控制在静默状态下被禁用。"
+    "手法：对比升级前后五类控制（认证、授权、加密、日志、网络绑定）的状态，"
+    "任何一类消失或降级 = 命中。"
+    "特别注意只在启动日志提示、容器 detached 运行看不到信号的场景",
+    "升级后某项安全控制的实际状态弱于升级前，且无显式报错",
+    90,
+    "实证：ESPHome CVE-2026-59178（CVSS 9.8）——USERNAME/PASSWORD 改名后无 fallback，"
+    "升级后凭证解析为空，REST 中间件与 WebSocket 登录门全部禁用，"
+    "仅在启动日志打 banner，docker run -d 看不到。"
+    "Python 3.13.11 是「加急发布修回归」：multiprocessing 升级中异常、insertdict 段错误",
+)
+
+dim(
+    "migration_exemption", "为兼容而开的永久豁免",
+    lambda v: True,
+    "迁移期常通过运行期开关「打开」本已加固的边界，而这些豁免会永久留在生产。"
+    "Java：--add-opens / --add-exports / --illegal-access（JEP 403 强封装原本是加固）"
+    "语言运行时：legacy fallback 开关、兼容层、deprecated 但仍在用的 API（CWE-477）"
+    "框架：老版本 API 路径未下线（/api/v1/ 缺 v2 才有的鉴权）"
+    "手法：查启动脚本、容器 entrypoint、manifest 属性、网关版本路由配置",
+    "存在运行期开关恢复了本已被移除或加固的能力，且该开关长期启用",
+    80,
+    "实证：JDK 17 强封装本为加固，但迁移老代码需 --add-opens，"
+    "该豁免只存在于启动脚本、代码审查看不见。"
+    "OWASP API9:2023 老版本 API 缺新版本才有的鉴权/限流/校验",
+)
+
+dim(
     "declared_boundary", "★声明边界 ≠ 实际处理边界（跨协议/运行时/应用三层）",
     lambda v: True,
     "审查每一处「声明的长度/范围/状态」与「实际读取或使用的范围」是否一致。"
