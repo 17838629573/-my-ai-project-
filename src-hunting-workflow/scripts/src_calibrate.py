@@ -307,7 +307,109 @@ def cmd_demo(a):
         print(f"\n[+] 样本已写入 {a.out}")
 
 
+# ── 样本分类（R3）：非知名 CVE 单独统计 ────────────────────────────────────
+# 已披露的大厂 CVE 描述里关键词密度天然高，靠关键词匹配当然 100% 命中。
+# 那叫自证，不叫校准。必须把非知名样本单独拎出来看。
+FAMOUS_VENDORS = [
+    "microsoft", "微软", "apple", "苹果", "google", "谷歌", "cisco", "oracle",
+    "adobe", "vmware", "sony", "索尼", "samsung", "三星", "intel", "amd",
+    "apache", "linux", "redhat", "canonical", "ibm", "huawei", "华为",
+    "fortinet", "paloalto", "palo alto", "citrix", "f5", "juniper",
+    "wordpress", "chrome", "windows", "android", "ios", "macos",
+]
+
+NONFAMOUS_HINTS = [
+    # 社区 / 小众 / AI云原生 正向线索
+    "github advisory", "ghsa", "社区", "小众", "冷门", "非头部",
+    "kubernetes", "k8s", "容器", "docker", "模型服务", "llm", "ai",
+    "云原生", "自研", "内部系统", "闭源", "未公开", "cnvd", "补天",
+]
+
+
+def classify_sample(v):
+    """返回 (是否知名, 判定理由)"""
+    blob = " ".join(str(v.get(k, "")) for k in
+                    ("title", "product", "vendor", "vuln_class",
+                     "root_cause", "source", "note", "desc")).lower()
+    hit_famous = [f for f in FAMOUS_VENDORS if f in blob]
+    hit_non = [h for h in NONFAMOUS_HINTS if h in blob]
+    if hit_non and not hit_famous:
+        return False, "非知名线索: " + ", ".join(hit_non[:2])
+    if hit_famous:
+        return True, "知名厂商: " + ", ".join(hit_famous[:2])
+    return False, "未匹配知名厂商（视为非知名）"
+
+
 def cmd_load(a):
+    data = json.load(open(a.file, encoding="utf-8"))
+    vulns = data if isinstance(data, list) else [data]
+    if len(vulns) < 10:
+        print(f"[!] 样本仅 {len(vulns)} 个，建议 15 个左右（少于 10 个统计无意义）")
+    if len(vulns) > 25:
+        print(f"[!] 样本 {len(vulns)} 个，校准成本偏高，建议先取 15-20 个")
+
+    # ── 样本构成检查（R3）──
+    fam, non = [], []
+    for v in vulns:
+        is_f, why = classify_sample(v)
+        (fam if is_f else non).append((v, why))
+    total = len(vulns) or 1
+    ratio = len(non) / total
+    print("─" * 74)
+    print(" 样本构成检查（R3：非知名 CVE 须 ≥ 1/3）")
+    print("─" * 74)
+    print(f"   总数 {len(vulns)}   知名 {len(fam)}   非知名 {len(non)}   非知名占比 {ratio:.0%}")
+    if ratio < 1 / 3:
+        print(f"\n   [!] 非知名样本不足（{ratio:.0%} < 33%）")
+        print("       已披露大厂 CVE 关键词密度天然高，匹配上不算校准成功。")
+        print("       请补入：社区披露 / 小众组件 / AI云原生 / 闭源公告。")
+        if getattr(a, "require_nonfamous", False):
+            print("\n   [x] --require-nonfamous 已开启：本轮校准判定为【不通过】")
+            print("       补齐样本后重跑。\n")
+    else:
+        print("   [OK] 非知名占比达标")
+
+    rows, unc = calibrate(vulns, a.top)
+    print_report(rows, unc, vulns)
+
+    # ── 非知名样本单独覆盖率（R3 核心）──
+    if non:
+        nrows, nunc = calibrate([v for v, _ in non], a.top)
+        covered = len([r for r in nrows if r[1] > 0]) if nrows else 0
+        print("─" * 74)
+        print(f" 非知名样本单独覆盖率（真信号）：{covered}/{len(non)}"
+              f" = {covered / len(non):.0%}")
+        print("─" * 74)
+        for k, c in nrows:
+            print(f"   {k}  {c}")
+        if nunc:
+            print(f"\n   非知名样本里的缺口: {', '.join(str(x) for x in nunc)}")
+
+    # ── 零命中步骤追踪（R2）──
+    zero = [k for k, c in rows if c == 0]
+    if zero:
+        print("─" * 74)
+        print(" 零命中步骤（R2：连续三轮须处置）")
+        print("─" * 74)
+        for k in zero:
+            print(f"   {k}  {STEPS[k]['name'] if k in STEPS else ''}")
+        print("\n   处置要求：")
+        print("     第 1 轮 0 → 补该方向样本，下一轮重跑")
+        print("     第 2 轮仍 0 → 再补并明确记录补了什么")
+        print("     第 3 轮仍 0 → 降级为观察态，从主干移除")
+        print("     禁止用「属正常」「样本滞后」收尾，必须落到动作")
+
+    if a.out:
+        json.dump({"coverage": rows, "gaps": unc,
+                   "sample_mix": {"total": len(vulns), "famous": len(fam),
+                                  "nonfamous": len(non), "ratio": round(ratio, 3)},
+                   "zero_hit_steps": zero},
+                  open(a.out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        print(f"\n[+] 已写入 {a.out}")
+    return 0
+
+
+def cmd_load_raw(a):
     data = json.load(open(a.file, encoding="utf-8"))
     vulns = data if isinstance(data, list) else [data]
     if len(vulns) < 10:
@@ -350,6 +452,8 @@ def main():
     sub.add_parser("demo", parents=[common], help="内置 15 个样本").set_defaults(func=cmd_demo)
     s = sub.add_parser("load", parents=[common], help="载入自己收集的漏洞")
     s.add_argument("--file", required=True)
+    s.add_argument("--require-nonfamous", action="store_true",
+                   help="R3：非知名样本不足 1/3 时判定不通过并退出")
     s.set_defaults(func=cmd_load)
     sub.add_parser("steps", parents=[common], help="查看步骤定义").set_defaults(func=cmd_steps)
     a = ap.parse_args()
