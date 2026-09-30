@@ -2,7 +2,7 @@
 
 # SRC 挖洞工作流
 
-**开工第一问 + 十三步主干 · 三条铁律 · 根因族抽象层 · 底层根因映射层**  
+**开工第一问 + 十四步主干 · 三条铁律 · 根因族抽象层 · 底层根因映射层**  
 让挖洞从"看运气"变成"有保底"，每一步可追溯、可校准、不漏扫
 
 </div>
@@ -131,6 +131,7 @@ P10 框架自身    挖框架而非应用
 P11 多Agent边界  权限继承 / confused deputy
 P12 协议层映射   自下而上（NAT/DNS/BGP/TLS）
 P13 运行时映射   语言/标准库（CPython/OpenJDK/V8）
+P14 成熟架构     指纹匹配 + 低频验证（成本极低，每次都跑）
 ```
 
 | 目标类型 | 调哪些 |
@@ -140,6 +141,7 @@ P13 运行时映射   语言/标准库（CPython/OpenJDK/V8）
 | AI / Agent 类 | + P10、P11 |
 | 有协议解析/网络组件 | + P12 |
 | 做源码审计 | + P13 |
+| 用了知名开源架构 | + P14（首推） |
 
 ---
 
@@ -147,7 +149,7 @@ P13 运行时映射   语言/标准库（CPython/OpenJDK/V8）
 
 | 脚本 | 作用 | 步骤 |
 |---|---|---|
-| `src_stack.py` | 版本升级敞口 + 底层根因映射 | P-1/P10/P12/P13 |
+| `src_stack.py` | 版本升级敞口 + 底层根因映射 + **成熟架构池** | P-1/P10/P12/P13/P14 |
 | `src_gate.py` | **确定性规则硬化引擎**（六个闸门） | 全程 |
 | `src_calibrate.py` | 用近三月漏洞反向校准工作流 | P0 |
 | `src_variant.py` | 模式泛化（26 维） | P1 |
@@ -200,6 +202,7 @@ python3 src_rules.py cwe --cwe CWE-347
 # 底层根因映射（专家模块）
 python3 src_stack.py frame
 python3 src_stack.py proto
+python3 src_stack.py arch --cat "AI/自动化"
 python3 src_stack.py map --family declared_boundary
 
 # 日常开工
@@ -261,4 +264,4 @@ Atmail 规则：*"three or more invalid reports within 90 days → 6 个月封�
 两者**完全独立，互不干扰**，可并存使用。
 
 - 根目录 = AI 编程协作（七步主干 · 九条铁律 · 五道门禁）
-- `src-hunting-workflow/` = SRC 漏洞挖掘（开工第一问 + 十三步 · 三条铁律）
+- `src-hunting-workflow/` = SRC 漏洞挖掘（开工第一问 + 十四步 · 三条铁律）
