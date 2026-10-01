@@ -1,59 +1,62 @@
 #!/usr/bin/env python3
-# 本地 mock 靶场：仅用于验证 src_scout.py 的判据是否正确
+# -*- coding: utf-8 -*-
+"""
+mock_target.py —— 本地模拟目标，用于验证 rk_* 工具链
+完全无害：只监听 127.0.0.1，复现本项目遇到的关键分流场景。
+场景:
+  /<random>/           -> 404·<LEN-1693>  网关层模板
+  /<random>.jsp        -> 404·<LEN-2455>  应用层模板
+  /system/             -> 200·<LEN-912>   登录墙
+  /examples/           -> 404·<LEN-1693>  网关拦（目录形态）
+  /examples/index.jsp  -> 404·<LEN-2455>  穿透（文件形态）  <-- 本项目栽过的坑
+  <APPROOT>/public/a.html  -> 200·<LEN-577>   filter 拦
+  <APPROOT>/public/a.jsp   -> 200        放行             <-- jwmis 栽过的坑
+  /docs/               -> 404·<LEN-649>   原生 Tomcat 页（页脚含 Apache Tomcat/9.0.99）
+"""
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import json, re
-from urllib.parse import urlparse, parse_qs
+import re
 
-ORDERS = {"1001": {"user": "A", "phone": "13800000001", "addr": "A的地址"},
-          "1002": {"user": "B", "phone": "13900000002", "addr": "B的地址"}}
+def pad(n, seed):
+    s = f"<!-- {seed} -->\n" + ("x" * 60 + "\n") * ((n // 61) + 1)
+    return s[:n].encode()
 
+GW404 = pad(1693, "gateway-404")
+APP404 = pad(2455, "app-404")
+AUTH = pad(912, "system-login")
+FILTER = b'<script>alert(\'<!-- 1 -->credential invalid\');window.top.location.href=\'<APPROOT>/\';</script>' + b'y' * (577 - 76)
+NATIVE = b'<html><head><title>404</title></head><body><h1>404 - Not Found</h1><hr><h3>Apache Tomcat/9.0.99</h3></body></html>'
 
 class H(BaseHTTPRequestHandler):
-    def log_message(self, *a):
-        pass
+    def log_message(self, *a): pass
 
-    def _send(self, code, body, ctype="application/json"):
-        b = body.encode() if isinstance(body, str) else body
+    def send(self, code, body, ct="text/html;charset=UTF-8"):
         self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(b)))
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(b)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def do_GET(self):
-        u = urlparse(self.path)
-        q = parse_qs(u.query)
-        if u.path == "/api/order/detail":
-            cookie = self.headers.get("Cookie", "")
-            oid = q.get("orderId", [""])[0]
-            if "session=" not in cookie:
-                return self._send(401, json.dumps({"code": 401, "msg": "请先登录"}))
-            return self._send(200, json.dumps({"code": 0, "data": ORDERS.get(oid, {})}))
-        if u.path == "/api/user/list":
-            # 故意未鉴权
-            return self._send(200, json.dumps({"code": 0, "data": [
-                {"id": 1, "phone": "13800000001"}, {"id": 2, "phone": "13900000002"}]}))
-        if u.path == "/.git/config":
-            return self._send(200, "[core]\n\trepositoryformatversion = 0\n", "text/plain")
-        if u.path == "/swagger-ui.html":
-            return self._send(200, "<html>swagger</html>", "text/html")
-        return self._send(404, json.dumps({"code": 404, "msg": "not found"}))
-
-    def do_POST(self):
-        ln = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(ln).decode(errors="ignore")
-        u = urlparse(self.path)
-        if u.path == "/api/comment/add":
-            cookie = self.headers.get("Cookie", "")
-            if "session=" not in cookie:
-                return self._send(401, json.dumps({"code": 401, "msg": "unauthorized"}))
-            try:
-                obj = json.loads(raw)
-            except Exception:
-                obj = {}
-            return self._send(200, json.dumps({"code": 0, "msg": "ok", "owner": obj.get("userId")}))
-        return self._send(404, json.dumps({"code": 404}))
-
+        p = self.path.split("?")[0]
+        if p.startswith("/system"):
+            return self.send(200, AUTH)
+        if p.startswith("/docs") or p == "/manager/html":
+            return self.send(404, NATIVE)
+        if p.startswith("<APPROOT>/public/"):
+            if p.endswith(".jsp"):
+                return self.send(200, b"<html>public jsp ok</html>")
+            return self.send(200, FILTER)
+        if p.startswith("/examples/"):
+            # 目录形态网关拦，文件形态穿透
+            if p.endswith(".jsp"):
+                return self.send(404, APP404)
+            return self.send(404, GW404)
+        if p.endswith(".jsp"):
+            return self.send(404, APP404)
+        if p == "/":
+            return self.send(200, pad(4321, "index"))
+        return self.send(404, GW404)
 
 if __name__ == "__main__":
     HTTPServer(("127.0.0.1", 8899), H).serve_forever()
