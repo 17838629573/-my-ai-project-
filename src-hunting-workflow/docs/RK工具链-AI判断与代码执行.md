@@ -47,7 +47,7 @@ python3 rk_probe.py -f cand.txt --baseline base.json --ev ev/
 
 # 5 AI 联网查 CVE → 填 feed.json
 python3 rk_cve.py --init tomcat            # 拿模板
-python3 rk_cve.py --version 9.0.108 --feed feed.json
+python3 rk_cve.py --version <版本串·示例> --feed feed.json
 
 # 6 报告（代码查措辞红线）
 python3 rk_report.py -f findings.json -o report.md
@@ -63,8 +63,8 @@ python3 rk_report.py -f findings.json -o report.md
 |---|---|
 | 形态分流自动发现 | ✅ `/examples/` 目录→网关层 vs `/examples/index.jsp`→应用层，代码自动标 `NEW` |
 | jwmis 式后缀分流 | ✅ `.jsp` 放行 / `.html` 被 filter 拦，22 条变体一次跑完，11 条 `NEW` 全部列出 |
-| GBK 编码坑 | ✅ GBK 存档自动转码，`_webRootPath+"public/SchoolCalendar.jsp"` 正确抠出 |
-| CVE 边界值 | ✅ 9.0.108 命中 4 条（含"需升级至 9.0.109"）；9.0.109 复核后 55752/55754 正确转为未命中 |
+| GBK 编码坑 | ✅ GBK 存档自动转码，`_webRootPath+"public/<自述路径·校历>"` 正确抠出 |
+| CVE 边界值 | ✅ <版本串·示例> 命中 4 条（含"需升级至 9.0.109"）；9.0.109 复核后 55752/55754 正确转为未命中 |
 | EOL 分支提示 | ✅ 无修复版本时输出"EOL 分支：上游不再提供补丁" |
 | 措辞红线 | ✅ "已确认无鉴权"→告警改"未观察到鉴权拦截"；"可执行代码"→告警 |
 | 硬纪律 | ✅ `rk_core` 对 POST/PUT/DELETE 直接抛 `UnsafeMethod` |
