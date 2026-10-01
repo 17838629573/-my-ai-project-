@@ -4,14 +4,14 @@
 rk_morph.py —— 生成「形态变体」URL 清单
 
 本项目在同一个坑上栽了两次：
-  主站   /examples/        -> 1693B 网关拦   （判"面不存在"）
-         /examples/index.jsp -> 2455B 穿透   （面其实是通的）
-  jwmis  /public/kbbp.ckjsizt.html -> 577B 拦
-         /public/SchoolCalendar.jsp -> 200 放行
+  主站   /examples/        -> <LEN-1693> 网关拦   （判"面不存在"）
+         /examples/index.jsp -> <LEN-2455> 穿透   （面其实是通的）
+  jwmis  /public/<自述路径·教室状态> -> <LEN-577> 拦
+         /public/<自述路径·校历> -> 200 放行
 结论：同一路径换后缀/换形态，可能走完全不同的路由。这个脚本把它变成机械动作。
 
 用法:
-  python3 rk_morph.py /examples/ /hsjw/public/kbbp.ckjsizt.html --base https://www.example.com
+  python3 rk_morph.py /examples/ <APPROOT>/public/<自述路径·教室状态> --base https://www.example.com
   python3 rk_morph.py -f paths.txt --base https://x.com --out urls.txt
 """
 import argparse, os, sys, json, urllib.parse
@@ -41,7 +41,7 @@ def variants(path):
             if s == ext:
                 continue
             out.append((stem + s, f"后缀互换:{ext or '(无)'}->{s or '(无)'}"))
-        # show.jsp 型：kbbp.ckjsizt.html -> kbbp.ckjsizt.show.jsp / ckjsizt.show.jsp
+        # show.jsp 型：<自述路径·教室状态> -> kbbp.ckjsizt.show.jsp / ckjsizt.show.jsp
         base_name = os.path.basename(stem)
         out.append((stem + ".show.jsp", "数据面变体:.show.jsp"))
         out.append((stem + ".show.html", "数据面变体:.show.html"))
