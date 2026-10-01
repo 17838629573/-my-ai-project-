@@ -7,7 +7,7 @@ rk_cve.py —— 版本 × CVE 确定性比对
   我在对话里凭模型内部知识判 CVE，犯了两次错——
     * 把 CVE-2025-55754 当成 RCE（实为 ANSI 控制台操纵，官方定 Low）
     * 漏掉 2026 年发布的一整批 CVE（因为模型知识停在 2025）
-  而 9.0.108 正好是 CVE-2025-55752 影响范围的**上界**（<=9.0.108，修复版 9.0.109），
+  而 9.0.99 正好是 CVE-2025-55752 影响范围的**上界**（<=9.0.99，修复版 9.0.109），
   这种边界值人工看最容易错。
 
 分工：
@@ -16,17 +16,17 @@ rk_cve.py —— 版本 × CVE 确定性比对
 
 用法:
   # 1) 生成一个空的 feed 模板，交给 AI 去搜
-  python3 rk_cve.py --init apache-tomcat --version 9.0.108
+  python3 rk_cve.py --init apache-tomcat --version 9.0.99
   # 2) AI 把搜到的 CVE 填进 feed 后，做比对
-  python3 rk_cve.py --feed tomcat.json --version 9.0.108
+  python3 rk_cve.py --feed tomcat.json --version 9.0.99
   # 3) 快速手判单条
-  python3 rk_cve.py --version 9.0.108 --intro 9.0.0.M11 --fixed 9.0.109 --id CVE-2025-55752
+  python3 rk_cve.py --version 9.0.99 --intro 9.0.0.M11 --fixed 9.0.109 --id CVE-2025-55752
 """
 import argparse, json, os, re, sys
 
 
 def vkey(v):
-    """Tomcat 风格版本号 -> 可比较元组。支持 9.0.108 / 7.0.109 / 9.0.0.M11 / 8.5.100"""
+    """Tomcat 风格版本号 -> 可比较元组。支持 9.0.99 / 7.0.109 / 9.0.0.M11 / 8.5.100"""
     v = (v or "").strip()
     m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:[\.\-](M\d+|[A-Za-z]+\d*|\d+))?$", v)
     if not m:
@@ -83,7 +83,7 @@ def judge(ver, e):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--feed", help="CVE feed JSON")
-    ap.add_argument("--version", default=None, help="目标版本，如 9.0.108")
+    ap.add_argument("--version", default=None, help="目标版本，如 9.0.99")
     ap.add_argument("--init", help="生成空 feed 模板（给产品名）")
     ap.add_argument("--id", help="单条快速判定的 CVE 编号")
     ap.add_argument("--intro", help="单条：起始受影响版本")
