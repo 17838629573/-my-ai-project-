@@ -17,7 +17,7 @@ import sys, os, json, argparse, re
 from collections import OrderedDict
 import rk_core as C
 
-# 版本串正则：本项目靠人眼在 404 页脚发现 Apache Tomcat/9.0.108，这里代码化
+# 版本串正则：本项目靠人眼在 404 页脚发现 Apache Tomcat/9.0.99，这里代码化
 VER_PATTERNS = [
     (r"Apache[ -]Tomcat[/ ]([0-9][0-9A-Za-z.\-]*)", "Apache Tomcat"),
     (r"\bTomcat[/ ]([0-9][0-9A-Za-z.\-]*)", "Tomcat"),
@@ -27,7 +27,7 @@ VER_PATTERNS = [
     (r"PHP[/ ]([0-9][0-9A-Za-z.\-]*)", "PHP"),
     (r"Jetty[/ ]?\(?([0-9][0-9A-Za-z.\-]*)", "Jetty"),
     (r"WebLogic[ ]?([0-9][0-9A-Za-z.\-]*)", "WebLogic"),
-    (r"VAppServer[/ ]([0-9][0-9A-Za-z.\-]*)", "VAppServer"),
+    (r"<定制容器名>[/ ]([0-9][0-9A-Za-z.\-]*)", "<定制容器名>"),
     (r"Java[/ ]([0-9][0-9A-Za-z._\-]*)", "Java"),
     (r"Spring[ ]?WebFlow[ ]?([0-9][0-9A-Za-z.\-]*)", "Spring WebFlow"),
     (r"Resin[/ ]([0-9][0-9A-Za-z.\-]*)", "Resin"),
@@ -45,7 +45,7 @@ def looks_auth(text, ct):
 
 
 def scan_versions(text):
-    """从任意响应正文里扫版本串。jwmis 的 9.0.108 就是这样捡到的。"""
+    """从任意响应正文里扫版本串。jwmis 的 9.0.99 就是这样捡到的。"""
     out = {}
     for pat, name in VER_PATTERNS:
         if name is None:
