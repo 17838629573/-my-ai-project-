@@ -12,7 +12,7 @@ rk_extract.py —— 从页面源码里抠「目标自述路径」
   3. 抠 JS 变量拼接（_webRootPath + "xxx"）—— jwmis 的路径就是这么藏的
 
 用法:
-  python3 rk_extract.py -f page.html --base https://jwmis.example.com/hsjw/
+  python3 rk_extract.py -f page.html --base https://jwmis.example.com<APPROOT>/
   python3 rk_extract.py -d evidence/t13/ --json
 """
 import argparse, os, re, json, sys, glob
