@@ -263,10 +263,10 @@ ARCH_POOL = {
          "组织名路径穿越类"),
     ],
     "教育行业（高校SRC专属赛道）": [
-        ("金智教育 Wisedu authserver", "/authserver/login /logout /serviceValidate",
+        ("<厂商C·统一认证>教育 Wisedu authserver", "/authserver/login /logout /serviceValidate",
          "基于 Apereo CAS，跳转 302 到 authserver 是标准签名",
          "★service 参数未白名单→ticket 窃取；SAML签名包装；"
-         "跨校同族（一个校的洞全国金智客户校大概率同在）"),
+         "跨校同族（一个校的洞全国<厂商C·统一认证>客户校大概率同在）"),
         ("强智教务", "登录页字样 / /jsxsd/", "教务系统路径特征",
          "国内高校高频，越权查成绩/课表常见"),
         ("正方教务", "/default2.aspx / /xs_main.aspx", "aspx 路径特征",
