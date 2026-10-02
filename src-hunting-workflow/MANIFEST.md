@@ -45,6 +45,36 @@
 | 33 | `scripts/src_stack.py` | 713 | 37620 | `<MD5>` |
 | 34 | `scripts/src_variant.py` | 511 | 23274 | `<MD5>` |
 
+## RK 工具链（tools/ · v2.7 补录）
+
+> 此前遗漏：这批脚本已在实际项目中使用并上传仓库，但未进账本，
+> 导致账本记 34 项、仓库实际 42 项。已核对补齐。
+> 设计原则见 `docs/RK工具链-AI判断与代码执行.md`：**确定性高的交代码，判断交给 AI**。
+
+| # | 路径 | 行数 | 字节 | md5 |
+|---|---|---:|---:|---|
+| 35 | `tools/rk_core.py` | 135 | 4336 | `710998399c463ffc3c064e040c54cdf9` |
+| 36 | `tools/rk_baseline.py` | 176 | 6755 | `7ebf1b0fe62cfdab91918f0542ffd268` |
+| 37 | `tools/rk_morph.py` | 106 | 4033 | `63c15cbd3508fbf911d98d4fe7af5ac7` |
+| 38 | `tools/rk_probe.py` | 135 | 5148 | `5b451e6d56fab9e9d7b9ceaae1592ebd` |
+| 39 | `tools/rk_extract.py` | 153 | 5636 | `1bd23d81dfab7d276def14cfa3bcee02` |
+| 40 | `tools/rk_cve.py` | 142 | 5566 | `8ad882c50a5cc1dc37b7b795c3bf7952` |
+| 41 | `tools/rk_report.py` | 127 | 4813 | `15d130e4648580e3661cacdbfe561c24` |
+| 42 | `tools/anonymize.py` | 126 | 5233 | `6baa463989f5c6554fdf3d04defef558` |
+
+**安全内核（不可绕过）**：
+`rk_core.py:17` 的 `SAFE_METHODS = {"GET","HEAD","OPTIONS"}`，传 POST/PUT/DELETE 直接
+`raise UnsafeMethod`；`rk_probe.py` 的 `--allow-host` 白名单硬拦截非授权资产。
+这两条是硬编码，AI 无法绕过——**只读铁律由代码保证，不靠自觉**。
+
+**注**：`tools/anonymize.py` 为脱敏公开版（示例域名 `example.edu.cn`、厂商 `VENDOR-A/B/C`）。
+本地私用版含真实映射，不上传。
+
+## smoke_test 覆盖缺口（待办）
+
+当前 `scripts/smoke_test.py` 41 条命令**不覆盖** `tools/` 下 8 个脚本。
+补测项：rk_morph 形态展开、rk_probe 层标签、rk_cve 边界值判定、rk_core 方法拦截。
+
 ## 版本演进
 
 | 版本 | 新增 |
@@ -52,3 +82,4 @@
 | v2.6 | P14 成熟架构指纹匹配 + 低频验证、P-1 四语言表 |
 | v2.6.1 | 修复 gate 静默失败、新增 smoke_test.py |
 | v2.6.2 | 架构池补教育行业、P14 端点语义纪律（CAS 案例） |
+| v2.7 | **P3 拆分**（P3a 未授权匿名可验 / P3b 越权需 A/B）、写类洞能力边界声明、MANIFEST 补录 tools 8 项 |
