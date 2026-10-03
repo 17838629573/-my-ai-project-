@@ -1,0 +1,77 @@
+# 短ID编码表 v1
+# 原则：篇幅能省则省。开工前读一次映射表，之后所有循环只传短ID。
+# 实测：36项资源引用 1212字符 -> 144字符（省88%），减去映射表后净省876字符。
+
+# ---- 角色（单字母 + 数字）----
+A: {name: 蓝工装劝阻者, z: 2, desc: 中间，伸手阻拦}
+B: {name: 蓝工装被劝者, z: 2, desc: 左侧，欲动手}
+C: {name: 黄绿反光工装拉架者, z: 2, desc: 右侧}
+F: {name: 面部层, z: 3, desc: 叠加到头部区域}
+
+# ---- 角色状态（角色字母 + 数字）----
+# A
+A0: {state: idle,        frames: 1, fps: 1}
+A1: {state: reach_out,   frames: 3, fps: 12}
+A2: {state: push_back,   frames: 2, fps: 12}
+A3: {state: gesture,     frames: 3, fps: 10}
+# B
+B0: {state: idle,        frames: 1, fps: 1}
+B1: {state: raise_fist,  frames: 3, fps: 12}
+B2: {state: step_forward,frames: 3, fps: 12}
+B3: {state: restrained,  frames: 2, fps: 10}
+# C
+C0: {state: idle,        frames: 1, fps: 1}
+C1: {state: grab_arm,    frames: 3, fps: 12}
+C2: {state: pull_back,   frames: 2, fps: 10}
+# F 面部（口型/眼型）
+F0: {state: mouth_neutral}
+F1: {state: mouth_open}
+F2: {state: mouth_wide}
+F3: {state: mouth_closed}
+F4: {state: eye_open}
+F5: {state: eye_half}
+
+# ---- 背景 / 前景 / 道具 ----
+G0: {name: 车间主背景, z: 0, parallax: 0.08}
+G1: {name: 车间广角背景, z: 0, parallax: 0.08}
+G2: {name: 设备墙中景, z: 1, parallax: 0.15}
+H0: {name: 管道边缘前景, z: 4, parallax: 0.30}
+H1: {name: 护栏前景, z: 4, parallax: 0.30}
+P0: {name: 安全帽, z: 2}
+P1: {name: 手套, z: 2}
+X0: {name: 撞击特效, z: 5, frames: 3, fps: 24}
+
+# ---- 运镜（2字母）----
+DI: dolly_in     推近（有视差）
+DO: dolly_out    拉远（有视差）
+TK: truck        横移（有视差）
+PD: pedestal     升降（有视差）
+ZM: zoom         变焦（无视差）
+PN: pan          摇镜（无视差）
+ST: static       静止
+
+# ---- 音频（V + 序号）----
+# 时长 = eSpeak NG 自然语速(165wpm)真实产出，非预设。音频说了算。
+# frames = 时长/1000*60，画面去匹配音频
+# actor = 说话者。必须绑定，否则多人同框会错配（实测：未绑定时他人嘴部变化5.042）
+V0: {text: 动手打人可以治安拘留, dur: 2465, frames: 148, actor: A}
+V1: {text: 没出事的时候, dur: 1338, frames: 80, actor: B}
+V2: {text: 安全员都是坏人, dur: 2031, frames: 122, actor: A}
+V3: {text: （停顿）, dur: 600, frames: 36, actor: ''}
+V4: {text: 出了事呢, dur: 1000, frames: 60, actor: C}
+
+# ---- 口型（M + 序号），最小保持3帧 ----
+M0: neutral     中性/停顿
+M1: A/I         开口，下巴放松
+M2: E           横向张开，微微笑
+M3: O           圆唇，纵向张开
+M4: U/W         撅唇前推
+M5: M/B/P       双唇闭合（爆破音，提前1-2帧）
+
+# ---- 档位 ----
+Q0: draft      深度1/4+渲染1/2  省88.7%  仅预览
+Q1: normal     深度1/2+渲染1/1  省73.3%  默认
+Q2: high       全量                     用户特别要求
+
+# ---- 镜头模板：i=资源 c=文案 m=运镜 p=视差*100 l=显著度*100 v=音频 ----
+# 例：{i:[A1,B3,G0], c:动手打人可以治安拘留, m:DI, p:85, l:30, v:V0}

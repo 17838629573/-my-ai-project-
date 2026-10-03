@@ -1,0 +1,35 @@
+{
+  "quality": {
+    "frames": 1344,
+    "mean_frame_diff": 2.589,
+    "max_frame_diff": 6.762,
+    "parallax_ratio": 1.854,
+    "seam_count": 0,
+    "seam_positions": []
+  },
+  "runtime": {
+    "flow_samples": 8,
+    "flow_sample_frames": [
+      1,
+      192,
+      384,
+      576,
+      767,
+      959,
+      1151,
+      1343
+    ],
+    "render_seconds": 91.0,
+    "output": "/data/workspace/视频工作流/大唐偷渡客_成片.mp4"
+  },
+  "per_shot_depth_tier": [
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2",
+    "normal|中复杂度 -> 1/2"
+  ]
+}

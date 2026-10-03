@@ -1,0 +1,82 @@
+{
+  "sheet": {
+    "walk_a": {
+      "file": "xz_walk_a.jpg",
+      "mode": "scaled",
+      "pose": "walk",
+      "frame": 0,
+      "shots": [
+        "EWS",
+        "WS",
+        "FS"
+      ]
+    },
+    "walk_b": {
+      "file": "xz_walk_b.jpg",
+      "mode": "scaled",
+      "pose": "walk",
+      "frame": 1,
+      "shots": [
+        "EWS",
+        "WS",
+        "FS"
+      ]
+    },
+    "stand": {
+      "file": "xz_stand.jpg",
+      "mode": "scaled",
+      "pose": "stand",
+      "shots": [
+        "EWS",
+        "WS",
+        "FS"
+      ]
+    },
+    "kneel": {
+      "file": "xz_kneel.jpg",
+      "mode": "scaled",
+      "pose": "kneel",
+      "shots": [
+        "WS",
+        "FS",
+        "MS"
+      ]
+    },
+    "cowboy": {
+      "file": "xz_cowboy.jpg",
+      "mode": "native",
+      "pose": "walk",
+      "shots": [
+        "MFS"
+      ]
+    },
+    "medium": {
+      "file": "xz_medium.jpg",
+      "mode": "native",
+      "pose": "stand",
+      "shots": [
+        "MS"
+      ]
+    },
+    "mcu": {
+      "file": "xz_mcu.jpg",
+      "mode": "native",
+      "pose": "stand",
+      "shots": [
+        "MCU"
+      ]
+    },
+    "hands": {
+      "file": "xz_hands.jpg",
+      "mode": "native",
+      "pose": "detail",
+      "shots": [
+        "ECU"
+      ]
+    }
+  },
+  "resolution": [
+    540,
+    960
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "prompt_tpl": {
+    "state": "PASS",
+    "sec": 0.1,
+    "tail": [
+      "PASS 缺算量即报错",
+      "",
+      "自检 13/13 项 PASS"
+    ]
+  },
+  "scale_map": {
+    "state": "PASS",
+    "sec": 0.0,
+    "tail": [
+      "  PASS 9 提示块含 px_per_m/地平线/米数",
+      "  PASS 10 换参照物整体缩放  50.0 vs 100.0",
+      "  -> PASS"
+    ]
+  },
+  "water": {
+    "state": "PASS",
+    "sec": 0.0,
+    "tail": [
+      "PASS 证伪:非法模型报错 ",
+      "",
+      "25/25 PASS"
+    ]
+  },
+  "_split_sheet": {
+    "state": "PASS",
+    "sec": 0.3,
+    "tail": [
+      "PASS shared_scale保相对大小(前景高比≈0.5,独立缩放会变1.0)  前景高=59:118 比=0.500",
+      "",
+      "6 项 -> PASS"
+    ]
+  }
+}

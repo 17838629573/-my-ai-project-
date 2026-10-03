@@ -1,0 +1,34 @@
+{
+  "path_align": {
+    "state": "SUSPECT",
+    "sec": 0.7,
+    "tail": [
+      "输出过短(29字符)，疑似未真正自检: '[OK] path_align 4项自检PASS（含证伪）'"
+    ]
+  },
+  "pose_prompt": {
+    "state": "FAIL",
+    "sec": 0.1,
+    "tail": [
+      "  File \"/data/workspace/视频工作流/pose.py\", line 64, in _need",
+      "    raise PoseError(f\"缺必填槽位 {where}.{key}（铁律70：物性由 AI 搜证传入，代码不内置）\")",
+      "pose.PoseError: 缺必填槽位 gait.bob_m（铁律70：物性由 AI 搜证传入，代码不内置）"
+    ]
+  },
+  "rain_layer": {
+    "state": "SUSPECT",
+    "sec": 0.3,
+    "tail": [
+      "输出过短(22字符)，疑似未真正自检: 'rain_layer 自检 9/9 PASS'"
+    ]
+  },
+  "subtitle": {
+    "state": "PASS",
+    "sec": 0.2,
+    "tail": [
+      "PASS 淡入淡出（首 0.00 中 1.00 尾 0.17）",
+      "",
+      "5 项检查 -> PASS"
+    ]
+  }
+}

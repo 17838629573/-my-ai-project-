@@ -1,0 +1,38 @@
+{
+  "anchor": {
+    "state": "PASS",
+    "sec": 0.1,
+    "tail": [
+      "PASS build_anchor 体内无 A_OVER_L 常数引用",
+      "",
+      "anchor 自检 PASS"
+    ]
+  },
+  "cloth_aero": {
+    "state": "PASS",
+    "sec": 0.1,
+    "tail": [
+      "PASS 8 动压=½ρv² 88.2000 vs 88.2000",
+      "PASS 证伪 45°升力非零 24.500 N",
+      "---- 9/9 PASS ----"
+    ]
+  },
+  "genqueue": {
+    "state": "FAIL",
+    "sec": 0.0,
+    "tail": [
+      "  File \"/data/workspace/视频工作流/pose.py\", line 64, in _need",
+      "    raise PoseError(f\"缺必填槽位 {where}.{key}（铁律70：物性由 AI 搜证传入，代码不内置）\")",
+      "pose.PoseError: 缺必填槽位 gait.bob_m（铁律70：物性由 AI 搜证传入，代码不内置）"
+    ]
+  },
+  "loop_engine": {
+    "state": "PASS",
+    "sec": 0.1,
+    "tail": [
+      "PASS order 缓存在 register 后失效（新系统进入执行序列）",
+      "",
+      "6 项检查 -> PASS"
+    ]
+  }
+}

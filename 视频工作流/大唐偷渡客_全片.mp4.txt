@@ -1,0 +1,8 @@
+file '/data/workspace/视频工作流/_segments/01_gate.mp4'
+file '/data/workspace/视频工作流/_segments/02_hall.mp4'
+file '/data/workspace/视频工作流/_segments/03_office.mp4'
+file '/data/workspace/视频工作流/_segments/04_yamen.mp4'
+file '/data/workspace/视频工作流/_segments/05_river.mp4'
+file '/data/workspace/视频工作流/_segments/06_desert.mp4'
+file '/data/workspace/视频工作流/_segments/07_oasis.mp4'
+file '/data/workspace/视频工作流/_segments/08_yiwu.mp4'

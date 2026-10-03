@@ -1,0 +1,87 @@
+[剪辑校验] PASS（三轴齐全 + 相邻梯度 <=2）
+==========================================================================
+按需调度渲染 v4
+==========================================================================
+
+[01_gate] 180帧 rc=0 38.7s 1012KB
+  启用: animation, composite, skeleton, subtitle
+  休眠: physics
+  skeleton    启用        -        -       -
+  animation   启用      180次     4.73ms   0.026ms/次
+  physics     休眠        -        -       -
+  composite   启用      180次  2822.04ms  15.678ms/次
+  subtitle    启用      180次   120.99ms   0.672ms/次
+  合计                      2947.76ms
+
+[02_hall] 180帧 rc=0 29.7s 81KB
+  启用: composite, subtitle
+  休眠: skeleton, animation, physics
+  skeleton    休眠        -        -       -
+  animation   休眠        -        -       -
+  physics     休眠        -        -       -
+  composite   启用      180次    36.53ms   0.203ms/次
+  subtitle    启用      180次    61.60ms   0.342ms/次
+  合计                        98.13ms
+
+[03_office] 180帧 rc=0 30.8s 69KB
+  启用: composite, subtitle
+  休眠: skeleton, animation, physics
+  skeleton    休眠        -        -       -
+  animation   休眠        -        -       -
+  physics     休眠        -        -       -
+  composite   启用      180次    34.60ms   0.192ms/次
+  subtitle    启用      180次   115.26ms   0.640ms/次
+  合计                       149.86ms
+
+[04_yamen] 180帧 rc=0 29.3s 65KB
+  启用: composite, subtitle
+  休眠: skeleton, animation, physics
+  skeleton    休眠        -        -       -
+  animation   休眠        -        -       -
+  physics     休眠        -        -       -
+  composite   启用      180次    23.26ms   0.129ms/次
+  subtitle    启用      180次    59.34ms   0.330ms/次
+  合计                        82.60ms
+
+[05_river] 180帧 rc=0 29.3s 104KB
+  启用: animation, composite, skeleton, subtitle
+  休眠: physics
+  skeleton    启用        -        -       -
+  animation   启用      180次     0.08ms   0.000ms/次
+  physics     休眠        -        -       -
+  composite   启用      180次    25.61ms   0.142ms/次
+  subtitle    启用      180次   216.61ms   1.203ms/次
+  合计                       242.29ms
+
+[06_desert] 240帧 rc=0 30.0s 63KB
+  启用: animation, composite, physics, skeleton, subtitle
+  休眠: 无
+  skeleton    启用        -        -       -
+  animation   启用      240次     0.12ms   0.000ms/次
+  physics     启用      240次     5.28ms   0.022ms/次
+  composite   启用      240次    49.05ms   0.204ms/次
+  subtitle    启用      240次    80.64ms   0.336ms/次
+  合计                       135.09ms
+
+[07_oasis] 180帧 rc=0 29.8s 60KB
+  启用: composite, subtitle
+  休眠: skeleton, animation, physics
+  skeleton    休眠        -        -       -
+  animation   休眠        -        -       -
+  physics     休眠        -        -       -
+  composite   启用      180次    32.96ms   0.183ms/次
+  subtitle    启用      180次    66.38ms   0.369ms/次
+  合计                        99.34ms
+
+[08_yiwu] 180帧 rc=0 29.9s 88KB
+  启用: animation, composite, skeleton, subtitle
+  休眠: physics
+  skeleton    启用        -        -       -
+  animation   启用      180次     0.09ms   0.000ms/次
+  physics     休眠        -        -       -
+  composite   启用      180次    23.64ms   0.131ms/次
+  subtitle    启用      180次   277.46ms   1.541ms/次
+  合计                       301.18ms
+
+合并 rc=0 -> 大唐偷渡客_v5.mp4
+  2099KB  总耗时 287.0s
