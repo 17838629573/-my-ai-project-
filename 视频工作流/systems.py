@@ -192,11 +192,15 @@ _INLINE_PAT = [
     (r"1\.225", "内联空气密度 1.225"),
 ]
 _MAGIC_PAT = r"\*\s*(1e-[0-9]|0\.00[0-9])\b"
-if __name__ == "__main__":
-    _ok, _ = self_check()
-    sys.exit(0 if _ok else 1)
 
 
 def self_check(verbose=True):
     from systems_selfcheck import self_check as _f
     return _f()
+
+
+# 【已修】__main__ 原位于本函数定义之前（L195），执行到入口时 self_check 尚未定义
+# -> NameError，自检从未真正跑通。入口块必须在文件末尾。
+if __name__ == "__main__":
+    _ok, _ = self_check()
+    sys.exit(0 if _ok else 1)

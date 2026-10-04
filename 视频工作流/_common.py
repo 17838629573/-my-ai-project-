@@ -223,8 +223,52 @@ def require(cond, msg: str):
         raise ValueError(f"[require] {msg}")
 
 def contact_shadow(xy: Tuple[float, float], ground_y: float, tol: float = 1.0) -> bool:
-    """支撑脚是否与地面接触。过去 chroma / composite 各写一份。"""
+    """支撑脚是否与地面接触。过去 chroma / composite 各写一份。
+
+    注意语义：本函数是【判定函数】（触地与否），不是生成投影的那个
+    contact_shadow。同名易混，新增判定请走 foot_contact()，
+    它与生成投影的 composite.contact_shadow 语义不同，勿合并。
+    """
     return abs(xy[1] - ground_y) <= tol
+
+
+# ---- X_d 触地时刻标注 ----
+# 业界启发式（准确率约 90%）：趾关节【全局速度模长】低于阈值即视为触地，
+# 再叠趾高 sanity check 排除"脚在远处慢慢移动"的误判。
+# 纯几何判定（contact_shadow 只看 |y-ground_y|<=tol）判不了滑动：
+# 脚贴着地面滑行时位置条件依然成立 —— 这正是 foot sliding 的盲区。
+CONTACT_V_MAX = 0.5      # m/s，趾关节速度上限（业界 0.1-0.5）
+CONTACT_H_MAX = 0.10     # m，趾离地高度 sanity 上限
+# 60Hz 数据优于 30Hz：速度用差分求，帧率越低噪声越大
+
+
+def foot_contact(toe_xy, toe_vel, ground_y,
+                 v_max: float = CONTACT_V_MAX,
+                 h_max: float = CONTACT_H_MAX) -> bool:
+    """触地判定：位置 + 速度 + 高度 三条件同时成立。
+
+    toe_xy  : (x, y) 趾关节世界坐标（米）
+    toe_vel : (vx, vy) 趾关节全局速度（m/s）
+    ground_y: 地面高度（米）
+
+    返回 True 视为该帧脚已锁定在地面（可进入 stance）。
+    """
+    import math
+    dy = abs(toe_xy[1] - ground_y)
+    if dy > h_max:
+        return False                      # 离地太远，sanity 排除
+    v = math.hypot(float(toe_vel[0]), float(toe_vel[1]))
+    return v <= v_max                     # 速度超阈值 = 正在滑
+
+
+def foot_contact_batch(toe_xy_seq, toe_vel_seq, ground_y, **kw):
+    """批量判定：一次跑完整段序列，返回 bool 数组。"""
+    import numpy as np
+    xy = np.asarray(toe_xy_seq, dtype=np.float64)
+    vel = np.asarray(toe_vel_seq, dtype=np.float64)
+    dy = np.abs(xy[:, 1] - ground_y)
+    v = np.hypot(vel[:, 0], vel[:, 1])
+    return (dy <= kw.get("h_max", CONTACT_H_MAX)) & (v <= kw.get("v_max", CONTACT_V_MAX))
 
 # ---------------- 帧工具 ----------------
 def phase_of(t: float, period: float, phase_shift: float = 0.0) -> float:

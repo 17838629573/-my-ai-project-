@@ -1,1 +1,0 @@
-file '/data/workspace/视频工作流/_seg_v4/06_desert.mp4'

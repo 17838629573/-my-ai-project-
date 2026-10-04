@@ -71,42 +71,7 @@ def surface_at(y, v_h):
     return "sky" if y < v_h else "ground_candidate"
 
 
-def wall_top_y(h_wall_m, z_wall_m, v_h, f_px, h_cam, image_h=None):
-    """墙顶屏幕行 y = 墙基底 y − 墙的像素高。透视算，非手填坐标。
-
-    h_wall_m: 墙的真实高(m)，物理量，须由 AI 搜证后落盘。
-    z_wall_m: 墙所在深度(m)。
-    image_h: 画面高；给了就校验墙顶在画面内，跑出边界即报错（禁静默负值）。
-    """
-    if h_wall_m is None or h_wall_m <= 0:
-        raise ValueError("墙高 h_wall_m 必须 > 0 且已声明（缺则走 param_decl 反问）")
-    y_base = y_at_depth(z_wall_m, v_h, f_px, h_cam)
-    y_top = y_base - object_px_height(h_wall_m, y_base, v_h, h_cam)
-    if image_h is not None and not (0.0 <= y_top <= image_h):
-        raise ValueError(
-            "墙顶 y=%.1f 跑出画面[0,%d]：墙高 %.1fm 在深 %.1fm 处装不下。"
-            "应增大墙的深度 z_m 或降低墙高 —— 禁给负值、禁裁到边界了事"
-            % (y_top, image_h, h_wall_m, z_wall_m))
-    return y_top
-
-
-def wall_depth_for_top(h_wall_m, y_top_target, v_h, f_px, h_cam):
-    """反解：要让墙顶落在屏幕行 y_top_target，墙须在多深的 Z(m)。
-
-    用于"墙在画面里"取代"手填 z"。依据[3]透视双曲线反解。
-    """
-    if not (y_top_target < v_h):
-        raise ValueError("墙顶须在地平线 v_h 之上（y < v_h），否则不是墙顶")
-    y_base = y_top_target
-    # y_top = y_base - h_wall * (y_base - v_h)/h_cam
-    #      = y_base*(1 - h/h_cam) + v_h*h/h_cam
-    k = h_wall_m / h_cam
-    # y_top = y_base*(1-k) + v_h*k  →  y_base = (y_top - v_h*k)/(1-k)
-    if abs(1.0 - k) < 1e-9:
-        raise ValueError("墙高恰等于相机高，透视退化，无法反解")
-    y_base = (y_top_target - v_h * k) / (1.0 - k)
-    return depth_at(y_base, v_h, f_px, h_cam)
-
+from _wall_geom import wall_top_y, wall_depth_for_top  # noqa: F401  (拆分见 _wall_geom.py)
 
 def ground_y_at_depth(z_m, v_h, f_px, h_cam):
     """深度 z 处地面的屏幕行 y。地面是 Z 平面，直接由透视反解。"""
@@ -249,6 +214,34 @@ if __name__ == "__main__":
     sys.exit(0 if self_check() else 1)
 
 
+def _horizon_of(spec):
+    """地平线取值：spec 顶层 / path.perspective / scale 三处依次找。
+
+    背景（实测逼出 2026-10-03 城墙场景）：
+      场景把 horizon_y 声明在 spec['path']['perspective']['horizon_y']=482，
+      而本函数原写 spec.get('horizon_y') 读【顶层】-> None -> 回落 Hough
+      消失点反解 -> 得到 588.5。
+      后果（几何自检，v_h 错则深度反解为负）：
+        v_h=482  : z(y=557.4) = +60.0m  合理
+        v_h=588.5: z(y=557.4) = -107m   负数 = 在相机背后 = 不可能
+      于是人物走到路径末端就被判为"在地平线以上=天上"。
+
+      旁证：groundline.detect 独立检测 y=479，与声明的 482 吻合，
+      说明 482 是真值，588.5 是 Hough 在纹理复杂图上误检。
+    """
+    for get in (lambda: spec.get("horizon_y"),
+                lambda: (spec.get("path") or {}).get("horizon_y"),
+                lambda: ((spec.get("path") or {}).get("perspective") or {}).get("horizon_y"),
+                lambda: (spec.get("scale") or {}).get("horizon_y")):
+        try:
+            v = get()
+        except Exception:
+            v = None
+        if v is not None:
+            return float(v)
+    return None
+
+
 def anchors_from_scene(spec, bg_bgr, image_h):
     """场景级落点：旗→墙顶，树→地面且退让路径。全程无手填坐标。
 
@@ -258,7 +251,7 @@ def anchors_from_scene(spec, bg_bgr, image_h):
     """
     import cv2 as _cv, numpy as _np
     import _perspective as _P
-    v_h = spec.get("horizon_y")
+    v_h = _horizon_of(spec)
     if v_h is None:
         if bg_bgr is None:
             raise SystemExit("[落点] 缺 horizon_y 且无背景图，禁默认地面（铁律31）")
@@ -266,24 +259,40 @@ def anchors_from_scene(spec, bg_bgr, image_h):
         edges = _cv.Canny(gray, 50, 150)
         lines = _cv.HoughLinesP(edges, 1, _np.pi / 180, 120,
                                 minLineLength=250, maxLineGap=20)
-        segs = [] if lines is None else [tuple(int(v) for v in l[0]) for l in lines]
+        # cv2 版本兼容：HoughLinesP 返回 (N,1,4) 或 (N,4)，两者都要吃下
+        segs = []
+        if lines is not None:
+            arr = _np.asarray(lines).reshape(-1, 4)
+            segs = [tuple(int(v) for v in row) for row in arr]
         v_h = _P.horizon_from_vanishing(segs, image_h)
         if v_h is None:
             raise SystemExit("[落点] 背景图消失点不足，无法反解地平线，禁默认")
     f_px = _P.focal_px(image_h)
 
     ref = spec["scale"]["reference"]
-    base_y = float(spec.get("baseline_y"))
+    # baseline_y 在 spec['scale'] 下（scene_spec.json 实际结构），不是顶层
+    base_y = float(spec["scale"].get("baseline_y", spec.get("baseline_y")))
     h_cam = _P.camera_height_from_ref(float(ref["real_m"]),
                                       float(ref.get("px_top", base_y - float(ref["px"]))),
                                       base_y, float(v_h))
     wall_h = spec.get("wall_height_m")
     if wall_h is None:
+        # 只捕获 AskAI / ParamRejected；不能 except Exception ——
+        # 曾因 require() 少传 family/why 抛 TypeError，被宽 except 吞掉，
+        # 伪装成"参数缺失"，实际参数已落盘。掩盖真错误的代价是查错链变长。
+        import param_decl as PD
         try:
-            import param_decl as PD
-            wall_h = PD.require("wall_height_m")["value"]
-        except Exception:
-            raise SystemExit("[落点] 缺 wall_height_m：先由 AI 搜证落盘 params_ai.json（禁默算）")
+            _r = PD.require(
+                "wall_height_m", "architecture",
+                "城墙真实高度，用于把墙体落点到透视地面",
+                unit_hint="m")
+            # verify() 已解包为标量？兼容两种返回形态，别再靠猜
+            wall_h = _r["value"] if isinstance(_r, dict) else _r
+        except (PD.AskAI, PD.ParamRejected) as e:
+            raise SystemExit("[落点] 缺 wall_height_m：先由 AI 搜证落盘 "
+                             "params_ai.json（禁默算）\n" + str(e)[:400])
+        except TypeError as e:
+            raise SystemExit("[落点] require() 调用签名错误（非参数缺失）: %s" % e)
     wall_h = float(wall_h)
     out = {}
     for o in spec["scale"]["objects"]:
@@ -291,13 +300,30 @@ def anchors_from_scene(spec, bg_bgr, image_h):
         z = float(o.get("z_m", spec.get("wall_depth_m", 95.0)))
         p = place(kind, float(v_h), f_px, h_cam, z_m=z, h_wall_m=wall_h,
                   image_h=image_h,
-                  path_center_x_px=spec.get("path_center_x_px"),
+                  path_center_x_px=_path_center_x(spec),
                   path_half_w_m=(spec.get("path") or {}).get("half_width_m"),
                   clear_m=float(spec.get("tree_clear_m", 3.0)))
         out[o["name"]] = p
     return {"horizon_y": float(v_h), "h_cam": h_cam, "f_px": f_px,
             "anchors": out}
 
+
+
+def _path_center_x(spec):
+    """路面中心线 x。
+
+    spec 顶层并没有 path_center_x_px 键（实际在 spec['path']['pts'] 里），
+    旧代码取 spec.get(...) 恒为 None，导致铁律31 永远报"须给中心"。
+    这里从路径控制点取：近端与远端 x 的中点（单点透视下中心线近似线性）。
+    """
+    p = (spec.get("path") or {})
+    if p.get("center_x_px") is not None:
+        return float(p["center_x_px"])
+    pts = p.get("pts") or []
+    if not pts:
+        return None
+    xs = [float(pt[0]) for pt in pts]
+    return (min(xs) + max(xs)) / 2.0
 
 def _surface_kind(name, spec):
     fams = spec.get("families") or {}

@@ -15,7 +15,8 @@ from framerate import FPS
 import re as _re
 
 def init_physics(ctx):
-    from systems import REAL_HEIGHT_M
+    # CLOTH_ROWS/COLS 定义在 systems.py；本文件是从它抽出的，故函数内懒加载（避免顶层成环）
+    from systems import REAL_HEIGHT_M, CLOTH_ROWS, CLOTH_COLS
     """Verlet 粒子 + 空气动力。惰性初始化。
 
     每个质点必须带上 area_m2 / mass_kg，否则 update_physics 无法由压力

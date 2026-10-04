@@ -94,6 +94,34 @@ class Env:
         f_max, mu = self.friction(mass, moving=False)
         return tangential_force > f_max, mu, f_max
 
+    # ---- 3b 3D Coulomb 摩擦锥（X_b）----
+    def cone_directions(self, k=8):
+        """摩擦锥金字塔近似的方向向量（水平面内均分）。"""
+        import math
+        return [(math.cos(2 * math.pi * i / k), 0.0,
+                 math.sin(2 * math.pi * i / k)) for i in range(k)]
+
+    def slip_cone(self, force3, normal_dir=(0.0, 1.0, 0.0), moving=False):
+        """3D Coulomb 摩擦锥判据 -> (是否打滑, 切向/法向比值, mu)
+
+        接触稳定条件（业界标准）：
+          f·a > 0                     法向力必须由地面指向物体
+          ||f^t|| <= mu * ||f^n||     切向力不得超出摩擦锥，否则进入滑动
+        其中 f^n = (f·a)a，f^t = f - f^n。
+
+        数值优化中常用【金字塔近似】把二阶锥线性化（本文 k=8）。
+        保留原 slip() 不动 —— 它已是本判据的一维特例。
+        """
+        a = _norm3(normal_dir)
+        f = tuple(float(x) for x in force3)
+        fn = _dot(f, a)                       # 法向分量（标量）
+        if fn <= 0.0:
+            return (False, float("inf"), self.surf["uk" if moving else "us"])
+        ft = _sub(f, _scale(a, fn))           # 切向分量（向量）
+        ratio = _len3(ft) / fn
+        mu = self.surf["uk"] if moving else self.surf["us"]
+        return (ratio > mu, ratio, mu)
+
     # ---- 4 扬尘/沉降：地表 + 风速共同决定 ----
     def dust_amount(self):
         """扬尘强度 = 地表扬尘系数 * 风速归一化"""
@@ -167,3 +195,28 @@ if __name__ == "__main__":
 
     print("=" * 70)
     print("PASS" if ok else "FAIL")
+
+
+def _norm3(v):
+    import math
+    n = math.sqrt(sum(float(x) ** 2 for x in v))
+    if n < 1e-12:
+        return (0.0, 1.0, 0.0)
+    return tuple(float(x) / n for x in v)
+
+
+def _dot(u, v):
+    return sum(float(a) * float(b) for a, b in zip(u, v))
+
+
+def _scale(v, s):
+    return tuple(float(x) * s for x in v)
+
+
+def _sub(u, v):
+    return tuple(float(a) - float(b) for a, b in zip(u, v))
+
+
+def _len3(v):
+    import math
+    return math.sqrt(sum(float(x) ** 2 for x in v))

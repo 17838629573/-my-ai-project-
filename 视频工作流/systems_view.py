@@ -8,6 +8,7 @@ import sys
 import cv2
 import numpy as np
 from skeleton_runtime import Skeleton, apply_animation, mat_apply
+import composite as cp
 import physics as ph
 import physics_rules as pr
 import framerate
@@ -28,9 +29,11 @@ def update_composite(ctx, i, t):
 
     if ctx.skeleton is not None:
         frame = ctx.skeleton.draw(W, H)
-        a = frame[:, :, 3:4].astype(np.float32) / 255.0
-        canvas = ph.alpha_blend(canvas.astype(np.float32),
-                                frame[:, :, :3].astype(np.float32), a).astype(np.uint8)
+        # B5：改走线性光+预乘。a 必须 2D —— porter_duff_over 内部做 a[...,None]，
+        # 传 HxWx1 会广播成 4 维且【不报错】，静默产出垃圾结果。
+        a = frame[:, :, 3].astype(np.float32) / 255.0
+        canvas = cp.porter_duff_over(canvas.astype(np.float32),
+                                     frame[:, :, :3].astype(np.float32), a).astype(np.uint8)
 
     # 【修复】可动件此前从未被合成进画面：movables 系统跑了、
     # 耗时也统计了，但 ctx.parts 里的图没进 canvas —— 静默失效。
@@ -56,9 +59,10 @@ def update_composite(ctx, i, t):
         if w2 <= 0 or h2 <= 0:
             continue
         src = img[:h2, :w2]
-        a = src[:, :, 3:4].astype(np.float32) / 255.0
+        # B5：同上，线性光+预乘；a 用 2D（[:, :, 3] 而非 [:, :, 3:4]）
+        a = src[:, :, 3].astype(np.float32) / 255.0
         roi = canvas[y:y + h2, x:x + w2].astype(np.float32)
-        canvas[y:y + h2, x:x + w2] = ph.alpha_blend(
+        canvas[y:y + h2, x:x + w2] = cp.porter_duff_over(
             roi, src[:, :, :3].astype(np.float32), a).astype(np.uint8)
     ctx.canvas = canvas
 

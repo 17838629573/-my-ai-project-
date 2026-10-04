@@ -29,3 +29,19 @@
 - [ ] quadruped 的 pose 四足扩展尚未实现（族已登记，驱动器缺失）
 - [ ] rigid 的刚体位移+轮转尚未实现
 - [ ] px_per_m 无深度维度，远近 LOD 未做
+
+---
+
+---
+
+---
+## Y-Statement（gen:why_apply 勿手改）
+
+meta: driver
+处境: 本模块解决的问题
+问题: [ ] quadruped 的 pose 四足扩展尚未实现（族已登记，驱动器缺失）
+决定: 定位：sprite 的 **registration point / pivot** 决定放置与旋转中心
+否决方案: 否决「不判族一律按 biped/chain 处理」——树/马车被误生成骨架
+收益: 本模块解决的问题
+代价: 3. **自检自指误报（第 5 次遇到同类）**
+依据出处: 业界依据（本轮搜证）

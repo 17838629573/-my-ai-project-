@@ -1,0 +1,38 @@
+{
+ "侧走_humanoid_描边": [
+  "bcea34828b1db0296b71e4a993c9af7f",
+  "8adcfbcd253e078a87064f276616ba1b",
+  "4146e118b14290b1c7b33ee3c06e20cc",
+  "a4c9e1d2abc7c5f5af78cafc55acb65e"
+ ],
+ "正面_humanoid_描边": [
+  "7ddca92c73f2437788067412b52cd8e2",
+  "6e8335b5238725c3412efeac39ed024f",
+  "b3f859a3479626e1bee0cf9e37667735",
+  "b7519385f1a861d8fbb314fbb2c7f353"
+ ],
+ "背面_humanoid_描边": [
+  "2e3258f114773741a7ad35250d8226aa",
+  "bf795c47d03da98ced1fc16b987376fd",
+  "4bad47d1d8a04c06d5200c88ff8cb662",
+  "e3d3f7c7530429df862b83ba927e0880"
+ ],
+ "斜45_humanoid_描边": [
+  "dcf94babda9ef472a29c0fb0a01a8b0d",
+  "09be11dfa80d2efdabbfb96928914fe0",
+  "3c5b6a82c76efa7972949f5da2ad9716",
+  "15bbd144f43101aeb1e2597e4ade67c7"
+ ],
+ "侧走_humanoid_无描边": [
+  "92821372e5b37f0db376a2523add1b89",
+  "a99ed120fe35596dc042e059c525fc16",
+  "fb5a5685b62938c215b251fd412f2a9b",
+  "02cec9b581f5a5be08adca3ec82d6ee2"
+ ],
+ "侧走_quadruped_描边": [
+  "76456050c3aeb57385e5a5d756b6926b",
+  "6c371abd43d138c101ab2ef4a0fa5353",
+  "92c33df6ebf98b41b445a4b7dfe78fda",
+  "427ab9f3f4d8e11ec26d9ca7fbd55931"
+ ]
+}

@@ -65,3 +65,19 @@ placement (L0, 无本地依赖)
 
 **铁律73 业界原话**："Auto-centering each trimmed visible rectangle creates a
 different semantic point even when every normalized value is 0.5."
+
+---
+
+---
+
+---
+## Y-Statement（gen:why_apply 勿手改）
+
+meta: placement
+处境: 本模块要解决的问题
+问题: 且 `baseline_y` 手填 780（墙体内部），导致旗插进墙里、人贴着墙面走。
+决定: 修法**：固定源画布尺寸 + 每帧复用同一 regpoint + 记录 trim offset。
+否决方案: 上一轮为修「跨帧漂移 269px」，用了**逐帧居中对齐**。
+收益: 本模块要解决的问题
+代价: [ ] `groundline.detect()` 已存在但 `build_video` 零调用 —— baseline 仍手填
+依据出处: 业界依据（真联网搜得，从 contracts/placement.md 剥离）

@@ -41,3 +41,19 @@ offset 经 `clamp_offset` 钳制，**天然不可能出界**，不需要任何�
 | 同上（msell） | "you are always on the path" —— 用可控 offset 表达，就不存在"是否还在路上"的判定问题 |
 | 东北大学学报（改进双向 RRT*） | Catmull-Rom 分段三次：P(s)=c0+c1u+c2u²+c3u³，切线 τ 影响曲率，保证经过第二到倒数第二控制点 |
 | Unity NavMesh / Off-Mesh Link | walkable area 之外不可达；Area Mask 可按角色类型限制可达区域 |
+
+---
+
+---
+
+---
+## Y-Statement（gen:why_apply 勿手改）
+
+meta: path
+处境: Double Fine《Psychonauts 2 Move Modes》 | spline-based move modes（Rail Slide / Tightrope / Ledge Hang）共用 `PhysSp
+问题: 本项目曾硬编码 `T_MAN = 0.500` → cadence = 240 步/分，**超过跑步**，这是"脚跟瞬移"的量化根因
+决定: 同上 | `SplinePrimitiveLookAhead` 检测 >45° 拐角时暂停 PhysSpline，改用 cubic hermite 插值过渡（指定起止位置/朝向/速度） |
+否决方案: N/A 无记录（原文未记否决方案）
+收益: offset 经 `clamp_offset` 钳制，**天然不可能出界**，不需要任何判断。
+代价: Catmull-Rom 的 u 参数**不是等速**的。控制点疏密不均时，同样 Δu 走过的距离差很多。
+依据出处: 自检证伪实测：不等距控制点上按 u 采样，**间距相对离散 = 1.883**（最大间距是最小的近 3 倍）。

@@ -38,6 +38,38 @@ def walkable_band(bg_bgr, y0=0, y1=None):
     return scores
 
 
+def _relative_smooth(gray, xi, yi, patch_std, r=10):
+    """透视自适应平滑度。
+
+    背景（实测逼出，2026-10-03 城墙背景 540x960）：
+      原判据 smooth = exp(-std/35) 用的是【绝对】阈值。
+      透视下远处地面纹理被压缩，局部 std 天然偏大 → 近处判地面、
+      远处判非地面，与 walkable_band 的行级结论【互相矛盾】
+      （行级说 y=560~600 是地面 0.603，点级说 0.174）。
+
+    修正：判据改为【相对】——该点是否比【同一行】其它位置更乱，
+      而不是绝对方差小。同行基准 = 该行所有 r×r patch 的 std 中位数。
+      近处基准低、远处基准高，于是阈值随透视自适应。
+    """
+    h, w = gray.shape[:2]
+    yi = int(round(yi))
+    if yi < 0 or yi >= h:
+        return float(np.exp(-patch_std / 35.0))
+    y0, y1 = max(0, yi - r), min(h, yi + r)
+    band = gray[y0:y1]
+    if band.shape[1] < 2 * r:
+        return float(np.exp(-patch_std / 35.0))
+    # 沿该行滑窗取 std 中位数作为基准
+    stds = []
+    step = max(1, (w - 2 * r) // 12)
+    for x in range(0, max(1, w - 2 * r), step):
+        stds.append(float(band[:, x:x + 2 * r].std()))
+    base = float(np.median(stds)) if stds else patch_std
+    # 相对超出量：该点比同行基准乱多少
+    excess = patch_std - base
+    return float(np.exp(-max(0.0, excess) / 35.0))
+
+
 def is_ground_patch(bg_bgr, x, y, r=10, depth=40):
     """判定 (x,y) 周围是否为地面 patch。
 
@@ -53,7 +85,7 @@ def is_ground_patch(bg_bgr, x, y, r=10, depth=40):
     patch = gray[max(0, yi - r):min(h, yi + r), max(0, xi - r):min(w, xi + r)]
     if patch.size == 0:
         return False, 0.0
-    smooth = float(np.exp(-float(patch.std()) / 35.0))
+    smooth = _relative_smooth(gray, xi, yi, float(patch.std()), r)
     c = float(patch.mean())
     yb = min(h, yi + depth)
     below = gray[yi:yb, max(0, xi - r):min(w, xi + r)]

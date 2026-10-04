@@ -46,3 +46,19 @@
 | 同上 | 平移灰度噪声纹理按世界坐标采样，制造穿越地表的行进阵风；改天气只需改风速/强度/湍流三个全局量 |
 | Unity TreeIT cginc（aubergine） | `objPhase=dot(objectWorldPos,1.0)` 物体级相位；`branchPhase=objPhase+anim.x`；频率常数 1.975/0.793/0.375/0.193 |
 | 菜鸟编程网《风力模拟与随机性控制》 | `trunkOffset=windDir·w_trunk·0.08`；`branchOffset=windDir·w_branch·0.25·sin(3t+y·0.5)`；`leafOffset=windDir·w_leaf·0.6·sin(7t+x·2.1+z·2.1)`；**三层用完全不同的频率与时间缩放** |
+
+---
+
+---
+
+---
+## Y-Statement（gen:why_apply 勿手改）
+
+meta: wind_sway
+处境: 故本模块不引入通道概念，只用层名 trunk/branch/leaf。符合铁律32（知识外置）。
+问题: 同上 | 根部零权重确保不离地；WPO 包围盒需扩展，避免风摆把顶点推出包围盒导致弹跳剔除 |
+决定: ### 坑3：根部权重必须为 0，否则整树在地上滑
+否决方案: salivity《Dynamic Wind Deformation for Game Vegetation》 | 顶点色作权重图：R=主干刚度(根0→顶1)、G=枝(关节0→梢1)、B=叶颤动；Alpha 存局部 piv
+收益: 业界原话："Black/Zero Values 施加于根部，确保其牢牢锚定地面"。
+代价: `build_video.py` **没有树**，未调用 wind_sway
+依据出处: 业界依据（真联网搜得，三个独立来源一致，从 contracts/wind_sway.md 剥离）

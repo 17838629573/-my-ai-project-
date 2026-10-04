@@ -8,17 +8,18 @@ def _soft(alpha, k=9, r=11):
         a = cv2.erode(a, np.ones((k, k), np.uint8))
     return cv2.GaussianBlur(a, (0, 0), r)
 
-def contact_shadow(alpha, dx=0, dy=10, blur=11, strength=0.18):
-    """要素1：柔边黑投影，15%-20% 不透明度（业界实测值）"""
-    a = _soft(alpha, 9, blur)
-    sh = np.zeros_like(a)
-    M = np.float32([[1, 0, dx], [0, 1, dy]])
-    cv2.warpAffine(a, M, (a.shape[1], a.shape[0]), dst=sh,
-                   flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-    m = float(sh.max())                        # 归一化：峰值恒等于 strength，不受图幅/模糊半径影响
-    if m > 1e-6:
-        sh = sh / m
-    return np.clip(sh * strength, 0.0, 1.0)    # strength=0.18 落在业界 15%-20%
+def contact_shadow(alpha, dx=0, dy=10, blur=11, strength=0.18, falloff=0.35, ambient=None):
+    """要素1：柔边黑投影，15%-20% 不透明度（业界实测值）
+
+    B2：本函数原为独立实现，与 composite.contact_shadow 同签名同用途
+    但强度差 3 倍（0.18 vs 0.55），是真撞车。现改为委托到唯一实现，
+    保留本文件原有的默认参数（含 falloff）以免改变 _build32 的既有表现。
+    """
+    import composite as _cp
+    return _cp.contact_shadow(alpha, dx=dx, dy=dy, blur=blur,
+                              strength=strength, falloff=falloff, ambient=ambient)
+
+
 
 def env_reflection(fg, alpha, bg_tint, opacity=0.12):
     """要素2：环境反光——背景主色调染到前景，10%-15%，消除拼接感最关键一步"""

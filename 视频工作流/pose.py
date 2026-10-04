@@ -130,6 +130,9 @@ def hip_height(gait, L):
     return ankle + math.sqrt(v2)
 
 
+from foot_lock import FootLock, cubic_inertialize as _cubic_inertialize, \
+    FOOT_LOCK_DIST, FOOT_UNLOCK_DIST, FOOT_INERT_TIME
+
 def foot_target(t, side, gait):
     """笛卡尔足端轨迹（铁律68）。
     支撑期：脚【世界坐标恒定】= 落脚点（灭 foot sliding）
