@@ -1,3 +1,6 @@
+# 契约: proc/showreel/phys
+#   一句话: 90秒物理预跑，轨迹存 npz、状态 pickle 成 checkpoint 续跑
+#   完整契约见 showreel/__init__.py
 # -*- coding: utf-8 -*-
 """契约：90秒连续时间线的物理预跑，存轨迹分片 + checkpoint。
 

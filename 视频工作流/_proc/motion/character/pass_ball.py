@@ -235,7 +235,7 @@ def self_check():
     ok_gap = abs((XC_B - XC_A) - D_APART) < 1e-12
 
     # 7) 拦截点在臂展内
-    from tests.harness import arm_reach
+    from .proportions import arm_reach
     sh = np.array([0.0, CT._SH_Y]) * CT.H_M
     reach = float(arm_reach(sh, np.asarray(CT.intercept_point()), CT.H_M))
 

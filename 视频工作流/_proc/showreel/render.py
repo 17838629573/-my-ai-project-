@@ -1,3 +1,6 @@
+# 契约: proc/showreel/render
+#   一句话: 分层合成——背景/远雨/物体/角色/近雨/辉光，复用既有管线不自造
+#   完整契约见 showreel/__init__.py
 # -*- coding: utf-8 -*-
 """showreel/render.py —— 90 秒一镜到底·雨夜赛博朋克街道·渲染层。
 

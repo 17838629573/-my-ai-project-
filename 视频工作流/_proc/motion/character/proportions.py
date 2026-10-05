@@ -70,4 +70,22 @@ GAIT_KEYS = {
     "ankle": [(0.0, 0.0), (0.44, 5.57), (0.60, -10.0), (0.685, -15.51), (1.0, 0.0)],
 }
 
+# ------------------------------------------------------------------
+# 臂展：肩点 → 抓握中心 的最大可达距离（占身高比）
+#   Dempster (1955) 上臂 0.1877H + 前臂 0.151H + 腕至抓握中心 0.038H
+#   = 0.3767H，取 0.377 作上限。超出即"伸长了手臂去够"，属穿帮。
+# ------------------------------------------------------------------
+ARM_REACH_MAX = 0.377
+
+
+def arm_reach(shoulder, grip, H=1.70):
+    """肩→抓握中心 距离 / 身高。超出 ARM_REACH_MAX(0.377) 说明手臂被拉长。
+
+    shoulder, grip: 世界坐标（米），取前两维（x, y）
+    H: 身高（米）
+    出处: Dempster (1955) Space Requirements of the Seated Operator
+    """
+    return float(math.hypot(grip[0] - shoulder[0], grip[1] - shoulder[1])) / float(H)
+
+
 __all__ = [n for n in dir() if not n.startswith("__")]

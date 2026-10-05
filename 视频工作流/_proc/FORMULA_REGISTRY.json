@@ -184,10 +184,10 @@
           "id": "wind.detail",
           "name": "细节弯曲(枝3倍频/叶7倍频)",
           "status": "IMPL",
-          "src": "",
+          "src": "GPU Gems 3 Ch.16《Vegetation Procedural Animation and Shading in Crysis》(Crytek/NVIDIA, developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-16-vegetation-procedural-animation-and-shading-crysis)。主弯曲: fBF=vPos.z*fBendScale; fBF+=1; fBF=fBF*fBF-fBF; vNewPos.xy+=vWind.xy*fBF; 再 normalize(vNewPos)*fLength 重缩放。细节弯曲用四个三角波(两边缘+两叶片): TriangleWave(x)=abs(frac(x+0.5)*2-1); SmoothCurve(x)=x*x*(3-2x); SmoothTriangleWave(x)=SmoothCurve(TriangleWave(x)); 频率四元组 (1.975,0.793,0.375,0.193)；相位 fObjPhase=dot(worldPos.xyz,1)→每株不同步",
           "search_hint": "Crysis vegetation detail bending branch leaf frequency",
-          "note": "让叶子不同步颤动",
-          "source": "GPU Gems 3 Ch.16《Vegetation Procedural Animation and Shading in Crysis》(NVIDIA)。主弯曲: fBF=vPos.z*fBendScale; fBF+=1; fBF=fBF*fBF-fBF; vNewPos.xy+=vWind.xy*fBF; 再 normalize(vNewPos)*fLength 重缩放。细节弯曲: 频率四元组 (1.975,0.793,0.375,0.193)；vWaves=(frac((t+phase)*f)*2-1)*fSpeed*fDetailFreq 经 SmoothTriangleWave；vWavesSum=vWaves.xz+vWaves.yw；相位 fObjPhase=dot(worldPos.xyz,1) （世界坐标入相位→每株不同步）。CRYENGINE 顶点色 R=边缘不规则摆 G=相位延迟 B=叶片上下",
+          "note": "CRYENGINE 顶点色 R=叶片边缘刚度 G=每叶相位变化 B=叶片整体刚度 A=预计算 AO（原记成“B=叶片上下”，与原文不符，已按 Ch.16 Figure 16-2 更正）",
+          "source": "GPU Gems 3 Ch.16《Vegetation Procedural Animation and Shading in Crysis》(NVIDIA)。主弯曲: fBF=vPos.z*fBendScale; fBF+=1; fBF=fBF*fBF-fBF; vNewPos.xy+=vWind.xy*fBF; 再 normalize(vNewPos)*fLength 重缩放。细节弯曲: 频率四元组 (1.975,0.793,0.375,0.193)；vWaves=(frac((t+phase)*f)*2-1)*fSpeed*fDetailFreq 经 SmoothTriangleWave；vWavesSum=vWaves.xz+vWaves.yw；相位 fObjPhase=dot(worldPos.xyz,1) （世界坐标入相位→每株不同步）。CRYENGINE 顶点色 R=叶片边缘刚度 G=每叶相位变化 B=叶片整体刚度 A=预计算 AO（原记成“B=叶片上下”，与原文不符，已按 Ch.16 Figure 16-2 更正）",
           "impl": "wind_detail()"
         }
       ]
@@ -320,7 +320,7 @@
           "id": "prompt.action_beat_timeline",
           "name": "action.beat_timeline：无多段动作时间线（0-3/3-6/6-9/9-12）",
           "status": "IMPL",
-          "src": "beat.py",
+          "src": "ADAPT《The Agent Development and Prototyping Testbed》(Shoulson, Marshak, Kapadia, Badler; IEEE TVCG 2013, Rutgers)——body capability 由 choreographer 产出，各自持有 skeleton 私有副本后经 blend node 合成，新增能力只需接入 pose dataflow graph；PBT scheduler 以 30 ticks/s 驱动。时间线分段与同步另参 SAIBA/BML《SmartBody: Behavior Realization for Embodied Conversational Agents》(Thiebaux et al., AAMAS 2008, USC ICT)——behavior & schedule manager 产出分层 motion controller 调度表",
           "search_hint": "ADAPT capability function animation timeline scheduler; Behavior Markup Language BML scheduling",
           "note": "ADAPT(Rutgers)能力函数+blend node；三相位prep-stroke-relax；crossfade各占半程恒为1；全局里程相位链；缺能力抛CapabilityError带search_hint",
           "wave": 1,

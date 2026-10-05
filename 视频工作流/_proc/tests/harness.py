@@ -13,7 +13,18 @@
   时间 秒   长度 米   速度 m/s   角度 弧度（对外报告用度）
 """
 import math
+import os
+import sys
+
 import numpy as np
+
+# 自举：__file__ 锚定，把项目根插进 sys.path（禁用相对路径 ../..）
+#   项目根 → 支持 from _proc.xxx import
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+for _p in (_ROOT, os.path.dirname(_ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 # name -> (阈值, 比较符, 出处)
 CRIT = {
@@ -250,9 +261,10 @@ def elbow_reflex(shoulder, elbow, wrist, facing=1.0):
     return knee_reflex(shoulder, elbow, wrist, facing)
 
 
-def arm_reach(shoulder, grip, H=1.70):
-    """肩→抓握中心 距离 / 身高。超出 0.377 说明手臂被拉长（去够够不到的东西）。"""
-    return float(math.hypot(grip[0] - shoulder[0], grip[1] - shoulder[1])) / float(H)
+# 臂展的几何实现属于人体比例层（motion/character/proportions.py），不在测试层。
+#   此前 pass_ball.py 直接 `from tests.harness import arm_reach`，造成
+#   motion → tests 的反向依赖（R1 违规），已下沉；此处转发以保持 H.arm_reach 调用点不变。
+from _proc.motion.character.proportions import arm_reach, ARM_REACH_MAX  # noqa: E402,F401
 
 
 def _run_len_false(seg):

@@ -1,7 +1,8 @@
 """showreel/shard.py — 90秒长镜头分段渲染驱动（规避内存上限与单命令时限）。
 
-契约
-----
+契约: proc/showreel/shard
+   一句话: 90秒长镜头分段渲染落盘再 concat，规避内存与时限
+
 把 timeline.render 的全帧缓存改为「分段渲染 → 每段独立落盘 → 释放内存」，
 最后用 ffmpeg concat 拼成整片。
 

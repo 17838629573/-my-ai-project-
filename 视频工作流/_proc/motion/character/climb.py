@@ -1,3 +1,6 @@
+# 契约: proc/motion/character/climb
+#   一句话: 爬梯：五效应器三态循环上升，肘膝由两骨IK反解保证骨长守恒
+#   完整契约见 motion/__init__.py
 """爬梯 (climb)。
 
 依据（搜索先行，非凭记忆）：

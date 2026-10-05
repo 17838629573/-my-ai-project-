@@ -32,7 +32,9 @@ ALLOW = {
     "color":  {"shape"},
     "scene":  {"shape", "color"},
     "motion": {"shape", "color", "scene"},
-    "(root)": {"shape", "color", "scene", "motion"},
+    "showreel": {"shape", "color", "scene", "motion"},
+    "tests": {"shape", "color", "scene", "motion", "showreel"},
+    "(root)": {"shape", "color", "scene", "motion", "showreel", "tests"},
 }
 PKGS = list(ALLOW)
 
