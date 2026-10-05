@@ -6,8 +6,20 @@
 提示词的 4 个动作段（坐/翻页/起身走/坐下）能力表还没有，只能用 walk 填满，
 但这一段证明「时间线能把多段串起来、跨段不跳、朝向能转」。
 """
+import os
+import sys
+
 import numpy as np
 from PIL import Image, ImageDraw
+
+# 路径自举：用 __file__ 锚定的绝对路径，保证从任意 cwd 直接跑都能导入。
+# 同时加入项目根(支持 from _proc.xxx) 与 _proc 自身(支持 from motion/scene/shape)。
+_HERE = os.path.dirname(os.path.abspath(__file__))   # .../视频工作流/_proc
+_ROOT = os.path.dirname(_HERE)                       # .../视频工作流
+for _p in (_ROOT, _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from scene import kit
 from motion import camera, run, beat
 

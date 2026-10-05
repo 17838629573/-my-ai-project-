@@ -2,6 +2,17 @@
 #   一句话: 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
 #   完整契约见 motion/__init__.py
 
+import os
+import sys
+
+# 路径自举：锚定 __file__ 的绝对路径，保证从任意 cwd 直接跑都能导入。
+_HERE = os.path.dirname(os.path.abspath(__file__))   # .../视频工作流/_proc/motion
+_PROC = os.path.dirname(_HERE)                       # .../视频工作流/_proc
+_ROOT = os.path.dirname(_PROC)                       # .../视频工作流
+for _p in (_ROOT, _PROC):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import math
 import numpy as np
 from PIL import ImageDraw

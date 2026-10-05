@@ -15,6 +15,17 @@
         未知动作名报错不静默
   校验: python -m motion.character.gesture
 """
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import math
 
 import numpy as np

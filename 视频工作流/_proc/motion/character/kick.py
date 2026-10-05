@@ -13,6 +13,17 @@
   · 触球点取脚背靠踝一侧 (Bull-Andersen 1999)
   · 足质量分数 0.0145 (Winter 1990); 足+鞋≈有效击球质量 84% (WCSF 2011)
 """
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import math
 import numpy as np
 

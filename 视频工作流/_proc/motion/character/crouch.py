@@ -8,6 +8,17 @@
   约束: 双脚全程贴地不滑不飘；躯干前倾由"够到物体"的臂展反解；
         |髋踝|≤L1+L2；|肩→握心| ≤ 臂展+握距
 """
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import math
 import numpy as np
 

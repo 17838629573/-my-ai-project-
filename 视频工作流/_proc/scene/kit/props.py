@@ -2,6 +2,17 @@
 #   一句话: 室内陈设：落地窗/书架墙/挂画/家具，输出世界坐标锚点供人物就位
 #   完整契约见 scene/kit/__init__.py
 
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import numpy as np
 from .canvas import *
 from .indoor import proj, _mix

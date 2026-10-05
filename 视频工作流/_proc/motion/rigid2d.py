@@ -26,13 +26,31 @@
 
 本模块是纯数值内核，不含任何绘制。
 """
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import numpy as np
 
 from .beat import capability
 
-SLOP = 0.01        # 允许穿透/分离容差（出处[2]，同 Box2D b2_linearSlop）
-BETA = 0.2         # Baumgarte 系数（出处[2]）
-ITER = 12          # 顺序冲量迭代次数（Box2D Lite 默认 10~20）
+# 以下四个常量全部取自 Box2D b2_common.h / core.h 原文，不自造：
+SLOP = 0.005           # b2_linearSlop = 0.005 * lengthUnitsPerMeter（0.5cm）
+BETA = 0.2             # b2_baumgarte = 0.2f
+SLEEP_LIN = 0.01       # b2_linearSleepTolerance (m/s)
+SLEEP_ANG = 0.0175     # b2_angularSleepTolerance ≈ 1° in rad (Box2D 用 2°)
+SLEEP_TIME = 0.5       # b2_timeToSleep (s)
+WAKE_VN = 0.05         # 唤醒阈值：法向接近速度 (m/s)
+POS_PERCENT = 0.2      # 位置 pass 同样用 b2_baumgarte（原文：取 1 会过冲）
+MAX_LIN_CORR = 0.2     # b2_maxLinearCorrection = 0.2 * lengthUnitsPerMeter
+ITER = 12              # 顺序冲量迭代次数（Box2D Lite 默认 10~20）
 
 
 def rot(th):
@@ -52,7 +70,8 @@ def cross_w(w, r):
 class Body2:
     """2D 刚体。shape: 'box'(半宽hw/半高hh) 或 'circle'(半径 r)"""
     __slots__ = ("p", "v", "th", "w", "m", "inv_m", "I", "inv_I",
-                 "shape", "hw", "hh", "r", "e", "mu", "fixed", "tag")
+                 "shape", "hw", "hh", "r", "e", "mu", "fixed", "tag",
+                 "sleep_t", "sleeping")
 
     def __init__(self, p=(0.0, 0.0), shape="box", hw=0.25, hh=0.25, r=0.11,
                  m=1.0, th=0.0, e=0.0, mu=0.6, fixed=False, tag=""):
@@ -65,6 +84,10 @@ class Body2:
         self.e, self.mu = float(e), float(mu)
         self.fixed = bool(fixed)
         self.tag = tag
+        # 休眠（出处[4] Box2D b2Body）：低速持续 0.5s 后冻结，消除
+        # 顺序冲量固有的残余微抖（Baumgarte 偏置与重力反复拉锯）
+        self.sleep_t = 0.0
+        self.sleeping = False
         if fixed:
             self.m = 0.0
             self.inv_m = 0.0
@@ -102,67 +125,50 @@ def _clip_face(poly, side, axis):
     return out
 
 
+def _inside_obb(q, b):
+    """点 q 是否落在 OBB b 内：转到 b 的局部坐标再比半宽半高。"""
+    d = rot(b.th).T @ (np.asarray(q, float) - b.p)
+    return abs(d[0]) <= b.hw + 1e-9 and abs(d[1]) <= b.hh + 1e-9
+
+
 def collide_box_box(A, B):
-    """SAT + 面裁剪，返回 [(pa, pb, n, pen)]，n 由 A 指向 B（出处[3]）"""
-    hA, hB = np.array([A.hw, A.hh]), np.array([B.hw, B.hh])
-    RA, RB = rot(A.th), rot(B.th)
-    dp = B.p - A.p
-    dA = RA.T @ dp
-    dB = RB.T @ dp
-    C = RA.T @ RB
-    aC, aCt = np.abs(C), np.abs(C.T)
-    faceA = np.abs(dA) - hA - aC @ hB          # A 为参考体时各轴分离量
-    faceB = np.abs(dB) - aCt @ hA - hB
-    if (faceA > 0).any() or (faceB > 0).any():
+    """OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
+
+    返回 [(q, n, pen)]，n 由 A 指向 B，pen > 0。
+    · 4 条候选轴（A 两根 + B 两根）逐条投影，任一轴分离即不相交；
+      重叠量最小的轴即碰撞法线（最小平移方向）。
+    · 接触点 = 嵌进对方体内的顶点，按穿透深度取最深的 2 个——
+      面-面接触恰好给出 2 点，堆叠才不会单边翘起。
+    · pen 用 SAT 重叠量（同一法线下所有接触点共用），不逐点另算，
+      否则同一接触面会出现互相矛盾的修正量导致抖动。
+    """
+    VA, VB = A.verts(), B.verts()
+    axes = [rot(A.th) @ np.array([1.0, 0.0]), rot(A.th) @ np.array([0.0, 1.0]),
+            rot(B.th) @ np.array([1.0, 0.0]), rot(B.th) @ np.array([0.0, 1.0])]
+    best, bx = None, None
+    for ax in axes:
+        pa = np.array([float(np.dot(v, ax)) for v in VA])
+        pb = np.array([float(np.dot(v, ax)) for v in VB])
+        ov = float(min(pa.max(), pb.max()) - max(pa.min(), pb.min()))
+        if ov <= 0.0:
+            return []                                  # 找到分离轴
+        if best is None or ov < best:
+            best, bx = ov, ax
+    if float(np.dot(B.p - A.p, bx)) < 0.0:
+        bx = -bx                                       # 法线统一由 A 指向 B
+    a_hi = max(float(np.dot(v, bx)) for v in VA)
+    b_lo = min(float(np.dot(v, bx)) for v in VB)
+    cand = []
+    for v in VA:
+        if _inside_obb(v, B):
+            cand.append((float(np.dot(v, bx)) - b_lo, v))
+    for v in VB:
+        if _inside_obb(v, A):
+            cand.append((float(a_hi - np.dot(v, bx)), v))
+    if not cand:
         return []
-    # 取分离量最大（穿透最小）的轴，带 1e-3 偏置优先 faceA 防抖
-    ax, ay, bx, by = faceA[0], faceA[1], faceB[0], faceB[1]
-    best = max(ax, ay, bx + 1e-3, by + 1e-3)
-    flip = False
-    if best == bx or best == by:
-        A, B, hA, hB, RA, RB, flip = B, A, hB, hA, RB, RA, True
-        dA, dB = -dB, -dA            # 交换后 dp 反向
-        axis_i = 0 if best == bx else 1
-    else:
-        f = (ax, ay)
-        axis_i = 0 if best == ax else 1
-    n_ref = RA[:, axis_i] * (1.0 if dA[axis_i] >= 0 else -1.0)
-    if flip:
-        n_ref = -n_ref
-    # 参考面上的两点（世界系）
-    ex = hA[axis_i] * (1.0 if dA[axis_i] >= 0 else -1.0)
-    tang = RA[:, 1 - axis_i]
-    c0 = A.p + n_ref * ex
-    p1 = c0 - tang * hA[1 - axis_i]
-    p2 = c0 + tang * hA[1 - axis_i]
-    # 入射面：B 上法线与 -n_ref 最反向的那条边
-    n_inc = None
-    best_d = 1e9
-    for i, q in enumerate(B.verts()):
-        d = np.dot(n_ref, B._edge_normal(i) if hasattr(B, "_edge_normal")
-                   else np.array([0.0, 0.0]))
-        if d < best_d:
-            best_d, n_inc = d, i
-    nb = [RB @ np.array([[1, 0], [0, 1], [-1, 0], [0, -1]][k]) for k in range(4)]
-    best_d, k_inc = 1e9, 0
-    for k in range(4):
-        d = np.dot(n_ref, nb[k])
-        if d < best_d:
-            best_d, k_inc = d, k
-    vs = B.verts()
-    inc = [vs[k_inc], vs[(k_inc + 1) % 4]]
-    inc = _clip_face(inc, -tang, -np.dot(tang, p1))
-    if len(inc) < 2:
-        return []
-    inc = _clip_face(inc, tang, np.dot(tang, p2))
-    if len(inc) < 2:
-        return []
-    out = []
-    for q in inc:
-        sep = np.dot(n_ref, q - c0)
-        if sep <= 0.0:
-            out.append((q, n_ref, -sep))
-    return out
+    cand.sort(key=lambda t: -t[0])
+    return [(np.asarray(v, float), bx.copy(), float(best)) for _, v in cand[:2]]
 
 
 def collide_ground(b, gy=0.0, n=(0.0, 1.0)):
@@ -179,7 +185,8 @@ def collide_ground(b, gy=0.0, n=(0.0, 1.0)):
 
 
 class Contact:
-    __slots__ = ("a", "b", "p", "n", "pen", "Pn", "Pt", "kn", "kt", "bias")
+    __slots__ = ("a", "b", "p", "n", "pen", "Pn", "Pt", "kn", "kt",
+                 "bias")
 
     def __init__(self, a, b, p, n, pen):
         self.a, self.b = a, b
@@ -231,8 +238,9 @@ def solve(contacts, dt, iterations=ITER):
             dv = (b.v + cross_w(b.w, rb)) - (a.v + cross_w(a.w, ra))
             vt = float(np.dot(dv, t))
             dpt = -vt * c.kt
-            mx = c.a.mu * c.b.mu ** 0.0 if False else \
-                max(c.a.mu, c.b.mu) * c.Pn
+            # 摩擦系数合成：Box2D b2MixFriction = sqrt(f1*f2)（出处[1]）。
+            # 原用 max()：摆锤用例给球设 mu=0 仍被地面的 0.6 接管，水平动量被地面摩擦偷走 28%。
+            mx = float(np.sqrt(max(c.a.mu, 0.0) * max(c.b.mu, 0.0))) * c.Pn
             pt0 = c.Pt
             c.Pt = float(np.clip(pt0 + dpt, -mx, mx))
             _apply(c, ra, rb, t, 0.0, c.Pt - pt0)
@@ -247,18 +255,40 @@ class World:
         self.gy = gy
         self.iters = iters
         self.bodies = []
+        self.segments = []
         self.constraints = []
         self.max_pen = 0.0
+        self.peak_pen = 0.0
 
     def add(self, b):
         self.bodies.append(b)
         return b
+
+    def add_segment(self, seg):
+        self.segments.append(seg)
+        return seg
 
     def step(self):
         dt = self.dt
         for b in self.bodies:
             if not b.fixed:
                 b.v[1] -= self.g * dt
+        cs = self._contacts()
+        self._wake(cs)
+        # 撞击瞬间的瞬时重叠（求解前），仅作诊断
+        self.peak_pen = max([c.pen for c in cs], default=0.0)
+        if cs:
+            solve(cs, dt, self.iters)
+        for con in self.constraints:
+            con(dt)
+        self._integrate(dt)
+        self._sleep_update(dt)
+        self._relax()
+        # max_pen 取求解后的残余穿透：这是渲染出来的那一帧真正被看到的重叠
+        self.max_pen = max([c.pen for c in self._contacts()], default=0.0)
+        return cs
+
+    def _contacts(self):
         cs = []
         n = len(self.bodies)
         for i in range(n):
@@ -272,22 +302,81 @@ class World:
                 else:
                     cs.extend(_round_pair(A, B))
         for b in self.bodies:
-            if not b.fixed:
-                for q, nn, pen in collide_ground(b, self.gy):
-                    cs.append(Contact(_ANCHOR, b, q, nn, pen))
-        self.max_pen = max([c.pen for c in cs], default=0.0)
-        if cs:
-            solve(cs, dt, self.iters)
-        for con in self.constraints:
-            con(dt)
-        for b in self.bodies:
-            if not b.fixed:
-                b.p += b.v * dt
-                b.th += b.w * dt
+            if b.fixed:
+                continue
+            for q, nn, pen in collide_ground(b, self.gy):
+                cs.append(Contact(_ANCHOR, b, q, nn, pen))
+            for sg in self.segments:
+                for q, nn, pen in collide_seg(b, sg):
+                    cs.append(Contact(sg, b, q, nn, pen))
         return cs
 
-    def _round(self, A, B):
-        return _round_pair(A, B)
+    def _wake(self, cs):
+        """唤醒判定（出处[4]）：被来势较猛的物体压到、或穿透超 2*slop 时唤醒"""
+        for c in cs:
+            if not (getattr(c.a, "sleeping", False)
+                    or getattr(c.b, "sleeping", False)):
+                continue
+            if c.pen > 2.0 * SLOP:
+                for x in (c.a, c.b):
+                    if hasattr(x, "sleeping"):
+                        x.sleeping = False
+                        x.sleep_t = 0.0
+                continue
+            dv = c.b.v - c.a.v
+            if float(np.dot(dv, c.n)) < -WAKE_VN:
+                for x in (c.a, c.b):
+                    if hasattr(x, "sleeping"):
+                        x.sleeping = False
+                        x.sleep_t = 0.0
+
+    def _sleep_update(self, dt):
+        for b in self.bodies:
+            if b.fixed:
+                continue
+            slow = (float(np.linalg.norm(b.v)) < SLEEP_LIN
+                    and abs(b.w) < SLEEP_ANG)
+            b.sleep_t = b.sleep_t + dt if slow else 0.0
+            if b.sleep_t >= SLEEP_TIME:
+                b.sleeping = True
+                b.v[:] = 0.0
+                b.w = 0.0
+
+    def _integrate(self, dt):
+        for b in self.bodies:
+            if not b.fixed and not b.sleeping:
+                b.p += b.v * dt
+                b.th += b.w * dt
+
+    def _relax(self, iters=4):
+        """位置修正：非线性 Gauss-Seidel（Box2D SolvePositionConstraints）。
+
+        只做线分离、不修正角度（Box2D 同款简化，角度由后续冲量收敛）。
+        逐次重算接触：修正一次后穿透量会变，用新值继续迭代。
+        """
+        for _ in range(iters):
+            cs = self._contacts()
+            if not cs:
+                return
+            moved = 0.0
+            for c in cs:
+                a, b = c.a, c.b
+                sm = a.inv_m + b.inv_m
+                if sm <= 0.0:
+                    continue
+                d = POS_PERCENT * max(0.0, c.pen - SLOP) / sm
+                # b2_maxLinearCorrection：限制单步位移修正量，防过冲（出处[2]）
+                if d > MAX_LIN_CORR:
+                    d = MAX_LIN_CORR
+                if d <= 0.0:
+                    continue
+                moved = max(moved, d)
+                if not a.fixed:
+                    a.p -= c.n * (d * a.inv_m)
+                if not b.fixed:
+                    b.p += c.n * (d * b.inv_m)
+            if moved < 1e-6:
+                return
 
 
 def _round_pair(A, B):
@@ -338,6 +427,69 @@ def _round_pair(A, B):
 
 
 _ANCHOR = Body2(p=(0.0, 0.0), shape="circle", r=0.0, fixed=True)
+
+
+class Segment2:
+    """静态线段碰撞体（有限长斜面）。
+
+    为什么不用"一串旋转盒"近似斜面：相邻盒之间会形成凸角（seam），
+    圆滚过接缝时最近点会落到盒的角点上，穿透量被算成整个半径，
+    表现为球被拉进斜面。线段碰撞体只有一个解析最近点，无接缝。
+
+    出处：圆-线段取线段上离圆心最近点（clamp 投影参数 t 到 [0,1]），
+    法线由最近点指向圆心；等价于 OBB 最近点法（本模块 [3]）在退化
+    为线段时的形式。
+    """
+
+    # 对外伪装成 Body2：求解器只读 p/v/w/inv_m/inv_I/fixed/mu
+    __slots__ = ("a", "b", "t", "mu", "e", "tag",
+                 "p", "v", "w", "inv_m", "inv_I", "fixed", "shape")
+
+    def __init__(self, a=(0.0, 0.0), b=(1.0, 0.0), t=0.0, mu=0.3, e=0.0,
+                 tag="seg"):
+        self.a = np.asarray(a, float)
+        self.b = np.asarray(b, float)
+        self.t = float(t)      # 半厚度，默认 0（无限薄）
+        self.mu = float(mu)
+        self.e = float(e)
+        self.tag = tag
+        self.p = 0.5 * (self.a + self.b)
+        self.v = np.zeros(2)
+        self.w = 0.0
+        self.inv_m = 0.0       # 静态
+        self.inv_I = 0.0
+        self.fixed = True
+        self.shape = "segment"
+
+    def closest(self, q):
+        """线段上离 q 最近的点：投影参数 clamp 到 [0,1]"""
+        ab = self.b - self.a
+        tt = float(np.dot(q - self.a, ab) / float(np.dot(ab, ab)))
+        tt = min(1.0, max(0.0, tt))
+        return self.a + ab * tt
+
+
+def collide_seg(body, seg):
+    """物体 vs 静态线段。返回 [(接触点, 法线A→B, 穿透)]"""
+    out = []
+    if body.shape == "circle":
+        q = seg.closest(body.p)
+        d = body.p - q
+        dist = float(np.linalg.norm(d))
+        pen = body.r + seg.t - dist
+        if pen > 0.0:
+            n = d / dist if dist > 1e-9 else np.array([0.0, 1.0])
+            out.append((q, n, pen))
+        return out
+    for v in body.verts():                      # 盒：顶点逐个测（保守估计）
+        q = seg.closest(v)
+        d = v - q
+        dist = float(np.linalg.norm(d))
+        pen = seg.t - dist
+        if pen > 0.0:
+            n = d / dist if dist > 1e-9 else np.array([0.0, 1.0])
+            out.append((q, n, pen))
+    return out
 
 
 class DistanceConstraint:
@@ -398,23 +550,25 @@ def stack_sim(n_box=4, size=0.22, T=3.0, dt=1.0 / 60.0):
 def ramp_sim(theta_deg=20.0, L=2.0, mu=0.05, T=2.5, dt=1.0 / 240.0):
     """球沿斜面滚下。返回 (球, 轨迹[(x,y)], 最大穿透, 理论加速度)"""
     th = np.radians(theta_deg)
-    ball = Body2(p=(-np.cos(th) * L * 0.5, np.sin(th) * L * 0.5 + 0.11),
+    _up = np.array([np.sin(th), np.cos(th)])      # 斜面外法线（单位向量）
+    _tan = np.array([np.cos(th), -np.sin(th)])    # 沿坡向下（单位向量）
+    p_top = np.array([-np.cos(th) * L * 0.5, np.sin(th) * L * 0.5])
+    p_bot = np.array([np.cos(th) * L * 0.5, -np.sin(th) * L * 0.5])
+    gy = float(p_bot[1] - 0.11)                       # 地面接在斜面末端
+    w = World(dt=dt, gy=gy)
+    # 斜面 = 单根解析线段，无接缝、无端面伪接触（见 Segment2 说明）
+    w.add_segment(Segment2(p_top, p_bot, mu=mu, tag="ramp"))
+    ball = Body2(p=p_top + _tan * (0.06 * L) + _up * 0.112,
                  shape="circle", r=0.11, m=1.0, e=0.0, mu=mu)
-    w = World(dt=dt, gy=-10.0)          # 地面下移，斜面用静态盒近似
     w.add(ball)
-    # 斜面用一串旋转的静态盒拼成（SAT 天然支持旋转体）
-    n_seg = 40
-    seg = L / n_seg
-    for k in range(n_seg):
-        t = (k + 0.5) / n_seg
-        cx = -np.cos(th) * L * (0.5 - t)
-        cy = np.sin(th) * L * (0.5 - t)
-        w.add(Body2(p=(cx, cy), shape="box", hw=seg * 0.55, hh=0.05,
-                    th=-th, fixed=True, mu=mu, tag="ramp"))
+    # 只统计球仍在斜面切向覆盖范围内的帧：滚出尽头后落到地面，
+    # 与斜面的接触本就应消失（C17 判据针对球与斜面的关系）
     traj, pens = [], []
     for _ in range(int(round(T / dt)) + 1):
         w.step()
-        pens.append(w.max_pen)
+        s = float(np.dot(ball.p - p_top, _tan))
+        if 0.0 <= s <= L:
+            pens.append(w.max_pen)
         traj.append(ball.p.copy())
     g = 9.80665
     a_theory = g * (np.sin(th) - mu * np.cos(th))     # 滑/滚的斜面加速度上界
@@ -425,13 +579,21 @@ def ramp_sim(theta_deg=20.0, L=2.0, mu=0.05, T=2.5, dt=1.0 / 240.0):
 def pendulum_sim(L=1.0, th0_deg=60.0, T=3.0, dt=1.0 / 2400.0, m1=2.0, m2=1.0):
     """摆锤从 th0 摆下，最低点撞击静止球。返回 (摆, 球, 碰撞前后水平动量, 最大穿透)"""
     th0 = np.radians(th0_deg)
-    # 球置于摆锤最低点正下方：碰撞恰发生在最低点，绳竖直 → 水平无张力分量
+    # 球置于摆锤最低点正下方，且预留 delta 重叠：
+    # 若恰好放在 2r 处，pen 恒为 0、接触永不被生成（上一版 pre=None 的成因）。
+    # 撞击角由几何决定：theta_c ≈ sqrt(0.48*delta/(L^2+0.24L))（推导，实测吻合）。
+    # 绳是外部约束，其反冲的水平分量 ~ sin(theta_c)，是水平动量变化的唯一来源，非引擎误差。
+    # 实测：delta=0.04→6.84°(3.85%)、0.01→3.40°(1.58%)、0.004→2.13°(0.70%)、0.002→1.46°(0.35%)。
+    # delta 再小则接触退化为擦边（最低点处摆速水平、法向竖直，法向相对速度→0），球几乎不动。
+    r1 = r2 = 0.12
+    delta = 0.004
     bob = Body2(p=(L * np.sin(th0), -L * np.cos(th0)), shape="circle",
-                r=0.12, m=m1, e=0.0, mu=0.4, tag="bob")
+                r=r1, m=m1, e=0.0, mu=0.4, tag="bob")
     anchor = np.array([0.0, 0.0])
-    ball = Body2(p=(0.0, -L - 0.24), shape="circle", r=0.12, m=m2,
-                 e=0.5, mu=0.4, tag="ball")
-    w = World(dt=dt, gy=-L - 0.36)
+    ball_y = -(L + r1 + r2 - delta)
+    ball = Body2(p=(0.0, ball_y), shape="circle", r=r2, m=m2,
+                 e=0.5, mu=0.0, tag="ball")   # mu=0：剔除地面摩擦对水平动量的干扰
+    w = World(dt=dt, gy=ball_y - r2)
     w.add(bob)
     w.add(ball)
     w.constraints.append(DistanceConstraint(bob, anchor, L))
@@ -442,7 +604,8 @@ def pendulum_sim(L=1.0, th0_deg=60.0, T=3.0, dt=1.0 / 2400.0, m1=2.0, m2=1.0):
         w.step()
         pens.append(w.max_pen)
         after = bob.v[0] * m1 + ball.v[0] * m2
-        if pre is None and abs(before - after) > 1e-9 and ball.v[0] > 1e-6:
+        # 取绝对值：摆从 +x 侧摆下，撞击把球推向 -x，判符号会永远漏检
+        if pre is None and abs(before - after) > 1e-9 and abs(ball.v[0]) > 1e-6:
             pre, post = before, after
     return bob, ball, pre, post, max(pens)
 

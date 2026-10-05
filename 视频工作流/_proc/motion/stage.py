@@ -10,6 +10,17 @@
 
 背景不重画，所以帧间背景像素完全一致 —— 不会出现 AI 视频那种背景蠕动。
 """
+import os
+import sys
+
+# 路径自举：锚定 __file__ 的绝对路径，保证从任意 cwd 直接跑都能导入。
+_HERE = os.path.dirname(os.path.abspath(__file__))   # .../视频工作流/_proc/motion
+_PROC = os.path.dirname(_HERE)                       # .../视频工作流/_proc
+_ROOT = os.path.dirname(_PROC)                       # .../视频工作流
+for _p in (_ROOT, _PROC):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import numpy as np
 import math
 from typing import NamedTuple

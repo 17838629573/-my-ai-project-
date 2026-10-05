@@ -12,6 +12,17 @@
 
 动作与几何复用 character.py 已修好的部分（gait / IK / 投影），不重复造。
 """
+import os as _os, sys as _sys
+if __package__ in (None, ""):
+    _d = _os.path.dirname(_os.path.abspath(__file__))
+    while _d != _os.path.dirname(_d) and _os.path.basename(_d) != "_proc":
+        _d = _os.path.dirname(_d)
+    for _p in (_os.path.dirname(_d), _d):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = _os.path.relpath(
+        _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
+
 import math
 import numpy as np
 import cv2
@@ -128,7 +139,7 @@ def draw_actor(cv, cam, J, Xc=0.0, Zc=10.0, yaw=90.0, body_h=1.70,
     """
     joints, caps, DC = L.build_body(template, hand_lod, body_h)
     if template == "humanoid":
-        from _proc.shape import hand as _H
+        from shape import hand as _H
         J = _H.attach(J, hand_lod, curl=hand_curl)   # 手挂在腕上，随腕走
     Jp = C.project_body(J, cam, Xc=Xc, Zc=Zc, yaw=yaw, body_h=body_h)
 
