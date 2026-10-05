@@ -1,5 +1,0 @@
-[S] _solver_geom @SOLVE/base d2 in=2
-api: skeleton_points(pts,N,L,W,mean,vfactor,tip_pp,samples,lift_deg,dir_deg)
-up: _solver_base,anchor
-down: _solver_chain,solver
-rule: T39

@@ -1,5 +1,0 @@
-[S] 骨架_行走 @OPS/demo d3 in=0
-api: solve_frame(spec,t), auto_fit(all_pts,cell,pad), draw_one(joints,s,ox,oy,cell), build_sheet(), self_check(frames,metas,fit)
-const: HERE, OUT_DIR, ANTHRO[10], FACE[3], POSE_STAND[14], GAIT[6], N_FRAME=30, CELL=256 …
-up: pose
-rule: T40 T74 T75

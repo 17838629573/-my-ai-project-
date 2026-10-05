@@ -1,6 +1,0 @@
-[S] loop_engine @SHOT/loop d1 in=1
-api: self_check()
-up: framerate
-down: render_v4
-rule: T26 T28
-warn: 6. order 缓存 _order 在 register 后失效（新增系统须重排）

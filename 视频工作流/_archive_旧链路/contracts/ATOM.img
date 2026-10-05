@@ -1,5 +1,0 @@
-[M] ATOM/img  S=5: chroma,chroma_selfcheck,composite,_layer_style,_matting
-api: chroma.chroma_key(bgr,ref,softness,shrink,despill) | chroma.trim_alpha(bgra,pad) | chroma.clean_mask(bgra,thresh,feather) | chroma.all_components(mask,thresh,min_area) | chroma_selfcheck.self_check() | composite.build_plate(fg,border) | composite.difference_matte(fg,plate,softness) | composite.contact_shadow(alpha,dx,dy,blur,strength) | composite.porter_duff_over(dst,src,a) | _layer_style.contact_shadow(alpha,dx,dy,blur,strength) …
-rule: T26 T18 T15 T101 T44 T13 T111 T112
-usedby: BUILD/phase,BUILD/util,GATE/core,OPS/demo,OPS/tool,SHOT/assemble,SHOT/sheet
-inner=2  selftest=3/5

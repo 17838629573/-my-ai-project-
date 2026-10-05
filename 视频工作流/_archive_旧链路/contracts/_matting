@@ -1,3 +1,0 @@
-[S] _matting @ATOM/img d0 in=0
-api: auto_trimap(bgr,border_ratio,fg_ratio,unknown_band), grabcut_alpha(bgr,trimap,iters), keep_center_component(alpha), feather_alpha(alpha,radius), matte_cell(bgr,border_ratio,feather,iters), split_sheet(sheet,cols,rows)
-rule: T111 T112

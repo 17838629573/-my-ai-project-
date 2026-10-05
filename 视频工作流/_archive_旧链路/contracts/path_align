@@ -1,5 +1,0 @@
-[S] path_align @ATOM/path d1 in=1
-api: normalize_pts(pts,W,H), walkable_band(bg_bgr,y0,y1), is_ground_patch(bg_bgr,x,y,r,depth), validate_path(pts,bg_bgr,table,n,total), visible_path_prompt(pts,half_width_px,px_per_m,material), self_check()
-up: path
-down: build_phase_setup
-rule: T95 T96 T97 T98

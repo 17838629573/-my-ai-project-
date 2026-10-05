@@ -1,5 +1,0 @@
-[S] build_phase_time @BUILD/phase d2 in=1
-api: flag_period_s(spec), gait_time(spec), durations(period_flag,cycle,n_flag,n_man)
-up: wind_response
-down: build_video
-rule: T29

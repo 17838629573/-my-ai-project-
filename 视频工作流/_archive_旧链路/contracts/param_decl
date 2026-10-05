@@ -1,5 +1,0 @@
-[S] param_decl @ATOM/rule d0 in=3
-api: verify(pname,p), require(pname,family,why,unit_hint,hint), have(pname), save(pname,value,unit,source,rng,family), audit(), self_check()
-const: _HERE, PARAMS_FILE
-down: _surface,cloth_aero,cloth_wire
-rule: T99 T100 T101

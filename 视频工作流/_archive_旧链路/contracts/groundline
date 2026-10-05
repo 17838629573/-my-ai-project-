@@ -1,5 +1,0 @@
-[S] groundline @ATOM/path d0 in=3
-api: probe(bgr,y,band_px), detect(bgr,band_px,top_n,y_range,sigma), self_check()
-const: MULTI_SCALE[3]
-down: build_phase_setup,build_util,build_video
-rule: T67

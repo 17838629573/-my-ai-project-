@@ -1,4 +1,0 @@
-[S] photo_rules @ATOM/rule d0 in=3
-api: body_pixels(shot,H,headroom), ground_y(shot,H,char_h,footroom), head_top_y(shot,H,char_h,ground), validate_shot(shot_type,angle,movement,H,W), validate_sequence(seq)
-const: BODY[13], JOINTS, SHOT_TYPES[8], ANGLES[5], MOVEMENTS[7]
-down: character_sheet,film_assemble,render_v4

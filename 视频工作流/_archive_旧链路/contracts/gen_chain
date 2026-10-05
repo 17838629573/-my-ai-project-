@@ -1,4 +1,0 @@
-[S] gen_chain @SOLVE/spec d0 in=0
-api: frames_for(period_s,fps), batches_for(n,per), chain_prompt(family,obj_desc,frame_ids,pose_desc,keep), self_check()
-const: FPS_TARGET=32, CELLS_PER_BATCH=8, DENOISE_BEST[2]
-rule: T99 T100 T101 T102

@@ -1,6 +1,0 @@
-[S] build_phase_render @BUILD/phase d5 in=1
-api: render(ctx)
-up: build_util,framerate,path
-down: build_video
-rule: T76 T77 T79
-warn: 已删: TREE_XY 硬编码落点 —— 树被钉在墙体立面上，与 spec 声明的地面锚点冲突

@@ -1,5 +1,0 @@
-[S] systems_selfcheck @SHOT/sys d3 in=1
-api: self_check()
-up: framerate,physics,physics_rules,skeleton_runtime,systems
-down: systems
-rule: T11:硬阻断不给后门 T14:先用对模型族再取参数

@@ -1,6 +1,0 @@
-[S] _common @ATOM/math d0 in=7
-api: clamp(x,lo,hi), lerp(a,b,t), smoothstep(edge0,edge1,x), catmull_rom(p0,p1,p2,p3,t), rad2deg(r), deg2rad(d), normalize_deg(d) …
-const: PI, DEG, RAD, HUMAN_PROPORTION[9], LEG_RATIO, BEAUFORT[13], FLAG_MOTION[13]
-down: _common_selfcheck,build_phase_gen,build_util,physics,physics_rules,rain_layer …
-rule: T11:硬阻断不给后门 T12:门禁必须能拦住"跑不起来 T86 T89
-warn: —— 过去 10 处内联口径不一致的 root cause 就在这 ｜ 已知不一致（改前必看）

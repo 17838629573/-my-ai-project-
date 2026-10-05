@@ -1,6 +1,0 @@
-[S] enforce @GATE/core d1 in=2
-api: parse_deps(), module_exists(name), find_cycle(deps), local_imports(py_path), cmd_status(), cmd_validate(), cmd_check_contract() …
-const: BASE, DEPS, WORKLOG, ACTIVE_SECTIONS[5], DORMANT_SECTIONS[2], MODULES[12]
-up: enforce_cmds
-down: enforce_cmds,run_batch
-rule: T1:判定靠命令输出

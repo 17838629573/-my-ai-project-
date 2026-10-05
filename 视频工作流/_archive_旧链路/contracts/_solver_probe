@@ -1,5 +1,0 @@
-[S] _solver_probe @SOLVE/chain d1 in=2
-api: containment_check(cell_bgra,cw,ch,policy,conf), probe_plan(ans,probe_max), probe_check(sheet_path,cols,rows,n,policy,conf)
-up: _solver_base
-down: _chk_base,solver
-rule: T18:可动件必须生成序列帧 T31 T47 T48

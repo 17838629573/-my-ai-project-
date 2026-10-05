@@ -1,6 +1,0 @@
-[S] cloth_wire @ATOM/aero d2 in=3
-api: garment_geom(spec_obj), garment_state(area_m2,mass_kg,v_wind,nx,ny), garment_amp_m(spec_obj,v_wind,family,L_char_m,nx,ny), self_check()
-up: cloth_aero,param_decl,wind_response
-down: build_phase_setup,build_util,build_video
-rule: T32 T99 T102 T103
-warn: 已修 bug（勿回退） ｜ （WORKLOG 2026-10-03 实录）。本轮三个真 bug 之一。

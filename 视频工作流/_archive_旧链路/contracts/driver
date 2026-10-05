@@ -1,6 +1,0 @@
-[S] driver @SOLVE/spec d4 in=1
-api: classify(obj), plan(objects), briefing(objects,tool_caps), self_check()
-const: FAMILIES[7], EXAMPLES[7], HARDCODE_BAN[6]
-up: genqueue
-down: solver_survey
-rule: T29 T36 T37 T73 T77 T78 T79 T80

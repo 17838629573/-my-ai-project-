@@ -1,6 +1,0 @@
-[S] wind_sway @ATOM/aero d2 in=3
-api: layer_weight(t,layer,exponent), phase_of(world_xy,salt), sway_offset(t,time_s,wind,layer,cfg,phase,L), wind_sway(t,time_s,wind,cfg,world_xy), self_check()
-const: LAYERS[3], DEFAULT_CFG[3], DEFAULT_L
-up: wind_response
-down: build_util,build_video,shot_plan
-rule: T79 T80 T81 T82 T91 T94

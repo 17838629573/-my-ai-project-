@@ -1,6 +1,0 @@
-[M] SOLVE/chain  S=2: _solver_chain,_solver_probe
-api: _solver_chain.flag_lift_deg() | _solver_chain.amp_over_L() | _solver_chain.solve(spec) | _solver_chain.chain_response() | _solver_probe.containment_check(cell_bgra,cw,ch,policy,conf) | _solver_probe.probe_plan(ans,probe_max) | _solver_probe.probe_check(sheet_path,cols,rows,n,policy,conf)
-rule: T47 T48 T31 T43 T88 T34 T29 T54 T20 T32
-uses: ATOM/frame,ATOM/path,ATOM/phys,ATOM/rule,SOLVE/base
-usedby: SOLVE/check,SOLVE/sheet
-inner=0  selftest=0/2

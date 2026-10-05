@@ -1,5 +1,0 @@
-[S] rain_layer @ATOM/water d1 in=0
-api: rain_drops(R_mm_h,wind_ms,W,H,px_per_m,seed,depth_m), draw_rain(frame,drops,t,wind_ms,px_per_m,color), cv2_line(img,p1,p2,color,thick,ang), self_check()
-const: DEPTH_M=0.05
-up: _common,water
-rule: T96

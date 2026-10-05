@@ -1,4 +1,0 @@
-[S] skeleton_runtime_selfcheck @SHOT/skel d1 in=1
-api: self_check()
-up: skeleton_runtime
-down: skeleton_runtime

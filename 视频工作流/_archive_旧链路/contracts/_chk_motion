@@ -1,5 +1,0 @@
-[S] _chk_motion @SOLVE/check d7 in=1
-api: check(ctx)
-up: _chk_base
-down: solver_check
-rule: T32 T39

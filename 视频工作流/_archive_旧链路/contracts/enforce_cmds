@@ -1,5 +1,0 @@
-[S] enforce_cmds @GATE/core d4 in=1
-api: cmd_status(), cmd_validate(), cmd_check_contract(name), cmd_check_deps(), cmd_check_evidence(code,evidence), cmd_gate(kind,stage), cmd_check_assets()
-up: character_sheet,chroma,enforce
-down: enforce
-rule: T1:判定靠命令输出 T12:门禁必须能拦住"跑不起来

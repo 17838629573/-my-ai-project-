@@ -1,6 +1,0 @@
-[M] BUILD/phase  S=5: build_phase_time,build_phase_setup,build_phase_asset,build_phase_gen,build_phase_render
-api: build_phase_time.flag_period_s(spec) | build_phase_time.gait_time(spec) | build_phase_time.durations(period_flag,cycle,n_flag,n_man) | build_phase_setup.setup_baseline(bg,spec,W) | build_phase_setup.setup_scale(spec,baseline_y,wind_dir) | build_phase_setup.setup_path(spec,bg,W,H,px_per_m) | build_phase_asset.load_flag_sheet(px_per_m,path,grid,take) | build_phase_asset.load_man_sheet(px_per_m,path,grid,take) | build_phase_asset.load_tree(px_per_m,path) | build_phase_gen.plan_shots(spec,W,H,baseline_y) …
-rule: T29 T98 T84 T96 T86 T99 T31 T97 T81 T79
-uses: ATOM/aero,ATOM/frame,ATOM/img,ATOM/math,ATOM/path,BUILD/util,SHOT/gen,SHOT/skel
-usedby: OPS/demo
-inner=0  selftest=0/5

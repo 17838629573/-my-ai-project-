@@ -1,6 +1,0 @@
-[S] _chk_base @SOLVE/check d6 in=10
-const: BASE_SPEC[5], SOLVER_MODULES[10], SOLVER_SRC, SOLVER_LOGIC
-up: _solver_base,_solver_chain,_solver_probe,_solver_reuse,_solver_run,_solver_sheet,anchor,framerate,physics,solver_survey
-down: _chk_assemble,_chk_chain,_chk_motion,_chk_multi,_chk_pack,_chk_physics …
-rule: T89
-warn: _strip_examples(src) # 逐文件剔除 BEGIN/END EXAMPLES（拼接后跨文件错配会漏剔） ｜ 历史踩坑（同型 bug 已复发，改前必看）

@@ -1,3 +1,0 @@
-[S] gate_doc @GATE/size d0 in=0
-api: sz(p), self_check()
-const: LIMIT[4], CONTRACT_LIMIT=4000, CONTRACT_TOTAL=70000

@@ -1,5 +1,0 @@
-[M] OPS/demo  S=10: render_gate_banner,render_desert_banner,_build32,run_batch,run_gen_queue,environment,motion_lib,_问卷,占位音轨,骨架_行走
-api: render_gate_banner.check_actors() | render_gate_banner.build_ctx(s) | render_gate_banner.main() | render_desert_banner.check_actors() | render_desert_banner.build_ctx(s) | render_desert_banner.main() | _build32.key_color_of(im) | _build32.key_alpha(cell,key) | _build32.prep(item,th) | _build32.sh_of(al,i) …
-rule: T28 T23 T20 T97 T81 T40 T75 T74
-uses: ATOM/frame,ATOM/img,ATOM/phys,ATOM/rule,BUILD/phase,GATE/core,SHOT/_top,SHOT/sheet,SHOT/skel,SHOT/sys,SOLVE/_top
-inner=0  selftest=7/10

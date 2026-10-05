@@ -1,3 +1,0 @@
-[S] 占位音轨 @OPS/demo d0 in=0
-api: synth_line(dur_ms,seed,syl), write_wav(path,data,sr), concat_wav(paths,out), duration_ms(path)
-const: SR=44100, LINES[5]

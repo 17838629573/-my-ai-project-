@@ -1,6 +1,0 @@
-[S] _solver_base @SOLVE/base d0 in=8
-api: wind_sign(dir_deg)
-const: CONSTANTS[6], AMP_BY_LEVEL_DEFAULT[9], CONTAINMENT[9], MAX_MAT_FRAMES=16, PROBE_MAX=8, WIND_DIR_DEFAULT=0.0, REQUIRED[5], DRAW_PARAM[6] …
-down: _chk_base,_solver_chain,_solver_chain_aux,_solver_geom,_solver_probe,_solver_run …
-rule: T18:可动件必须生成序列帧 T31 T32 T34 T39 T40 T47 T48
-warn: WIND_DIR_DEFAULT=0.0【铁律39】风向全局唯一，由 scene 顶层广播，各物体不一致即报错

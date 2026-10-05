@@ -1,5 +1,0 @@
-[S] film_assemble_render @SHOT/assemble d5 in=1
-api: self_check(), render_one(p,out_mp4,W,H,fps,bg_speed,bob,step_frames,cam_pull,cam_push,crf)
-up: film_assemble,framerate
-down: film_assemble
-rule: T13:逻辑唯一 T28

@@ -1,5 +1,0 @@
-[S] render_desert_banner @OPS/demo d6 in=0
-api: check_actors(), build_ctx(s), main()
-const: OUT=沙漠幡旗.mp4, SECONDS=4.0, SHOTS[1]
-up: actors,character_sheet,framerate,physics,render_v4,systems
-rule: T28

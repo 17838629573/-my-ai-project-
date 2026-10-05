@@ -1,4 +1,0 @@
-[L] ATOM  M=9  S=32
-desc: 原子层：无业务语义的纯函数与常量，被一切模块依赖
-M: ATOM/math, ATOM/phys, ATOM/frame, ATOM/aero, ATOM/water, ATOM/cam, ATOM/path, ATOM/img, ATOM/rule
-rule: T86 T88 T31 T18 T99 T32 T29 T91 T98 T96

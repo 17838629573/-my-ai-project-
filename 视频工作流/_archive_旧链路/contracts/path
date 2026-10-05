@@ -1,4 +1,0 @@
-[S] path @ATOM/path d0 in=6
-api: catmull_rom(p0,p1,p2,p3,u), sample(pts,u), arc_table(pts,n), at_distance(pts,s,table), project(pts,x,y,table), clamp_offset(offset,half_width), advance(s,ds,total) …
-down: build_phase_render,build_phase_setup,build_util,build_video,path_align,shot_plan
-rule: T76 T77 T78

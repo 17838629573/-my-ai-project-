@@ -1,5 +1,0 @@
-[S] _solver_run @SOLVE/sheet d4 in=2
-api: run_spec(path)
-up: _solver_base,_solver_chain,_solver_reuse,_solver_sheet
-down: _chk_base,solver
-rule: T39 T41 T52

@@ -1,5 +1,0 @@
-[S] placement @ATOM/path d0 in=3
-api: semantic_point(kind,canvas_w,canvas_h,shape), attach_point(kind,canvas_w,canvas_h,ratio), place(regpoint,target_xy,scale), verify(regpoint,target_xy,rect,tol), self_check()
-const: SEMANTIC_KINDS[5], _SPEC[5]
-down: build_util,build_video,shot_plan
-rule: T73 T74 T75

@@ -42,7 +42,7 @@ LIMIT_SUMMARY = 72                   # R6
 LIMIT_CC = 10                        # R9  NASA/NIST: 超过 10 就拆
 LIMIT_CC_HARD = int(os.environ.get('PROC_CC_HARD', 15))  # R9 红线，可用环境变量临时上调以生成报告
 
-SKIP_DIRS = {"_bak", "__pycache__", "_archive_旧链路"}
+SKIP_DIRS = {"_bak", "__pycache__"}
 
 
 def walk_py():

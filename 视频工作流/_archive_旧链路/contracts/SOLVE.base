@@ -1,6 +1,0 @@
-[M] SOLVE/base  S=3: _solver_base,_solver_chain_aux,_solver_geom
-api: _solver_base.wind_sign(dir_deg) | _solver_chain_aux.flag_lift_deg(U) | _solver_chain_aux.amp_over_L(level,criteria) | _solver_chain_aux.chain_response(links,f_drive,amp_drive,zeta_default) | _solver_chain_aux.chain_response_multi(links,drives,zeta_default,weights,n_sample) | _solver_geom.skeleton_points(pts,N,L,W,mean,vfactor,tip_pp,samples,lift_deg,dir_deg)
-rule: T39 T32 T31 T88 T40 T34 T47 T48 T18 T20
-uses: ATOM/frame,ATOM/path
-usedby: SOLVE/chain,SOLVE/check,SOLVE/sheet
-inner=2  selftest=0/3

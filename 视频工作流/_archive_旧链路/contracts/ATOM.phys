@@ -1,6 +1,0 @@
-[M] ATOM/phys  S=2: physics,physics_rules
-api: physics.volume(mass,rho) | physics.area(mass,kind,k) | physics.force(v_rel,A,cd,b) | physics.force_per_area(v_rel,cd,b) | physics_rules.volume_of(mass,rho) | physics_rules.frontal_area(mass,kind,rho,trunk) | physics_rules.vogel_exponent(kind,flexible) | physics_rules.drag_force(v,area,cd,rho,b)
-rule: T88 T86 T18
-uses: ATOM/math
-usedby: ATOM/rule,OPS/demo,SHOT/sys,SOLVE/chain,SOLVE/check
-inner=0  selftest=2/2

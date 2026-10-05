@@ -1,6 +1,0 @@
-[M] SHOT/gen  S=3: genqueue,prompt_tpl,shot_plan
-api: genqueue.plan(objects) | genqueue.build_prompt(task) | genqueue.next_task(q,done) | genqueue.accept(q,tid,report) | prompt_tpl.scale_slots(family) | prompt_tpl.families() | prompt_tpl.build(family,params) | prompt_tpl.structural_pose(family,solved) | shot_plan.build_scale(scene) | shot_plan.path_hint(pts,half_width_m,px_per_m,persp) …
-rule: T31 T84 T83 T85 T81 T68 T113 T37 T82 T100
-uses: ATOM/aero,ATOM/path,SHOT/skel
-usedby: BUILD/phase,BUILD/util,SOLVE/spec
-inner=1  selftest=3/3

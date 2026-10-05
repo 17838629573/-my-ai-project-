@@ -1,5 +1,0 @@
-[S] _solver_sheet @SOLVE/sheet d1 in=3
-api: sheet_layout(ans), sheet_plan(ans,spec,max_cells,cell_px,bg,aspect), draw_sheet(ans,prefix,cw,ch,cols,rows)
-up: _solver_base
-down: _chk_base,_solver_run,solver
-rule: T1:判定靠命令输出 T17:资产不只要存在 T33 T39 T40 T41 T47 T54

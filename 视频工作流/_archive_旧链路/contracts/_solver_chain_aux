@@ -1,6 +1,0 @@
-[S] _solver_chain_aux @SOLVE/base d1 in=1
-api: flag_lift_deg(U), amp_over_L(level,criteria), chain_response(links,f_drive,amp_drive,zeta_default), chain_response_multi(links,drives,zeta_default,weights,n_sample), frame_durations(N,T,tail_ratio,intentional_hold), loop_seam_ratio(frames_pose_diff,internal_mean), transient_envelope(f_n_hz,zeta,t_end,a_peak,a_steady,fps,t0)
-up: _solver_base,framerate
-down: _solver_chain
-rule: T20:生图形态必须由物理点锚定 T31 T32 T42 T43
-warn: 勿再对 wrapper 做二次抽取：真身曾在重复拆分中丢失过一次。

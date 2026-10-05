@@ -1,4 +1,0 @@
-[S] composite @ATOM/img d0 in=2
-api: build_plate(fg,border), difference_matte(fg,plate,softness), contact_shadow(alpha,dx,dy,blur,strength), porter_duff_over(dst,src,a), composite_layers(bg,layers), self_check()
-down: build_util,build_video
-warn: > 改本模块前必读：IMPROVE_composite.md（业界依据与历史 bug）

@@ -1,6 +1,0 @@
-[S] physics_rules @ATOM/phys d1 in=5
-api: volume_of(mass,rho), frontal_area(mass,kind,rho,trunk), vogel_exponent(kind,flexible), drag_force(v,area,cd,rho,b), accel(force,mass), beaufort(v), raindrop_v(d_mm) …
-const: RHO_AIR=1.225, G=9.81, RHO_TISSUE=1000.0, K_SHAPE[8], TRUNK_EXPONENT=1.0, B_VOGEL[4], BEAUFORT[11]
-up: _common
-down: environment,systems,systems_phys,systems_selfcheck,systems_view
-rule: T88

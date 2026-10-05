@@ -1,6 +1,0 @@
-[M] ATOM/path  S=6: path,path_align,groundline,scale_map,placement,anchor
-api: path.catmull_rom(p0,p1,p2,p3,u) | path.sample(pts,u) | path.arc_table(pts,n) | path.at_distance(pts,s,table) | path_align.normalize_pts(pts,W,H) | path_align.walkable_band(bg_bgr,y0,y1) | path_align.is_ground_patch(bg_bgr,x,y,r,depth) | path_align.validate_path(pts,bg_bgr,table,n,total) | groundline.probe(bgr,y,band_px) | groundline.detect(bgr,band_px,top_n,y_range,sigma) …
-rule: T76 T77 T95 T97 T98 T96 T32 T31 T73 T74
-uses: ATOM/frame
-usedby: BUILD/phase,BUILD/util,SHOT/gen,SOLVE/base,SOLVE/chain,SOLVE/check
-inner=1  selftest=6/6

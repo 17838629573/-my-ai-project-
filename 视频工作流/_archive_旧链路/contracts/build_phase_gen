@@ -1,5 +1,0 @@
-[S] build_phase_gen @BUILD/phase d5 in=2
-api: plan_shots(spec,W,H,baseline_y), emit_gen_queue(spec,U)
-up: _common,build_util,genqueue,pose,prompt_tpl,shot_plan,wind_response
-down: build_video,run_gen_queue
-rule: T29 T31 T81 T97

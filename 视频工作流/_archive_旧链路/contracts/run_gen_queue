@@ -1,4 +1,0 @@
-[S] run_gen_queue @OPS/demo d6 in=0
-const: U
-up: build_phase_gen
-rule: T81 T97

@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SKIP = {"_bak", "__pycache__", "_archive_旧链路"}
+SKIP = {"_bak", "__pycache__"}
 
 RULE_DOC = """## 契约规则与出处（不凭记忆，逐条可查）
 

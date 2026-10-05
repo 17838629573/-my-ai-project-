@@ -1,3 +1,0 @@
-[S] _migrate_common @OPS/tool d0 in=0
-api: active(path), main()
-const: ROOT, ACTIVE[0], MECH[4], NEED_HUMAN[4]

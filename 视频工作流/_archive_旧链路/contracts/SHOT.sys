@@ -1,6 +1,0 @@
-[M] SHOT/sys  S=4: systems,systems_phys,systems_view,systems_selfcheck
-api: systems.init_skeleton(ctx) | systems.step_px(char_px) | systems.scroll_per_frame(char_px,fps) | systems.matched_playrate(actual_speed_px_s,char_px,clamp) | systems_phys.init_physics(ctx) | systems_phys.update_physics(ctx,i,t) | systems_phys.update_movables(ctx,i,t) | systems_view.update_composite(ctx,i,t) | systems_view.update_subtitle(ctx,i,t) | systems_selfcheck.self_check()
-rule: T28 T14 T23 T46 T11
-uses: ATOM/frame,ATOM/phys,SHOT/skel,SHOT/sub
-usedby: OPS/demo
-inner=5  selftest=2/4

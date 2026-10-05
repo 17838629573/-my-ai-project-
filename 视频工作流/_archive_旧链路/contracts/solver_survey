@@ -1,6 +1,0 @@
-[S] solver_survey @SOLVE/spec d5 in=2
-api: survey(), inventory(actors), scale_question(objects), assemble(ans), briefing_text(b,with_examples)
-const: KINDS[6], PART_ROLES[3], DRIVE_SOURCES[4], SLOT_TEMPLATE[4], EXAMPLES[4], HOWTO[6]
-up: driver
-down: _chk_base,solver
-rule: T29 T30 T31 T33 T35 T36 T63 T64

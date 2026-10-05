@@ -1,5 +1,0 @@
-[M] SHOT/skel  S=5: skeleton_runtime,skeleton_runtime_selfcheck,pose,pose_selfcheck,pose_prompt
-api: skeleton_runtime.mat_mul(A,B) | skeleton_runtime.mat_local(x,y,rot_deg,sx,sy) | skeleton_runtime.mat_apply(M,px,py) | skeleton_runtime.mat_inverse(M) | skeleton_runtime_selfcheck.self_check() | pose.bone_lengths(spec) | pose.fk(root,lengths,angles) | pose.two_bone_ik(hip,target,L1,L2,knee_sign) | pose.leg_of(L) | pose_selfcheck.self_check() …
-rule: T72 T69 T70 T68 T75 T73 T74 T76 T100 T67
-usedby: BUILD/phase,BUILD/util,OPS/demo,SHOT/gen,SHOT/sys
-inner=5  selftest=5/5

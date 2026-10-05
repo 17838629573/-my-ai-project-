@@ -1,6 +1,0 @@
-[S] chroma @ATOM/img d2 in=8
-api: chroma_key(bgr,ref,softness,shrink,despill), trim_alpha(bgra,pad), clean_mask(bgra,thresh,feather), all_components(mask,thresh,min_area), load_character(path,target_h,method), overlay(dst,bgra,x,y,scale), contact_shadow(w,h,cx,strength) …
-up: chroma_selfcheck
-down: _split_sheet,build_phase_asset,build_util,build_video,character_sheet,chroma_selfcheck …
-rule: T15:无量纲数定义必须标源，禁 T18:可动件必须生成序列帧 T26 T44
-warn: ⚠ 实测局限：历史 bug 资产宽高比 0.264，落在合理区间内 —— 纯几何拦不住。

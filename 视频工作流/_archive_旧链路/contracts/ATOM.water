@@ -1,5 +1,0 @@
-[M] ATOM/water  S=2: water,rain_layer
-api: water.drop_terminal_velocity(D_mm,model) | water.marshall_palmer_lambda(I_mm_h) | water.drop_count_above(D_mm,I_mm_h) | water.median_volume_diameter(I_mm_h) | rain_layer.rain_drops(R_mm_h,wind_ms,W,H,px_per_m,seed,depth_m) | rain_layer.draw_rain(frame,drops,t,wind_ms,px_per_m,color) | rain_layer.cv2_line(img,p1,p2,color,thick,ang) | rain_layer.self_check()
-rule: T98 T96
-uses: ATOM/math
-inner=1  selftest=2/2

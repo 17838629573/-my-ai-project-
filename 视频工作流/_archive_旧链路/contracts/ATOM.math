@@ -1,5 +1,0 @@
-[M] ATOM/math  S=3: _common,_common_selfcheck,_px
-api: _common.clamp(x,lo,hi) | _common.lerp(a,b,t) | _common.smoothstep(edge0,edge1,x) | _common.catmull_rom(p0,p1,p2,p3,t) | _common_selfcheck.chk(name,cond,got,exp) | _px.px_per_m(ref_px,ref_m) | _px.canvas_px_per_m(canvas_h,crop_top) | _px.to_px(real_m,ppm) | _px.to_m(px,ppm)
-rule: T86 T89 T12 T11 T18
-usedby: ATOM/aero,ATOM/phys,ATOM/water,BUILD/phase,BUILD/util
-inner=1  selftest=2/3

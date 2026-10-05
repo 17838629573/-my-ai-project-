@@ -1,3 +1,0 @@
-[S] deps_sync @OPS/tool d0 in=0
-api: scan(path), local_modules(root), build(root), has_selfcheck(m), topo(deps), render(deps)
-const: EXTERNAL, BREAK, CORE
