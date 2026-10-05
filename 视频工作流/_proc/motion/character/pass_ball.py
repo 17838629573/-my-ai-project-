@@ -1,0 +1,253 @@
+"""D22 两人传球：A 投 → 飞行 → B 接 → 缓冲 → B 投回 → A 接
+
+契约: motion/character/pass_ball
+  输入: 全局时间 t_phys（秒，∈ [0, T_TOTAL]）
+  输出: pose_A(t)/pose_B(t) 关节字典（本地归一化身高）
+        ball_world(t) 球心世界坐标（米，x 横向 / y 离地）
+        XC_A/XC_B/YAW_A/YAW_B 两人站位与朝向
+  依赖: numpy .ball .throw .catch
+  被依赖: tests/cases_crowd (D22)
+  约束: 球飞行段为解析抛物线，不做数值积分；
+        接球点取 catch.intercept_point()，手与球同时到达（tau 耦合），
+        故球-手在接触时刻严格重合，不需要额外容差；
+        两人间距、飞行时间、缓冲时长必须有出处
+
+为什么单独成模块
+  throw / catch 都是单人本地坐标，球轨迹在 catch 内是硬编码的来球。
+  传球需要"一条被两人共享的球"：A 的出手点是 B 来球的起点，
+  故世界坐标与时序必须由上层编排，不能塞进任一单人模块。
+
+公式出处:
+  · 两人间距 3.5 m：篮球双手胸前传球教学，两人一组相距 3~5 m
+  · 手与球同时到达（tau 时间-接触信息）：
+    Peper, Bootsma, Mestre & Bakker (1994) "Catching balls: How to get
+    the hand to the right place at the right time"
+  · 接球策略（预测 vs 反应）取决于反应时间与任务时长之比：
+    Belousov, Giese & Neumann (NIPS 2016) "Catching heuristics are
+    optimal control policies"
+  · 触球后顺势屈肘后引缓冲：篮球双手胸前传球教学（接球缓冲）
+"""
+import numpy as np
+
+from . import ball
+from . import throw as TH
+from . import catch as CT
+from ..beat import capability
+
+G = ball.G
+
+# ---- 站位（依据: 篮球传球教学 两人一组 3~5 m）----
+D_APART = 3.5
+XC_A = -D_APART / 2.0
+XC_B = +D_APART / 2.0
+YAW_A = 90.0        # 面朝 +X（本地前向 u → 世界 +X）
+YAW_B = -90.0       # 面朝 -X（本地前向 u → 世界 -X）
+
+# ---- 时序 ----
+T_THROW = TH.T_TOTAL     # 1.60 投掷动作时长
+T_CATCH = CT.T_TOTAL     # 1.20 接球动作时长
+F_REL = TH.F_REL         # 0.50 投掷释放点（归一化）
+T_MOVE = CT.T_MOVE       # 0.62 伸手到拦截点所需时间
+
+# 飞行时间取 T_MOVE：球出手瞬间接球者开始伸手，球到手到（tau 耦合，
+# Peper 1994）；同时满足 Belousov 2016 预测策略所需的最小任务时长。
+T_FLY = T_MOVE
+T_BUF = 0.30             # 触球后缓冲（篮球教学：顺势屈肘后引）
+
+T_REL_A = F_REL * T_THROW              # 0.80  A 出手
+T_B_CATCH0 = T_REL_A                   # 0.80  B 开始伸手
+T_ARRIVE1 = T_REL_A + T_FLY            # 1.42  球到 B
+T_B_CATCH1 = T_B_CATCH0 + T_CATCH      # 2.00  B 接球动作结束
+T_B_THROW0 = T_B_CATCH1 + T_BUF        # 2.30  B 开始投回
+T_REL_B = T_B_THROW0 + F_REL * T_THROW  # 3.10 B 出手
+T_ARRIVE2 = T_REL_B + T_FLY            # 3.72  球到 A
+T_A_CATCH0 = T_ARRIVE2 - T_MOVE        # 3.10  A 开始伸手
+T_A_CATCH1 = T_A_CATCH0 + T_CATCH      # 4.30
+T_TOTAL = T_A_CATCH1
+
+
+def _wx_a(p):
+    """A 的本地(米) → 世界(米)：yaw=90，本地前向 → 世界 +X"""
+    return np.array([XC_A + float(p[0]), float(p[1])])
+
+
+def _wx_b(p):
+    """B 的本地(米) → 世界(米)：yaw=-90，本地前向 → 世界 -X"""
+    return np.array([XC_B - float(p[0]), float(p[1])])
+
+
+def _solve(p0, tgt, T):
+    """反解初速：使球在 T 秒后精确到达 tgt（解析抛物线）"""
+    p0 = np.asarray(p0, float)
+    tgt = np.asarray(tgt, float)
+    v = np.array([(tgt[0] - p0[0]) / T,
+                  (tgt[1] - p0[1] + 0.5 * G * T * T) / T])
+    return p0, v
+
+
+_P1, _V1 = _solve(_wx_a(TH.hand_center(F_REL)),
+                  _wx_b(CT.intercept_point()), T_FLY)
+_P2, _V2 = _solve(_wx_b(TH.hand_center(F_REL)),
+                  _wx_a(CT.intercept_point()), T_FLY)
+
+
+def _flat(x):
+    return np.asarray(x, float).reshape(2)
+
+
+def flight1(tt):
+    """第一程（A→B）：tt 为出手后秒数"""
+    return _flat(ball.flight(_P1, _V1, tt))
+
+
+def flight2(tt):
+    """第二程（B→A）：tt 为出手后秒数"""
+    return _flat(ball.flight(_P2, _V2, tt))
+
+
+def release_vel1():
+    return _V1.copy()
+
+
+def release_vel2():
+    return _V2.copy()
+
+
+# ------------------------------------------------------------------ 姿态
+def pose_A(t):
+    """A（左侧，面朝 +X）：投 → 站立等待 → 接"""
+    t = float(t)
+    if t <= T_THROW:
+        return TH.throw(min(1.0, max(0.0, t / T_THROW)))
+    if t < T_A_CATCH0:
+        return TH.throw(1.0)
+    u = (t - T_A_CATCH0) / T_CATCH
+    return CT.catch(min(1.0, max(0.0, u)))
+
+
+def pose_B(t):
+    """B（右侧，面朝 -X）：站立等待 → 接 → 缓冲 → 投回"""
+    t = float(t)
+    if t < T_B_CATCH0:
+        return CT.catch(0.0)
+    if t <= T_B_CATCH1:
+        return CT.catch(min(1.0, max(0.0, (t - T_B_CATCH0) / T_CATCH)))
+    if t < T_B_THROW0:
+        return CT.catch(1.0)
+    if t <= T_B_THROW0 + T_THROW:
+        return TH.throw(min(1.0, max(0.0, (t - T_B_THROW0) / T_THROW)))
+    return TH.throw(1.0)
+
+
+def held_by(t):
+    """球此刻在谁手里（None 表示飞行中）"""
+    t = float(t)
+    if t <= T_REL_A:
+        return "A"
+    if t <= T_ARRIVE1:
+        return None
+    if t <= T_REL_B:
+        return "B"
+    if t <= T_ARRIVE2:
+        return None
+    return "A"
+
+
+def hand_world(t):
+    """持球者的手心世界坐标（米）"""
+    t = float(t)
+    if t <= T_REL_A:
+        return _wx_a(TH.hand_center(t / T_THROW))
+    if t <= T_B_CATCH1:
+        return _wx_b(CT.hand_center((t - T_B_CATCH0) / T_CATCH))
+    if t <= T_B_THROW0:
+        return _wx_b(CT.hand_center(1.0))
+    if t <= T_REL_B:
+        return _wx_b(TH.hand_center((t - T_B_THROW0) / T_THROW))
+    if t <= T_ARRIVE2:
+        return _wx_a(CT.hand_center((t - T_A_CATCH0) / T_CATCH))
+    return _wx_a(CT.hand_center(min(1.0, (t - T_A_CATCH0) / T_CATCH)))
+
+
+def ball_world(t):
+    """球心世界坐标（米）"""
+    t = float(t)
+    if t <= T_REL_A:                       # A 持球
+        return _wx_a(TH.hand_center(t / T_THROW))
+    if t <= T_ARRIVE1:                     # 飞行 1
+        return flight1(t - T_REL_A)
+    if t <= T_B_CATCH1:                    # B 接住并回收
+        return _wx_b(CT.hand_center((t - T_B_CATCH0) / T_CATCH))
+    if t <= T_B_THROW0:                    # B 缓冲持球
+        return _wx_b(CT.hand_center(1.0))
+    if t <= T_REL_B:                       # B 投掷持球
+        return _wx_b(TH.hand_center((t - T_B_THROW0) / T_THROW))
+    if t <= T_ARRIVE2:                     # 飞行 2
+        return flight2(t - T_REL_B)
+    u = min(1.0, (t - T_A_CATCH0) / T_CATCH)
+    return _wx_a(CT.hand_center(u))        # A 接住
+
+
+@capability("pass_ball", "Peper et al. 1994 tau 耦合; "
+            "Belousov et al. NIPS 2016 接球策略; 篮球双手胸前传球教学",
+            group="interaction")
+def self_check():
+    ts = np.linspace(0.0, T_TOTAL, 241)
+
+    # 1) 时序单调且覆盖全程
+    seq = [0.0, T_REL_A, T_ARRIVE1, T_B_CATCH1, T_B_THROW0,
+           T_REL_B, T_ARRIVE2, T_TOTAL]
+    ok_seq = all(seq[i] < seq[i + 1] for i in range(len(seq) - 1))
+
+    # 2) 球-手在接触时刻严格重合（tau 耦合的结果，不是容差凑出来的）
+    d1 = float(np.linalg.norm(ball_world(T_ARRIVE1) - hand_world(T_ARRIVE1)))
+    d2 = float(np.linalg.norm(ball_world(T_ARRIVE2) - hand_world(T_ARRIVE2)))
+
+    # 3) 飞行段水平速度守恒（水平方向无外力）
+    #    两程方向相反（+X / -X），必须分段量；混在一组里 max-min 会跨越
+    #    正负号而虚高，那是判据口径错，不是物理错。
+    def _vx_err(lo, hi):
+        vs = [(ball_world(b)[0] - ball_world(a)[0]) / (b - a)
+              for a, b in zip(ts[:-1], ts[1:]) if lo <= a and b <= hi]
+        if len(vs) < 3:
+            return 9.9
+        return (max(vs) - min(vs)) / max(abs(float(np.mean(vs))), 1e-9)
+    vx_err = max(_vx_err(T_REL_A, T_ARRIVE1), _vx_err(T_REL_B, T_ARRIVE2))
+
+    # 4) 持球段球不脱手
+    held = 0.0
+    for t in ts:
+        if held_by(t) is not None:
+            held = max(held, float(np.linalg.norm(
+                ball_world(t) - hand_world(t))))
+
+    # 5) 球全程不落地
+    ymin = min(ball_world(t)[1] for t in ts)
+
+    # 6) 两人不重叠（间距恒为 D_APART）
+    ok_gap = abs((XC_B - XC_A) - D_APART) < 1e-12
+
+    # 7) 拦截点在臂展内
+    from tests.harness import arm_reach
+    sh = np.array([0.0, CT._SH_Y]) * CT.H_M
+    reach = float(arm_reach(sh, np.asarray(CT.intercept_point()), CT.H_M))
+
+    # 8) 出手速度合理（< 12 m/s，超出即编排有误）
+    sp = max(float(np.linalg.norm(_V1)), float(np.linalg.norm(_V2)))
+
+    chk = [("时序单调递增", ok_seq),
+           ("接触1 球手重合", d1 < 1e-9),
+           ("接触2 球手重合", d2 < 1e-9),
+           ("飞行水平速度守恒", vx_err < 1e-6),
+           ("持球段不脱手", held < 1e-9),
+           ("球不落地", ymin > ball.R_BALL),
+           ("两人间距", ok_gap),
+           ("拦截点在臂展内", reach < 0.40),
+           ("出手速度合理", sp < 12.0)]
+    for k, v in chk:
+        print("  %-16s %s" % (k, "OK" if v else "NG"))
+    print("  接触1 距离 %.3e  接触2 距离 %.3e" % (d1, d2))
+    print("  水平速度相对差 %.3e  持球最大脱手 %.3e" % (vx_err, held))
+    print("  最低球心 %.4f m  出手速度 %.3f m/s  拦截臂展 %.4f"
+          % (ymin, sp, reach))
+    return sum(1 for _, v in chk if v), len(chk)
