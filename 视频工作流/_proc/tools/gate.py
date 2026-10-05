@@ -38,6 +38,7 @@ TOOLS = [
     ("有效帧率", "tools/efps.py", False),
     ("豁免复现", "tools/repro.py", False),
     ("能力审计", "tools/capaudit.py", False),
+    ("代码异味", "tools/smell.py", False),
 ]
 
 _DEF_RE = re.compile(r"^\s*def\s+([A-Za-z_]\w*)", re.M)
