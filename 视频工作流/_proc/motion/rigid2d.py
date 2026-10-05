@@ -159,16 +159,17 @@ def collide_box_box(A, B):
     a_hi = max(float(np.dot(v, bx)) for v in VA)
     b_lo = min(float(np.dot(v, bx)) for v in VB)
     cand = []
-    for v in VA:
+    for ai, v in enumerate(VA):
         if _inside_obb(v, B):
-            cand.append((float(np.dot(v, bx)) - b_lo, v))
-    for v in VB:
+            cand.append((float(np.dot(v, bx)) - b_lo, v, ("A", ai)))
+    for bi, v in enumerate(VB):
         if _inside_obb(v, A):
-            cand.append((float(a_hi - np.dot(v, bx)), v))
+            cand.append((float(a_hi - np.dot(v, bx)), v, ("B", bi)))
     if not cand:
         return []
     cand.sort(key=lambda t: -t[0])
-    return [(np.asarray(v, float), bx.copy(), float(best)) for _, v in cand[:2]]
+    return [(np.asarray(v, float), bx.copy(), float(best), fid)
+            for _, v, fid in cand[:2]]
 
 
 def collide_ground(b, gy=0.0, n=(0.0, 1.0)):
@@ -186,15 +187,17 @@ def collide_ground(b, gy=0.0, n=(0.0, 1.0)):
 
 class Contact:
     __slots__ = ("a", "b", "p", "n", "pen", "Pn", "Pt", "kn", "kt",
-                 "bias")
+                 "bias", "fid")
 
-    def __init__(self, a, b, p, n, pen):
+    def __init__(self, a, b, p, n, pen, fid=None):
         self.a, self.b = a, b
         self.p = np.asarray(p, float)
         self.n = np.asarray(n, float)
         self.pen = float(pen)
         self.Pn = 0.0
         self.Pt = 0.0
+        # 接触特征 ID：跨帧识别"同一个接触点"，用于持久流形暖启动
+        self.fid = fid
 
 
 def _prepare(c, dt):
@@ -259,6 +262,7 @@ class World:
         self.constraints = []
         self.max_pen = 0.0
         self.peak_pen = 0.0
+        self._cache = {}   # 持久流形：{(id(a),id(b),fid): (Pn,Pt)}
 
     def add(self, b):
         self.bodies.append(b)
@@ -279,6 +283,14 @@ class World:
         self.peak_pen = max([c.pen for c in cs], default=0.0)
         if cs:
             solve(cs, dt, self.iters)
+            # 求解后写回：暖启动要的是"上帧求解收敛后的冲量"，
+            # 若在生成接触时就存，存进去的恒为 0，等于没接上流形。
+            agg = {}
+            for c in cs:
+                agg.setdefault((id(c.a), id(c.b)), []).append((c.Pn, c.Pt))
+            self._cache = agg
+        else:
+            self._cache = {}
         for con in self.constraints:
             con(dt)
         self._integrate(dt)
@@ -289,26 +301,54 @@ class World:
         return cs
 
     def _contacts(self):
+        """接触生成 + 持久流形暖启动（出处[1][6]）。
+
+        关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
+        若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
+        底层微抖，正是 Catto 2005 描述的"冷启动三箱塔滑开"现象。
+        """
         cs = []
         n = len(self.bodies)
+        new_cache = {}
+
+        def _mk(a, b, q, nn, pen, fid):
+            c = Contact(a, b, q, nn, pen, fid)
+            # 按"物体对"聚合匹配：接触点 fid 会随微抖漂移导致漏配，
+            # 配对级缓存更稳；同对多接触点时按序取用。
+            key = (id(a), id(b))
+            rev = (id(b), id(a))
+            slot = new_cache.get(key, None)
+            if slot is None:
+                slot = []
+                new_cache[key] = slot
+            idx = len(slot)
+            old = self._cache.get(key) or self._cache.get(rev) or []
+            if idx < len(old):
+                c.Pn, c.Pt = old[idx]
+            return c
+
         for i in range(n):
             for j in range(i + 1, n):
                 A, B = self.bodies[i], self.bodies[j]
                 if A.fixed and B.fixed:
                     continue
                 if A.shape == "box" and B.shape == "box":
-                    for q, nn, pen in collide_box_box(A, B):
-                        cs.append(Contact(A, B, q, nn, pen))
+                    for q, nn, pen, fid in collide_box_box(A, B):
+                        cs.append(_mk(A, B, q, nn, pen, fid))
                 else:
-                    cs.extend(_round_pair(A, B))
+                    for k, c in enumerate(_round_pair(A, B)):
+                        c.fid = ("r", k)
+                        cs.append(_mk(A, B, c.p, c.n, c.pen, c.fid))
         for b in self.bodies:
             if b.fixed:
                 continue
-            for q, nn, pen in collide_ground(b, self.gy):
-                cs.append(Contact(_ANCHOR, b, q, nn, pen))
-            for sg in self.segments:
-                for q, nn, pen in collide_seg(b, sg):
-                    cs.append(Contact(sg, b, q, nn, pen))
+            for k, (q, nn, pen) in enumerate(collide_ground(b, self.gy)):
+                cs.append(_mk(_ANCHOR, b, q, nn, pen, ("g", k)))
+            for si, sg in enumerate(self.segments):
+                for k, (q, nn, pen) in enumerate(collide_seg(b, sg)):
+                    cs.append(_mk(sg, b, q, nn, pen, ("s", si, k)))
+        # 只保留本帧仍存在的接触，防止陈旧冲量复活
+        self._cache = new_cache
         return cs
 
     def _wake(self, cs):
