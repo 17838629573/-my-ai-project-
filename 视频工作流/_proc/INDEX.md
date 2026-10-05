@@ -14,43 +14,50 @@
 
 ### (根)/
   - `beat_demo.py` 78 行 — 入口脚本：走 beat 时间线出演示片
-  - `check.py` 262 行 — Enforce architecture contracts: layer direction, size limits, public s
+  - `check.py` 322 行 — Enforce architecture contracts: layer direction, size limits, public s
   - `formula.py` 123 行 — 公式注册表与 STUB 门禁：缺公式抛错并给搜索关键词，禁止凭记忆写近似值
   - `gen_index.py` 129 行 — 从各文件顶部契约块抽取职责，自动生成 INDEX.md（文档永不与代码脱节）
+  - `jumpscan.py` 46 行 · — 跳帧扫描器：逐帧量化视频帧间差，定位硬跳帧
   - `prompt2spec.py` 211 行 — 提示词 → 规格对照：逐字段判能做/降级/不能，STUB 带搜索提示
 
 ### color/
   - `paint.py` 142 行 — 按胶囊 region 查色卡，配合 SDF 法线做明暗着色；颜色挂 region 不挂像素
 
 ### motion/
-  - `beat.py` 376 行 — 节拍时间线：prep→stroke→relax 三相位串多段动作，含跨段无跳变与互斥校验
+  - `beat.py` 387 行 — 节拍时间线：prep→stroke→relax 三相位串多段动作，含跨段无跳变与互斥校验
   - `cafe.py` 190 行 — 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
-  - `camera.py` 185 行 — 相机：视高/焦距/px_per_m(Z)/反投影；人物与路必须共用同一台
+  - `camera.py` 196 行 — 相机：视高/焦距/px_per_m(Z)/反投影；人物与路必须共用同一台
   - `crowd.py` 389 行 — 多主体：ORCA 互避 + 胶囊接触分离 + 击掌时序
-  - `rigid.py` 246 行 — 刚体物理：半隐式欧拉定步长积分 + 冲量法碰撞响应 + 恢复系数衰减
-  - `rigid2d.py` 635 行 ⚠ — 2D 旋转刚体：SAT 碰撞检测 + 顺序冲量求解器 + 距离约束
-  - `run.py` 264 行 — 时间线与出片：逐帧渲染并写 mp4
+  - `layer.py` 245 行 — 动作分层合成与声明式求解
+  - `rigid.py` 257 行 — 刚体物理：半隐式欧拉定步长积分 + 冲量法碰撞响应 + 恢复系数衰减
+  - `rigid2d.py` 916 行 ⚠ — 2D 旋转刚体：SAT 碰撞检测 + 顺序冲量求解器 + 距离约束
+  - `run.py` 275 行 — 时间线与出片：逐帧渲染并写 mp4
   - `stage.py` 372 行 — 场景合成：烘焙背景 + 人物 + 出片
   - `wind.py` 137 行 — 风场：主弯曲 + 细节弯曲，相位纳入世界坐标使异株不同步
 
 ### motion/character/
   - `ball.py` 134 行 — 球体与碰撞（B10/C18/C20 通用）
+  - `carry.py` 414 行 — 搬运箱子（E26）：抱起 → 走 → 放下
+  - `catch.py` 170 行 — 接球（B11 / D22 通用）
+  - `climb.py` 197 行 — 爬梯 (climb)。
   - `cloth.py` 118 行 — 布料：Verlet 链、披帛/衣摆、draw_character 总入口
-  - `crouch.py` 165 行 — 下蹲（A7）
+  - `crouch.py` 176 行 — 下蹲（A7）
   - `gait.py` 211 行 — 步态主函数：臂摆、膝屈曲线、相位推进与 BODY_SPEC
-  - `gesture.py` 305 行 — 注视转移 / 手指敲击 / 翻页 —— 头部与手部的短促动作
+  - `gesture.py` 316 行 — 注视转移 / 手指敲击 / 翻页 —— 头部与手部的短促动作
   - `joints.py` 130 行 — 关节表、躯干摆动常量、步态预设与 gait_params
-  - `jump.py` 158 行 — 原地跳跃（A3）
-  - `kick.py` 204 行 — 踢球（A6/B10 通用）
-  - `leg.py` 155 行 — 腿：两骨 IK、踝高曲线、脚掌俯仰与脚部关键点
-  - `prop.py` 464 行 — 道具交接 —— pickup→held→release→recovery 四相位，所有权 world↔hand 显式切换
+  - `jump.py` 169 行 — 原地跳跃（A3）
+  - `kick.py` 215 行 — 踢球（A6/B10 通用）
+  - `leg.py` 164 行 — 腿：两骨 IK、踝高曲线、脚掌俯仰与脚部关键点
+  - `pass_ball.py` 260 行 — D22 两人传球：A 投 → 飞行 → B 接 → 缓冲 → B 投回 → A 接
+  - `prop.py` 475 行 — 道具交接 —— pickup→held→release→recovery 四相位，所有权 world↔hand 显式切换
   - `proportions.py` 73 行 — 人体比例常数（Drillis&Contini 1966）与步频/步态常量
   - `render.py` 228 行 — 渲染：相机投影、SDF 场栅格化、法线明暗着色
-  - `run.py` 254 行 — 跑步与急停（A2）
+  - `run.py` 265 行 — 跑步与急停（A2）
   - `sdf.py` 62 行 — SDF 场原语（胶囊/圆/椭圆/平滑并集）+ BODY_SPEC 胶囊装配清单
-  - `selfcheck.py` 205 行 — 自检脚本：python -m character.selfcheck
+  - `selfcheck.py` 216 行 — 自检脚本：python -m character.selfcheck
   - `sit.py` 263 行 — 坐下/站起动作 —— 7 关键姿态 + 三相位，输出与 gait 同构的关节字典
-  - `turn.py` 181 行 — yaw 连续转身 + 原地换步 —— 让人物真的"转过去"而不是镜像翻转
+  - `throw.py` 284 行 — 投掷（B10 / D22 / E27 通用）
+  - `turn.py` 326 行 — yaw 连续转身 + 原地换步 —— 让人物真的"转过去"而不是镜像翻转
 
 ### scene/
   - `bgpack.py` 442 行 — 背景包：五种配方的参数表与展开，输出 geom 供人物对齐
@@ -60,10 +67,10 @@
   - `canvas.py` 77 行 — Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
   - `city.py` 63 行 — 城：多排矩形坡顶房屋，越近越大越暗
   - `compose.py` 121 行 — 场景组合：元件注册表、配方表、compose 总入口
-  - `indoor.py` 110 行 — 室内一点透视：房间壳几何、投影 proj()、水磨石地面
-  - `props.py` 109 行 — 室内陈设：落地窗/书架墙/挂画/家具，输出世界坐标锚点供人物就位
+  - `indoor.py` 121 行 — 室内一点透视：房间壳几何、投影 proj()、水磨石地面
+  - `props.py` 120 行 — 室内陈设：落地窗/书架墙/挂画/家具，输出世界坐标锚点供人物就位
   - `road.py` 76 行 — 路面半宽、禁用区间、路面绘制与避让裁剪
-  - `selfcheck.py` 93 行 — 自检：python -m kit.selfcheck
+  - `selfcheck.py` 104 行 — 自检：python -m kit.selfcheck
   - `sky.py` 111 行 — 天空：Perez 天光模型、地平线色、色带 ramp
   - `terrain.py` 89 行 — 地形：山脊 midpoint displacement、地面、色带
   - `tree.py` 96 行 — 树：Honda 1971 三参数分形（分叉角/长度比/深度）
@@ -72,14 +79,32 @@
   - `hand.py` 216 行 — 手部解剖：掌与五指的关节/胶囊，按真实比例与外展角生成
   - `line.py` 213 行 — 骨架模板 → 胶囊形体(带 region) → SDF → 轮廓线与细节线
 
+### showreel/
+  - `camrig.py` 223 行 — 连续相机运镜（跟随/横移/推拉/低角度/俯拍/微距），全程 C1 连续不切镜
+  - `params.py` 292 行 — 全局物理参数的连续扰动曲线（重力/摩擦/风/弹性/质量/时间缩放）
+  - `phys.py` 181 行 — 契约：90秒连续时间线的物理预跑，存轨迹分片 + checkpoint。
+  - `render.py` 237 行 — showreel/render.py —— 90 秒一镜到底·雨夜赛博朋克街道·渲染层。
+  - `scene.py` 403 行 — 90 秒场景世界——多米诺/方块堆/斜坡/摆锤/墙/梯子/移动靶/绳/铰链门
+  - `seam.py` 113 行 — showreel/seam.py — 分段渲染的「接缝一致性」检测（流式，不全帧入内存）。
+  - `shard.py` 146 行 — showreel/shard.py — 90秒长镜头分段渲染驱动（规避内存上限与单命令时限）。
+  - `timeline.py` 248 行 — showreel/timeline.py — 90秒赛博朋克长镜头渲染主循环（离线轨迹查表 + 连续相机）。
+
 ### tests/
   - `cases.py` 115 行 — 35 项测试用例声明（测试第二步：声明）
+  - `cases_carry.py` 115 行 — E 组搬运用例（E26 搬运箱子）
   - `cases_crowd.py` 207 行 — D 组多主体用例（人群碰撞 / 两人击掌）
-  - `cases_phys.py` 197 行 — C 组物理用例（弹球 / 两球对撞）
-  - `gen.py` 230 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
+  - `cases_pass.py` 97 行 — D22 两人传球 用例
+  - `cases_phys.py` 278 行 — C 组物理用例（弹球 / 两球对撞）
+  - `cases_throw.py` 152 行 — B10 扔球 / B11 接球 用例
+  - `gen.py` 234 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
   - `gen_doc.py` 107 行 — 生成 35 项推进文档（xlsx）
-  - `harness.py` 385 行 — 物理与动作判据库（测试第一步：判定）
-  - `run_all.py` 504 行 ⚠ — 35 项用例门检与执行（测试第三步：跑）
+  - `harness.py` 400 行 — 物理与动作判据库（测试第一步：判定）
+  - `run_all.py` 516 行 ⚠ — 35 项用例门检与执行（测试第三步：跑）
+
+### tools/
+  - `clone.py` 132 行 — 重复代码(克隆)检测工具  —— 项目瘦身第二阶段
+  - `presearch.py` 326 行 — 本地前置检索：先查项目前置库，未达阈值才建议联网搜（不静默跳过）。
+  - `reach.py` 137 行 — 从活跃入口出发的 import 可达性分析（SCARF 的 Survey 阶段）。
 
 ## 契约规则与出处（不凭记忆，逐条可查）
 
@@ -104,19 +129,53 @@
 
 ## 当前问题（check.py 实时输出）
 
-共 14 项：
+共 48 项：
 
+- [R2 过短] (root)/jumpscan.py 47<50
 - [R3 函数过长] motion/cafe.py::pose_at 51>50
 - [R3 函数过长] motion/crowd.py::self_check 60>50
-- [R2 超纲] motion/rigid2d.py 636>500
+- [R3 函数过长] motion/layer.py::self_check 72>50
+- [R2 超纲] motion/rigid2d.py 917>500
+- [R3 函数过长] motion/rigid2d.py::collide_box_box 95>50
+- [R3 函数过长] motion/rigid2d.py::_contacts 127>50
+- [R3 函数过长] motion/rigid2d.py::_relax 59>50
+- [R3 函数过长] motion/carry.py::carry_box 86>50
+- [缺契约] motion/climb.py
+- [R3 函数过长] motion/climb.py::climb 66>50
+- [R3 函数过长] motion/climb.py::self_check 60>50
+- [R3 函数过长] motion/pass_ball.py::self_check 60>50
 - [R3 函数过长] motion/run.py::run 65>50
+- [R3 函数过长] motion/throw.py::self_check 59>50
+- [R3 函数过长] motion/turn.py::self_check 80>50
+- [R1 逆向依赖] showreel/camrig.py -> motion
+- [R3 函数过长] showreel/params.py::self_check 73>50
+- [缺契约] showreel/phys.py
+- [缺契约] showreel/render.py
+- [R1 逆向依赖] showreel/render.py -> motion
+- [R3 函数过长] showreel/render.py::build_bg 78>50
+- [R1 逆向依赖] showreel/scene.py -> motion
+- [R3 函数过长] showreel/scene.py::self_check 54>50
+- [缺契约] showreel/seam.py
+- [缺契约] showreel/shard.py
+- [R3 函数过长] showreel/shard.py::main 56>50
+- [缺契约] showreel/timeline.py
+- [R1 逆向依赖] showreel/timeline.py -> motion
+- [R1 逆向依赖] showreel/timeline.py -> scene
+- [R1 逆向依赖] tests/cases_carry.py -> motion
+- [R3 函数过长] tests/cases_carry.py::case_E26 79>50
 - [R1 逆向依赖] tests/cases_crowd.py -> motion
+- [R1 逆向依赖] tests/cases_pass.py -> motion
 - [R1 逆向依赖] tests/cases_phys.py -> motion
+- [R1 逆向依赖] tests/cases_throw.py -> motion
+- [R3 函数过长] tests/cases_throw.py::case_B10 60>50
+- [R3 函数过长] tests/gen.py::render_case 51>50
 - [R1 逆向依赖] tests/gen_doc.py -> motion
 - [R1 逆向依赖] tests/run_all.py -> motion
-- [R2 超纲] tests/run_all.py 505>500
+- [R2 超纲] tests/run_all.py 517>500
 - [R3 函数过长] tests/run_all.py::case_A2 55>50
 - [R3 函数过长] tests/run_all.py::case_B9 54>50
 - [R4 包条目数] shape 2 不在 3~20
 - [R4 包条目数] color 1 不在 3~20
-- [R4 包条目数] motion 26 不在 3~20
+- [R4 包条目数] motion 32 不在 3~20
+- [R11 公式无出处] wind.detail
+- [R11 公式无出处] prompt.action_beat_timeline

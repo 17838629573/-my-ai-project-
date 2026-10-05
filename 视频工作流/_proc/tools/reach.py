@@ -24,6 +24,15 @@ ENTRY = {
     "_proc/tests/run_all.py",
     "_proc/check.py",
     "_proc/gen_index.py",
+    # 新增入口：90秒长镜头管线（timeline/shard/seam 三件套）
+    "_proc/showreel/timeline.py",
+    "_proc/showreel/shard.py",
+    "_proc/showreel/seam.py",
+    # 新增入口：分层合成模块自带自检
+    "_proc/motion/layer.py",
+    "_proc/tests/gen.py",
+    # 人工执行入口(无代码引用, 但必须保留)
+    "push_gh.py",
 }
 
 

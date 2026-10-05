@@ -29,6 +29,10 @@ CRIT = {
     "jitter_px":        (0.1, "<", "SMPTE 视频质量评估：Jitter Score <0.1px（高分辨率显示）"),
     # 帧间位移不得大于本帧应有位移的若干倍——抓时间跳变
     "frame_jump_ratio": (3.0, "<", "帧间位移/段内中位位移，比值过大即时间跳变"),
+    # 转角时序判据：jitter_px 是像素级(帧图灰度差)，用在角度序列上属口径错用，
+    # 改用有实证上限的峰值角速度。
+    "peak_rate_dps":    (460.0, "<",
+        "ISBS 2015: 运动员带球 180° 转身骨盆峰值角速度 414±90 °/s（取 +0.5SD≈460）"),
     # h_n = h_0 * e^(2n)，e = sqrt(h1/h0)
     "restitution_err":  (0.05, "<", "COR: e=sqrt(h1/h0), h_n=h_0*e^(2n)（UA PH125 实验手册）"),
     # 动量守恒相对误差
@@ -155,6 +159,17 @@ def frame_jump_ratio(disp_seq):
     if med <= 1e-12:
         return float("inf")
     return float(a.max() / med)
+
+
+def peak_rate_dps(rate_seq):
+    """角速度序列(°/s) → 峰值。转身/摆臂等旋转动作的时序平滑度判据。
+
+    与 jitter_px 的区别：jitter_px 量的是帧图灰度差（像素），
+    对角度序列无意义；旋转动作应量角速度峰值是否超生理上限。
+    """
+    if not rate_seq:
+        return 0.0
+    return float(max(abs(float(x)) for x in rate_seq))
 
 
 def jitter_px(frames):

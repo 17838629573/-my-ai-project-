@@ -58,11 +58,24 @@ TURN_HEAD_LAG = 0.40      # 头部转向滞后比例（头最后跟上）
 #     速度变化率比加速阶段高 70%-75%，且发生在更短时间内 ——
 #     即"启动要克服惯性（慢）、末端要精确对准（收得急）"，峰值角速度偏前。
 # 结果：转到侧面（50% 角度）只花约 43% 时间，后 50% 角度花约 57%，不相等。
-TURN_ANTIC = 0.12         # 反向预备占总时长比例（Disney: 2-3帧@30fps≈66-100ms）
-TURN_SETTLE = 0.20        # 过冲回弹占总时长比例（Disney: 3-5帧稳定）
-TURN_ANTIC_DEG = 8.0      # 反向预备角度（°，90°及以上转身的满值）
-TURN_OVERSHOOT = 0.12     # 过冲超出目标的比例（业界 0.10~0.15）
+TURN_ANTIC = 0.10         # 反向预备占总时长比例（Disney: 2-3帧@30fps≈66-100ms）
+TURN_SETTLE = 0.16        # 过冲回弹占总时长比例（Disney: 3-5帧稳定）
+TURN_ANTIC_DEG = 6.0      # 反向预备角度（°，90°及以上转身的满值）
+TURN_OVERSHOOT = 0.10     # 过冲超出目标的比例（业界 0.10~0.15，取下沿）
 TURN_PEAK_AT = 0.45       # 主转段内走完 50% 角度所用时间比例（<0.5 = 峰值偏前）
+TURN_MA = 0.6             # 主转段首段末切率，决定峰值尖锐度，见下方 TURN_PEAK_FACTOR
+
+# --- 峰值角速度上限（生理约束，反解时长用）-------------------------------
+# ISBS 2015（青少年球员带球 180° 转身，n=12）：骨盆旋转峰值角速度 414 ± 90 °/s。
+# 这是"运动员 + 带球 + 全力"的上沿场景；原地空手转身不应快过它。
+# 取 均值 + 0.5·SD ≈ 459 ≈ 460 °/s 作为硬上限。
+# 对照：老年人 180° 行走转身峰值仅 141 ± 32 °/s（J Gerontol A），
+#       健康成年人原地转身落在两者之间 —— 460 是"快但不超生理"的取值。
+TURN_PEAK_RATE = 460.0    # °/s，yaw 角速度峰值上限
+# 主转段内 峰值角速度 / 平均角速度 的比值，由 turn_profile 数值实测：
+#   M_A=0.9 → 2.000    M_A=0.6 → 1.501    M_A=0.45 → 1.485（不再下降）
+# 取 M_A=0.6：既把峰值削掉 25%，又保留"启动慢、末端收得急"的不对称。
+TURN_PEAK_FACTOR = 1.501
 
 
 def _clamp01(u):
@@ -87,7 +100,7 @@ def turn_profile(s):
     """
     s = _clamp01(s)
     P = TURN_PEAK_AT
-    M_A = 0.9
+    M_A = TURN_MA   # 0.6: 主转段峰值因子 1.501（数值实测, 0.9 时为 2.000）
     if s <= P:
         return _hermite(s / P, 0.0, 0.0, 0.5, M_A)
     M_B = M_A * (1.0 - P) / P
@@ -104,10 +117,27 @@ def turn_speed(delta_deg):
 
 
 def turn_duration(delta_deg):
-    """转身耗时（秒）。"""
+    """转身耗时（秒）——取"分档速率"与"峰值角速度约束"两者的较大值。
+
+    两个约束各自给出一条下限：
+      t_rate = |Δ| / turn_speed(Δ)                  UE4 转身资产的经验速率分档
+      t_peak = PEAK_FACTOR·总行程 / (主转占比·峰值上限)  生理上限（ISBS 2015）
+
+    取 max 即"两者都满足"。小角度由经验速率主导（转身本就该快），
+    大角度由生理峰值主导 —— 180° 若仍按 300°/s 的均值，峰值会冲到
+    1020°/s（实测），是运动员带球全力转身实测峰值 414°/s 的 2.5 倍，
+    表现为中途"甩头"，帧间跳变超标。
+    """
     a = abs(float(delta_deg))
-    sp = turn_speed(a)
-    return 0.0 if a == 0.0 else a / sp
+    if a < 1e-9:
+        return 0.0
+    t_rate = a / turn_speed(a)
+    shrink = min(1.0, a / 90.0)
+    # 主转段实际要转过的角度：反向预备量 + 目标量·(1+过冲)
+    travel = TURN_ANTIC_DEG * shrink + a * (1.0 + TURN_OVERSHOOT * shrink)
+    main_frac = 1.0 - TURN_ANTIC - TURN_SETTLE      # 主转段占总时长比例
+    t_peak = TURN_PEAK_FACTOR * travel / (main_frac * TURN_PEAK_RATE)
+    return max(t_rate, t_peak)
 
 
 def turn_yaw(yaw0, delta_deg, u):
@@ -211,6 +241,21 @@ def self_check():
     # 时长落在实测区间
     d180 = turn_duration(180)
     assert 0.6 - 1e-9 <= d180 <= 1.44, f"180°转身 {d180:.3f}s 应落在 0.6~1.44s"
+    # 峰值角速度不得超生理上限（ISBS 2015 运动员带球 180° 转身 414±90 °/s）
+    N1 = 2000
+    y1 = [turn_yaw(0.0, 180.0, i / float(N1)) for i in range(N1 + 1)]
+    pk = max(abs(y1[i + 1] - y1[i]) for i in range(N1)) * N1 / d180
+    assert pk <= TURN_PEAK_RATE * 1.02, \
+        f"180° 峰值角速度 {pk:.1f}°/s 超上限 {TURN_PEAK_RATE}°/s"
+    d90 = turn_duration(90)
+    y9 = [turn_yaw(0.0, 90.0, i / float(N1)) for i in range(N1 + 1)]
+    pk9 = max(abs(y9[i + 1] - y9[i]) for i in range(N1)) * N1 / d90
+    assert pk9 <= TURN_PEAK_RATE * 1.02, f"90° 峰值角速度 {pk9:.1f}°/s 超上限"
+    # 小角度仍由经验速率主导（不应被峰值约束拖慢）
+    assert abs(turn_duration(90) - 90.0 / TURN_RATE_BASE) < 1e-9, \
+        "90° 应由经验速率分档主导"
+    assert turn_duration(180) > 180.0 / TURN_RATE_FAST, \
+        "180° 应由峰值角速度约束主导（慢于纯速率分档）"
     assert turn_duration(0) == 0.0, "0° 转身耗时 0"
     # yaw 连续且端点准确
     assert abs(turn_yaw(180.0, 180.0, 0.0) - 180.0) < 1e-9, "起点应等于 yaw0"

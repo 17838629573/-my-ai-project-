@@ -13,10 +13,12 @@
   R9 圈复杂度 <=10（>15 需书面说明）  NASA SWEHB 3.2.2 / NIST
   R8 避免过深嵌套/上帝包      Smalltalk Package Anti-Patterns
   R10 包必须真实可导入         FixDevs: "Verify with a clean import"
+  R11 能力/公式必须带出处       Bedrock Grounded RAG: provenance 不可缺失
 
 用法: python check.py
 """
 import ast
+import json
 import os
 import re
 import subprocess
@@ -41,6 +43,7 @@ LIMIT_PUBLIC = 40                    # R5
 LIMIT_SUMMARY = 72                   # R6
 LIMIT_CC = 10                        # R9  NASA/NIST: 超过 10 就拆
 LIMIT_CC_HARD = int(os.environ.get('PROC_CC_HARD', 15))  # R9 红线，可用环境变量临时上调以生成报告
+MIN_SOURCE = 8          # R11 出处字符串最短长度，短于此视为没写
 
 SKIP_DIRS = {"_bak", "__pycache__"}
 
@@ -231,6 +234,62 @@ def _scan_file(f, graph):
     return pkg, row, out
 
 
+def _caps_without_source(path):
+    """用 AST 取 @capability 的名字与出处。
+
+    不用正则：装饰器既有位置参数也有 source= 关键字，还有跨行写法，
+    正则会漏掉后两种，导致无出处的能力静默通过。
+    """
+    try:
+        tree = ast.parse(open(path, encoding="utf-8").read())
+    except SyntaxError:
+        return []
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for d in node.decorator_list:
+            if not isinstance(d, ast.Call):
+                continue
+            fn = d.func
+            if not (isinstance(fn, ast.Name) and fn.id == "capability"):
+                continue
+            name = d.args[0].value if d.args and isinstance(
+                d.args[0], ast.Constant) else "?"
+            source = ""
+            if len(d.args) > 1 and isinstance(d.args[1], ast.Constant):
+                source = str(d.args[1].value)
+            for kw in d.keywords:
+                if kw.arg == "source" and isinstance(kw.value, ast.Constant):
+                    source = str(kw.value.value)
+            if len(source.strip()) < MIN_SOURCE:
+                out.append("[R11 能力无出处] %s (%s)"
+                           % (name, os.path.basename(path)))
+    return out
+
+
+def _check_provenance():
+    """R11：已登记的能力与公式必须带出处，缺出处说明是凭记忆写的。
+
+    出处: Bedrock Grounded RAG Fallback Chain——生成结果必须带 provenance，
+    缺 provenance 的不可采信。只查已实现的（IMPL），STUB 允许暂时没出处。
+    """
+    out = []
+    for f in walk_py():
+        out += _caps_without_source(f)
+    reg = os.path.join(ROOT, "FORMULA_REGISTRY.json")
+    if os.path.exists(reg):
+        with open(reg, encoding="utf-8") as fh:
+            data = json.load(fh)
+        for g in data.get("groups", []):
+            for it in g.get("items", []):
+                if it.get("status") != "IMPL":
+                    continue
+                if len(str(it.get("src", "")).strip()) < MIN_SOURCE:
+                    out.append("[R11 公式无出处] %s" % it.get("id"))
+    return out
+
+
 def _report(rows, problems):
     """一次打印全部问题，多失败一起报，不停在第一个。"""
     print(f"{'包':<8}{'文件':<18}{'行数':>6}  {'尺寸':<5}契约  直接依赖")
@@ -253,7 +312,8 @@ def main():
         counts[pkg] = counts.get(pkg, 0) + 1
         rows.append(row)
         problems += out
-    problems += _check_pkg_counts(counts) + _check_importable()
+    problems += (_check_pkg_counts(counts) + _check_importable()
+                 + _check_provenance())
     _report(rows, problems)
     return 1 if problems else 0
 

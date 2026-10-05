@@ -288,8 +288,9 @@ def case_A4():
     max_step = max(d)
     return [
         ("frame_jump_ratio", H.frame_jump_ratio(d)),
-        ("jitter_px", H.jitter_px(d)),
+        ("peak_rate_dps", H.peak_rate_dps([x / (dur / (N - 1)) for x in d])),
     ], {"转身耗时_s": round(dur, 3), "单帧最大转角": round(max_step, 3),
+        "峰值角速度_dps": round(max(d) / (dur / (N - 1)), 1),
         "头滞后>躯干": bool(lag_ok), "双脚同时抬起帧数": len(both),
         "终点到位": bool(end_ok)}
 

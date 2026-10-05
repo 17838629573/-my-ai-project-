@@ -12,7 +12,7 @@
   校验: 运行后自动拉取远程 tree 比对文件数
 """
 from __future__ import annotations
-import base64, json, os, sys, time, urllib.error, urllib.request
+import base64, hashlib, json, os, sys, time, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -25,7 +25,8 @@ SUBDIR = "视频工作流"
 ROOT = Path(__file__).resolve().parent
 
 EXCLUDE_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v", ".flv",
-               ".pyc", ".pyo", ".so", ".zip"}
+               ".pyc", ".pyo", ".so", ".zip",
+               ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules"}
 MAX_PER_RUN = 50
 
@@ -89,7 +90,11 @@ def main():
     # 1) blobs —— 分批续传(规避单批大量请求触发沙箱限制)
     CACHE = Path("/data/workspace/.gh_blobs.json")
     blobs = json.loads(CACHE.read_text()) if CACHE.exists() else {}
-    todo = [(r, p) for r, p in files if r not in blobs]
+    # 缓存键带内容哈希：只按路径缓存会让改过的文件一直复用旧 sha（同 .done 只查存在不校验内容）
+    def _ckey(rel, p):
+        h = hashlib.sha1(p.read_bytes()).hexdigest()[:12]
+        return rel + "#" + h
+    todo = [(r, p) for r, p in files if _ckey(r, p) not in blobs]
     print(f"待传 {len(todo)} / 共 {len(files)}（已缓存 {len(blobs)}）")
     if todo:
         batch = todo[:MAX_PER_RUN]
@@ -100,17 +105,23 @@ def main():
                       "encoding": "base64"})
             return rel, b["sha"]
         with ThreadPoolExecutor(max_workers=2) as ex:
-            for n, (rel, sha) in enumerate(ex.map(up, batch), 1):
-                blobs[rel] = sha
+            for n, ((rel, p), (_, sha)) in enumerate(zip(batch, ex.map(up, batch)), 1):
+                blobs[_ckey(rel, p)] = sha
                 if n % 20 == 0 or n == len(batch):
                     print(f"  blob {n}/{len(batch)}")
         CACHE.write_text(json.dumps(blobs))
-    remain = len(files) - len(blobs)
+    # 回映成 路径->sha，供建 tree 使用
+    rel2sha = {}
+    for r, p in files:
+        k = _ckey(r, p)
+        if k in blobs:
+            rel2sha[r] = blobs[k]
+    remain = len(files) - len(rel2sha)
     if remain > 0:
         print(f"\n本批完成，尚余 {remain} 个 —— 再跑一次本脚本继续")
         return 0
-    print(f"blob 全部就绪 {len(blobs)}")
-    blobs = {r: s for r, s in blobs.items() if r in {f[0] for f in files}}
+    print(f"blob 全部就绪 {len(rel2sha)}")
+    blobs = rel2sha
 
     # 2) 逐目录建 tree（自底向上，确保二级路径也登记）
     # 自底向上: 深层目录先建, 父目录才能引用到子目录的 tree sha
@@ -157,7 +168,7 @@ def main():
     parent_tree = _req("POST", f"/repos/{OWNER}/{REPO}/git/trees",
                        {"tree": parent_entries})
     c = _req("POST", f"/repos/{OWNER}/{REPO}/git/commits", {
-        "message": f"瘦身: 144M->21M 删除旧链路存档/生成图/调试视频/编译缓存; 清理失效排除规则",
+        "message": f"修A4转身: 峰值角速度纳入约束(1020->460dps, ISBS2015), M_A 0.9->0.6; jitter_px口径错用改peak_rate_dps; PASS21/FAIL0",
         "tree": parent_tree["sha"], "parents": [base_sha]})
     _req("PATCH", f"/repos/{OWNER}/{REPO}/git/refs/heads/{BRANCH}",
          {"sha": c["sha"]})
