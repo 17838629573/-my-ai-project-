@@ -275,7 +275,7 @@ def elbow_reflex(shoulder, elbow, wrist, facing=1.0):
 # 臂展的几何实现属于人体比例层（motion/character/proportions.py），不在测试层。
 #   此前 pass_ball.py 直接 `from tests.harness import arm_reach`，造成
 #   motion → tests 的反向依赖（R1 违规），已下沉；此处转发以保持 H.arm_reach 调用点不变。
-from _proc.motion.character.proportions import arm_reach, ARM_REACH_MAX  # noqa: E402,F401
+from _proc.motion.character.body.proportions import arm_reach, ARM_REACH_MAX  # noqa: E402,F401
 
 
 def _run_len_false(seg):

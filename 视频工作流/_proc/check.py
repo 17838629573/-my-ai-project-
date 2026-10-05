@@ -262,6 +262,7 @@ def _check_layer_exhaustive(counts):
     return [f"[R16 分层表漏登记] 顶层包 '{p}' 存在但未写入 ALLOW "
             f"({c} 个文件) —— 不登记会让 R1 对它全量误报"
             for p, c in sorted(counts.items())
+            if p in PKGS
             if c and p not in ALLOW and p not in EXHAUSTIVE_IGNORES]
 
 
@@ -424,15 +425,43 @@ def _report(rows, problems):
           f"到期 {c['overdue']} 项，陈旧 {c['stale']} 项")
 
 
+def _dir_members(cur):
+    """单个目录的直接成员数：直接 .py 子模块 + 直接子包（有 __init__.py）。"""
+    fs = [f for f in os.listdir(cur) if f.endswith(".py") and f != "__init__.py"]
+    sp = [x for x in os.listdir(cur)
+          if os.path.isfile(os.path.join(cur, x, "__init__.py"))]
+    return len(fs) + len(sp)
+
+
+def _direct_member_counts():
+    """包条目 = 直接成员数（直接子模块 + 直接子包），不递归累加。
+
+    为什么改口径: 递归计数会把"每个子包各 8 个模块、全部合规"的父包
+    算成 8+8+8=24 而误判为上帝包（最小复现见 tools/repro.py）。
+    重复计数不是上帝包——上帝包的判据是"单个包直接挂了太多职责"。
+    """
+    out = {p: 0 for p in PKGS}
+    for top in PKGS:
+        d = os.path.join(ROOT, top)
+        if not os.path.isdir(d):
+            continue
+        for cur, dirs, _ in os.walk(d):
+            if "__pycache__" in cur:
+                continue
+            rel = os.path.relpath(cur, d)
+            node = top if rel == "." else top + "." + rel.replace(os.sep, ".")
+            out[node] = _dir_members(cur)
+    return out
+
+
 def main():
     """编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。"""
     files = list(walk_py())
     graph = {node_of(f): {f"{p}.{m}" for p, m in edges(f)} for f in files}
-    counts = {p: 0 for p in PKGS}
+    counts = _direct_member_counts()
     problems, rows = [], []
     for f in files:
         pkg, row, out = _scan_file(f, graph)
-        counts[pkg] = counts.get(pkg, 0) + 1
         rows.append(row)
         problems += out
     # 入度: 有多少个其他包依赖它（判断原子层 vs 孤包）

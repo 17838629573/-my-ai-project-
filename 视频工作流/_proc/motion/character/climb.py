@@ -29,7 +29,7 @@ import math
 import numpy as np
 
 from ..beat import capability
-from .leg import two_bone_ik
+from .body.leg import two_bone_ik
 
 LEG_BASE = 0.44     # 周期初 pelvis 相对脚的高度
 LEG_SWING = 0.02    # 腿长在周期内的摆动幅度

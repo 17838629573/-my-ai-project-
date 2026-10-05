@@ -30,7 +30,7 @@ for p in (ROOT, os.path.dirname(PROC)):
         sys.path.insert(0, p)
 
 from _proc.motion import camera as C
-from _proc.motion.character import render as CR      # noqa: E402
+from _proc.motion.character.body import render as CR      # noqa: E402
 from _proc.motion import run as R         # noqa: E402
 from _proc.shape import line as L         # noqa: E402
 from _proc.tests import harness as HS     # noqa: E402
@@ -69,7 +69,7 @@ def _gt_mask(Jp, caps, body_h):
     for ax, ay, bx, by, r in caps:
         d = np.minimum(d, L.sd_capsule(PX, PY, ax, ay, bx, by, r))
     hx, hy, hs = Jp["head"]
-    from _proc.motion.character import proportions as _PP
+    from _proc.motion.character.body import proportions as _PP
     rx = max(_PP.PROP["head_r"] * 0.86 * body_h * hs, 1.0)
     ry = max(_PP.PROP["head_r"] * 1.12 * body_h * hs, 1.0)
     d = np.minimum(d, L.sd_ellipse(PX, PY, hx, hy, rx, ry))

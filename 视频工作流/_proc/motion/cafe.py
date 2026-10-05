@@ -20,8 +20,9 @@ from scene import kit
 from scene.kit import indoor, props
 from motion import camera, run
 from motion.character import sit
-from motion.character.gait import gait
-from motion.character import prop as PROP, joints as JN
+from motion.character.body.gait import gait
+from motion.character import prop as PROP
+from motion.character.body import joints as JN
 from motion.character import gesture as G
 from motion.character import turn as T
 from shape import line

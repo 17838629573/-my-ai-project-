@@ -22,7 +22,7 @@ if __package__ in (None, ""):
 import math
 import numpy as np
 
-from .leg import two_bone_ik
+from .body.leg import two_bone_ik
 from ..beat import capability
 
 G = 9.80665

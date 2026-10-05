@@ -31,8 +31,8 @@ import math
 
 import numpy as np
 
-from . import leg
-from .joints import ARM_SEG as SEG, SOLE_LIFT
+from .body import leg
+from .body.joints import ARM_SEG as SEG, SOLE_LIFT
 from ..beat import CAP, capability
 
 # 四相位时长（占交接总时长），和为 1

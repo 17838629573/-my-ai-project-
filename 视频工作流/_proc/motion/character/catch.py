@@ -26,7 +26,7 @@ if __package__ in (None, ""):
 
 import numpy as np
 
-from .leg import two_bone_ik
+from .body.leg import two_bone_ik
 from . import ball
 from .throw import (H_M, HIP_STAND, R_TRUNK, _AU, _AF, _GRIP,
                     _S, _ss, _stance, _arm_left)

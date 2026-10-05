@@ -97,8 +97,13 @@ def run(root=_PROC):
                 "counts": {"over_design": 0, "over_hard": 1, "over_len": 0,
                            "ccn_design": CCN_DESIGN, "ccn_hard": CCN_HARD,
                            "len_design": LEN_DESIGN, "len_hard": LEN_HARD}}
+    # 判定口径: 只有硬闸(CCN>20 / 长度>100)直接 FAIL。
+    # 长度>50 属于遗留存量，按 lizard-complexity 实践指南明确列出的 Anti-pattern
+    #   "Block PRs on absolute count —— Legacy code can't add a single line"
+    # 改为走 tools/baseline.py 的棘轮: 存量入基线(带归属/清零条件/到期日)，
+    # 新增或恶化即 FAIL。比"打印一句登记为债务却什么都没登记"严格得多。
     return {
-        "ok": not hard and not over_len,
+        "ok": not hard,
         "design": design,
         "hard": hard,
         "over_len": over_len,

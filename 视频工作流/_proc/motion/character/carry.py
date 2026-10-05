@@ -27,7 +27,7 @@ if __package__ in (None, ""):
 import math
 import numpy as np
 
-from .leg import two_bone_ik
+from .body.leg import two_bone_ik
 from ..beat import capability
 
 H_M = 1.70
@@ -246,7 +246,7 @@ def carry_box(u, params=None):
     ph = st["phase"]
     a, b, c, d = cb.spans
     half = np.array([0.5 * size[2], 0.5 * size[1], 0.5 * size[0]])
-    from .gait import gait as _g
+    from .body.gait import gait as _g
     V_CARRY = float(box_pose(_g(0.25, "natural"), size)["c"][1])
     ctx = {"size": size, "half": half, "cyc": cyc, "g": _g,
            "start_v": start_v, "end_v": end_v, "V_CARRY": V_CARRY}

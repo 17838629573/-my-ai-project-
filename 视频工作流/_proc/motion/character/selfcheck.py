@@ -15,13 +15,13 @@ if __package__ in (None, ""):
 
 import math
 import numpy as np
-from .sdf import *
-from .proportions import *
-from .joints import *
-from .leg import *
-from .gait import *
-from .render import *
-from .cloth import *
+from .body.sdf import *
+from .body.proportions import *
+from .body.joints import *
+from .body.leg import *
+from .body.gait import *
+from .body.render import *
+from .body.cloth import *
 from PIL import Image, ImageDraw
 
 

@@ -36,12 +36,12 @@ _P = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _P not in sys.path:
     sys.path.insert(0, _P)
 
-from .proportions import *
-from .joints import *
-from .leg import *
-from .gait import *
-from .render import *
-from .cloth import *
+from .body.proportions import *
+from .body.joints import *
+from .body.leg import *
+from .body.gait import *
+from .body.render import *
+from .body.cloth import *
 from .sit import *
 from .gesture import *
 from .prop import *

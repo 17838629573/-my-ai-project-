@@ -21,7 +21,7 @@ from PIL import Image, ImageDraw
 
 from motion import camera, run as mrun
 from scene import kit
-from motion.character import render as CRE
+from motion.character.body import render as CRE
 from motion.run import to_mp4
 from showreel import scene as S
 from showreel import params as P

@@ -28,8 +28,8 @@ import math
 import numpy as np
 from typing import NamedTuple
 
-from .proportions import PROP, STANCE_FRAC
-from .leg import two_bone_ik
+from .body.proportions import PROP, STANCE_FRAC
+from .body.leg import two_bone_ik
 
 # ------------------------------------------------------------------
 # 时序（Cursa：24 / 8 / 24 = 56 帧 @24fps）

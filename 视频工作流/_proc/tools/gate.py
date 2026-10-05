@@ -40,6 +40,7 @@ TOOLS = [
     ("能力审计", "tools/capaudit.py", False),
     ("代码异味", "tools/smell.py", False),
     ("圈复杂度", "tools/complexity.py", False),
+    ("债务棘轮", "tools/baseline.py", False),
     ("分层契约", "tools/layers.py", False),
 ]
 

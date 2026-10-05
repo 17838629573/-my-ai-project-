@@ -37,7 +37,7 @@ def case_F35():
     既没跑满 60s 也没测漂移 —— 属"降级成更短用例还报 PASS"，违反
     "缺能力不静默降级"。本用例真跑 1440 帧。
     """
-    from motion.character.gait import gait
+    from motion.character.body.gait import gait
     FPS, DUR, NPC = 24.0, 60.0, 48
     N = int(DUR * FPS)                  # 1440 帧 = 60s（>381 的"长期"档）
     NCYC = N // NPC                     # 30 个完整周期

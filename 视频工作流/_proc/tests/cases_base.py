@@ -8,7 +8,7 @@ from .common import _world, _align_n   # 下划线名不随 * 导出，必须显
 
 def case_A1():
     """直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性"""
-    from motion.character.gait import gait
+    from motion.character.body.gait import gait
     N = 48
     RAW = [gait(i / N) for i in range(N)]
     # 地面基准: 整个周期里最低关节的 v（脚跟着地点）
@@ -465,7 +465,7 @@ def case_G36():
     下半身必须零污染；分界点选腰部(waist)，选骨盆太靠下手臂混合不彻底。
     """
     import importlib
-    gait = importlib.import_module("motion.character.gait")
+    gait = importlib.import_module("motion.character.body.gait")
     gesture = importlib.import_module("motion.character.gesture")
     from motion import layer
     from tests import harness as H

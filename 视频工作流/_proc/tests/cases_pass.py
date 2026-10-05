@@ -14,7 +14,7 @@ import os
 import numpy as np
 from motion.character import pass_ball as PB
 from motion.character import ball as _B
-from motion.character import render as _CR
+from motion.character.body import render as _CR
 from motion import run as R
 import tests.gen as G_
 import tests.harness as H

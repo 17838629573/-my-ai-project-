@@ -13,7 +13,7 @@ import os
 import numpy as np
 import motion.rigid as RG
 from motion.character import ball as _B
-from motion.character import render as _CR
+from motion.character.body import render as _CR
 import tests.gen as G_
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

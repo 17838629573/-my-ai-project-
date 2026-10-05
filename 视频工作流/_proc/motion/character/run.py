@@ -37,8 +37,9 @@ import numpy as np
 
 import importlib
 from ..beat import capability
-from .leg import two_bone_ik
-from .proportions import PROP
+from .body import MOVED_TO_BODY
+from .body.leg import two_bone_ik
+from .body.proportions import PROP
 
 def _m(n):
     """同包子模块：优先相对导入，避免依赖 _proc 在 sys.path 上
@@ -47,6 +48,8 @@ def _m(n):
     当入口只把 _proc 自身放进 sys.path 时（tests/run_all 即如此）
     直接 ModuleNotFoundError，A3/A7 全部 ERROR。
     """
+    if n in MOVED_TO_BODY:      # 形体核心层已下沉到 body/ 子包（拆 motion 上帝包）
+        return importlib.import_module(".body." + n, __package__)
     return importlib.import_module("." + n, __package__)
 
 G = _m("gait")

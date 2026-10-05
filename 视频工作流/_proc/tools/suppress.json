@@ -1,11 +1,11 @@
 [
   {
     "id": "S1",
-    "rule": "R1 逆向依赖",
+    "rule": "R1 逆向依赖（已迁至 import-linter layers contract）",
     "target": "tools -> motion",
-    "reason": "tools 是检查者层，必须能读到被检查的每一层，已登记进 ALLOW 最上层。原报错源于 ALLOW 表漏定义 tools 层。",
+    "reason": "原判定方 check.py 的 R1 自造 ALLOW 表已废弃，改用 import-linter（seddonym/layer-linter）的 layers contract 持有同一规则。tools 在 .importlinter 中登记为最上层，检查者层必须能读到被检查的每一层，故允许 tools -> motion。新判定方能抓到真违规（shape 层 import motion 会被 BROKEN 捕获），规则未失效。",
     "expect": "absent",
-    "repro": "import sys; sys.path.insert(0,'.')\nimport check\nsaved = check.ALLOW.pop('tools', None)\na = check._check_structure('tools/xxx.py','tools',{'motion'},set())\nif saved is not None: check.ALLOW['tools'] = saved\nb = check._check_structure('tools/xxx.py','tools',{'motion'},set())\nprint('对照组删tools层:', len(a), '条') \nprint('实验组恢复后:', len(b), '条')\nprint('OBSERVED=', 'absent' if (len(a) > 0 and len(b) == 0) else 'present')"
+    "repro": "import sys, os\nsys.path.insert(0, os.path.join(os.getcwd(), '_proc'))\nfrom tools import layers\nr = layers.run()\nprint('contracts kept=', r.get('kept'), 'broken=', r.get('broken'))\nprint('OBSERVED=', 'absent' if r.get('ok') else 'present')"
   },
   {
     "id": "S2",

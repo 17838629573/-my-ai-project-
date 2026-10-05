@@ -25,7 +25,7 @@
 """
 import numpy as np
 
-from .character import joints as J
+from .character.body import joints as J
 
 # ---- 骨骼分区（依据 UE：分界点取腰部，不取骨盆也不取头）----
 LOWER = ("pelvis", "hip_l", "hip_r", "knee_l", "knee_r", "ank_l", "ank_r")
