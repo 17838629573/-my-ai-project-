@@ -13,7 +13,7 @@
 ## 三层树
 
 ### (根)/
-  - `beat_demo.py` 66 行 — 入口脚本：走 beat 时间线出演示片
+  - `beat_demo.py` 78 行 — 入口脚本：走 beat 时间线出演示片
   - `check.py` 262 行 — Enforce architecture contracts: layer direction, size limits, public s
   - `formula.py` 123 行 — 公式注册表与 STUB 门禁：缺公式抛错并给搜索关键词，禁止凭记忆写近似值
   - `gen_index.py` 129 行 — 从各文件顶部契约块抽取职责，自动生成 INDEX.md（文档永不与代码脱节）
@@ -24,11 +24,13 @@
 
 ### motion/
   - `beat.py` 376 行 — 节拍时间线：prep→stroke→relax 三相位串多段动作，含跨段无跳变与互斥校验
-  - `cafe.py` 179 行 — 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
+  - `cafe.py` 190 行 — 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
   - `camera.py` 185 行 — 相机：视高/焦距/px_per_m(Z)/反投影；人物与路必须共用同一台
+  - `crowd.py` 389 行 — 多主体：ORCA 互避 + 胶囊接触分离 + 击掌时序
   - `rigid.py` 246 行 — 刚体物理：半隐式欧拉定步长积分 + 冲量法碰撞响应 + 恢复系数衰减
+  - `rigid2d.py` 635 行 ⚠ — 2D 旋转刚体：SAT 碰撞检测 + 顺序冲量求解器 + 距离约束
   - `run.py` 264 行 — 时间线与出片：逐帧渲染并写 mp4
-  - `stage.py` 361 行 — 场景合成：烘焙背景 + 人物 + 出片
+  - `stage.py` 372 行 — 场景合成：烘焙背景 + 人物 + 出片
   - `wind.py` 137 行 — 风场：主弯曲 + 细节弯曲，相位纳入世界坐标使异株不同步
 
 ### motion/character/
@@ -72,11 +74,12 @@
 
 ### tests/
   - `cases.py` 115 行 — 35 项测试用例声明（测试第二步：声明）
-  - `cases_phys.py` 110 行 — C 组物理用例（弹球 / 两球对撞）
+  - `cases_crowd.py` 207 行 — D 组多主体用例（人群碰撞 / 两人击掌）
+  - `cases_phys.py` 197 行 — C 组物理用例（弹球 / 两球对撞）
   - `gen.py` 230 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
   - `gen_doc.py` 107 行 — 生成 35 项推进文档（xlsx）
   - `harness.py` 385 行 — 物理与动作判据库（测试第一步：判定）
-  - `run_all.py` 503 行 ⚠ — 35 项用例门检与执行（测试第三步：跑）
+  - `run_all.py` 504 行 ⚠ — 35 项用例门检与执行（测试第三步：跑）
 
 ## 契约规则与出处（不凭记忆，逐条可查）
 
@@ -101,16 +104,19 @@
 
 ## 当前问题（check.py 实时输出）
 
-共 11 项：
+共 14 项：
 
 - [R3 函数过长] motion/cafe.py::pose_at 51>50
+- [R3 函数过长] motion/crowd.py::self_check 60>50
+- [R2 超纲] motion/rigid2d.py 636>500
 - [R3 函数过长] motion/run.py::run 65>50
+- [R1 逆向依赖] tests/cases_crowd.py -> motion
 - [R1 逆向依赖] tests/cases_phys.py -> motion
 - [R1 逆向依赖] tests/gen_doc.py -> motion
 - [R1 逆向依赖] tests/run_all.py -> motion
-- [R2 超纲] tests/run_all.py 504>500
+- [R2 超纲] tests/run_all.py 505>500
 - [R3 函数过长] tests/run_all.py::case_A2 55>50
 - [R3 函数过长] tests/run_all.py::case_B9 54>50
 - [R4 包条目数] shape 2 不在 3~20
 - [R4 包条目数] color 1 不在 3~20
-- [R4 包条目数] motion 24 不在 3~20
+- [R4 包条目数] motion 26 不在 3~20

@@ -27,6 +27,7 @@
   jump.py         原地跳跃（蹬伸匀加速/腾空解析抛物线/落地匀减速）
   crouch.py       下蹲与拾取（蹲到底肩物距 ≤ 臂展）
   run.py          跑步与急停（腾空弹道 + 制动 a=2V/T ≤ μg）
+  carry.py        抱箱搬运（NIOSH 贴躯干 + 半蹲举 + 四相位所有权）
   selfcheck.py    自检脚本
 """
 import os
@@ -49,5 +50,7 @@ from .turn import *
 #   import * 会把包属性覆盖成函数, 令 motion.character.jump 取到函数而非模块。
 #   故星号导入后再显式取回子模块对象(契约: 包属性=子模块, 动作函数一律走 CAP 注册表)
 from . import jump as jump, crouch as crouch, run as run  # noqa: F401 取回子模块对象
+# carry 同理: carry_box 与模块同名, 星号导入会覆盖包属性
+from . import carry as carry  # noqa: F401 取回子模块对象
 
 __all__ = [n for n in dir() if not n.startswith("_")]

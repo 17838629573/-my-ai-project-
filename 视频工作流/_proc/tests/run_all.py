@@ -28,7 +28,8 @@ from tests.cases_phys import (  # noqa: F401
     case_C16, case_C17, case_C18, case_C19, case_C20,
 )
 from tests.cases_crowd import case_D21, case_D24  # noqa: F401
-for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "hand", "kick", "ball"):
+from tests.cases_carry import case_E26  # noqa: F401
+for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "hand", "kick", "ball"):
     try:
         __import__("motion.character." + _m)
     except Exception:
@@ -466,7 +467,8 @@ def case_B9():
 EXEC = {"A1": case_A1, "F35": case_A1, "A2": case_A2, "A3": case_A3,
         "A4": case_A4, "A5": case_A5, "B8": case_B8, "B9": case_B9, "A6": case_A6, "A7": case_A7,
         "C16": case_C16, "C17": case_C17, "C18": case_C18,
-        "C19": case_C19, "C20": case_C20, "D21": case_D21, "D24": case_D24}
+        "C19": case_C19, "C20": case_C20, "D21": case_D21, "D24": case_D24,
+        "E26": case_E26}
 
 
 from tests.cases_crowd import case_D21, case_D24  # noqa: F401
