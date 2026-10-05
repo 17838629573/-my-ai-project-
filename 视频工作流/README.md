@@ -58,9 +58,21 @@ python3 _proc/beat_demo.py      # 走 beat 时间线出演示片
 python3 _proc/motion/cafe.py    # 咖啡馆 12 秒（四段动作）
 python3 _proc/tests/run_all.py  # 跑 35 项测试门检
 python3 _proc/check.py          # 架构契约扫描
+python3 _proc/tools/gate.py     # 统一门禁入口（7 项，--json 机读）
 ```
 
 每个 `.py` 顶部有 `__file__` 锚定的自举块，自动上溯定位 `_proc`，直接跑即可。
+
+门禁工具依赖两个业界库（不重复造轮子），跑之前先装：
+
+```bash
+pip install -r _proc/tools/requirements.txt   # import-linter / lizard
+```
+
+依赖缺失时门禁**报错而非静默当通过**（`layers.py` 契约数为 0 判失败、`complexity.py` 缺 lizard 返回 error）。
+
+R1 依赖方向由 **import-linter**（`.importlinter`，双包名配置）产出，R3 函数长度由 **lizard** 产出；
+`check.py` 不再自造这两条规则——自造 ALLOW 表只认 `_proc.*`，对扁平包名 `motion.xxx` 完全漏检（实测注入未被报出）。
 
 ---
 

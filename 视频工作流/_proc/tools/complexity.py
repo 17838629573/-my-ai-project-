@@ -31,19 +31,28 @@ for p in (_ROOT, _PROC):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import lizard  # noqa: E402  业界成熟库，不自己实现 CCN
+try:
+    import lizard  # noqa: E402  业界成熟库，不自己实现 CCN
+except ImportError:  # 依赖缺失必须报错，不能静默当"零问题"——见 tools/repro.py 铁律一
+    lizard = None
 
 CCN_DESIGN = 10   # lizard/ruff 默认上限
 CCN_HARD = 20     # radon D 级起始，直接 FAIL
+# 长度维度: 自造 R3(函数>50行) 从 check.py 迁到本工具, 由 lizard 同一口径产出,
+# 阈值与严重度保持原样(mrognlie 50~200 建议), 仅换实现方, 避免两套口径各报各的。
+LEN_DESIGN = 50
+LEN_HARD = 100
 EXCLUDE_DIRS = {"__pycache__", "_bak", ".git", "_archive_文档_旧链路"}
 
 
 def scan(root=_PROC, ccn_design=CCN_DESIGN, ccn_hard=CCN_HARD):
+    if lizard is None:
+        raise RuntimeError("lizard 未安装: pip install -r tools/requirements.txt")
     """扫描全部 .py，返回 (超设计值列表, 超硬闸列表)。
 
     每项: dict(file, func, line, ccn, length, params)
     """
-    over_design, over_hard = [], []
+    over_design, over_hard, over_len = [], [], []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
         for fn in sorted(filenames):
@@ -69,23 +78,38 @@ def scan(root=_PROC, ccn_design=CCN_DESIGN, ccn_hard=CCN_HARD):
                     over_hard.append(item)
                 elif item["ccn"] > ccn_design:
                     over_design.append(item)
-    over_hard.sort(key=lambda x: -x["ccn"])
+                if item["length"] > LEN_HARD:
+                    over_hard.append(item)
+                elif item["length"] > LEN_DESIGN:
+                    over_len.append(item)
+    over_hard.sort(key=lambda x: -max(x["ccn"], x["length"]))
     over_design.sort(key=lambda x: -x["ccn"])
-    return over_design, over_hard
+    over_len.sort(key=lambda x: -x["length"])
+    return over_design, over_hard, over_len
 
 
 def run(root=_PROC):
     """返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}"""
-    design, hard = scan(root)
+    try:
+        design, hard, over_len = scan(root)
+    except RuntimeError as e:   # 依赖缺失/工具未真正执行 → 报错，绝不返回 ok
+        return {"ok": False, "design": [], "hard": [str(e)], "over_len": [],
+                "counts": {"over_design": 0, "over_hard": 1, "over_len": 0,
+                           "ccn_design": CCN_DESIGN, "ccn_hard": CCN_HARD,
+                           "len_design": LEN_DESIGN, "len_hard": LEN_HARD}}
     return {
-        "ok": not hard,
+        "ok": not hard and not over_len,
         "design": design,
         "hard": hard,
+        "over_len": over_len,
         "counts": {
             "over_design": len(design),
             "over_hard": len(hard),
+            "over_len": len(over_len),
             "ccn_design": CCN_DESIGN,
             "ccn_hard": CCN_HARD,
+            "len_design": LEN_DESIGN,
+            "len_hard": LEN_HARD,
         },
     }
 
@@ -110,8 +134,8 @@ def self_check():
     with tempfile.TemporaryDirectory() as td1, tempfile.TemporaryDirectory() as td2:
         open(os.path.join(td1, "lin.py"), "w").write(src_linear)
         open(os.path.join(td2, "hi.py"), "w").write(src_high)
-        d1, h1 = scan(td1)
-        d2, h2 = scan(td2)
+        d1, h1, l1 = scan(td1)
+        d2, h2, l2 = scan(td2)
         _chk("线性函数不报(over_design=0, over_hard=0)", len(d1) == 0 and len(h1) == 0)
         _chk("高复杂度函数被抓到(CCN>10 进 design)", any(x["func"] == "g" for x in d2))
         _chk("CCN 值正确(11)", any(x["func"] == "g" and x["ccn"] == 11 for x in d2))
@@ -121,7 +145,14 @@ def self_check():
     _chk("全项目扫描可执行", isinstance(r["counts"]["over_design"], int))
     # 4) _bak 被排除（冻结封存目录不应出现在结果里）
     _chk("_bak 已排除",
-         not any("_bak" in x["file"] for x in r["design"] + r["hard"]))
+         not any("_bak" in x["file"] for x in r["design"] + r["hard"] + r["over_len"]))
+    # 5) 长度维度: 60 行线性函数应被报为长度问题(原 R3 口径), 且不进 CCN 债务
+    with tempfile.TemporaryDirectory() as td3:
+        src_long = "def h(a):\n" + "".join("    b%d = a + %d\n" % (i, i) for i in range(60)) + "    return b0\n"
+        open(os.path.join(td3, "long.py"), "w").write(src_long)
+        d3, h3, l3 = scan(td3)
+        _chk("长但线性的函数按长度报出而非CCN债务",
+             any(x["func"] == "h" for x in l3) and not any(x["func"] == "h" for x in d3))
     return ok
 
 
@@ -135,11 +166,16 @@ def main():
         return 0 if r["ok"] else 1
     c = r["counts"]
     print("圈复杂度门禁 (lizard CCN)  设计值<=%d  硬闸>%d" % (c["ccn_design"], c["ccn_hard"]))
-    print("  超设计值(登记为债务) %d    超硬闸(直接FAIL) %d" % (c["over_design"], c["over_hard"]))
+    print("  超设计值(登记为债务) %d    超硬闸(直接FAIL) %d    超长度>%d %d"
+          % (c["over_design"], c["over_hard"], c["len_design"], c["over_len"]))
     if r["hard"]:
         print("  [硬闸] 必须拆分:")
         for x in r["hard"]:
             print("    %s:%d %s CCN=%d len=%d" % (x["file"], x["line"], x["func"], x["ccn"], x["length"]))
+    if r["over_len"]:
+        print("  [长度] >%d 行:" % r["counts"]["len_design"])
+        for x in r["over_len"]:
+            print("    %s:%d %s len=%d CCN=%d" % (x["file"], x["line"], x["func"], x["length"], x["ccn"]))
     if r["design"]:
         print("  [设计值] 前 10:")
         for x in r["design"][:10]:

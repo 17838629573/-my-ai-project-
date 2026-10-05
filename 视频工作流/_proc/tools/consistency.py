@@ -169,26 +169,45 @@ def cap_impl_names():
             for node in ast.walk(tree):
                 if not isinstance(node, ast.FunctionDef):
                     continue
-                for d in node.decorator_list:
-                    call = d if isinstance(d, ast.Call) else None
-                    if call is None:
-                        continue
-                    fname = (getattr(call.func, "id", None)
-                             or getattr(call.func, "attr", None))
-                    if fname != "capability" or not call.args:
-                        continue
-                    a = call.args[0]
-                    if not isinstance(a, ast.Constant):
-                        continue
-                    nm = str(a.value)
-                    names = {nm, node.name}
-                    for sub in ast.walk(node):
-                        if isinstance(sub, ast.Return) and isinstance(sub.value, ast.Name):
-                            names.add(sub.value.id)
-                        elif isinstance(sub, ast.Return) and isinstance(sub.value, ast.Attribute):
-                            names.add(sub.value.attr)
-                    out.setdefault(nm, set()).update(names)
+                _collect_cap_node(out, node)
     return out
+
+
+def _collect_cap_node(out, node):
+    """把单个函数上的 @capability 装饰器证据并入 out。"""
+    for d in node.decorator_list:
+        call = d if isinstance(d, ast.Call) else None
+        if call is None:
+            continue
+        fname = (getattr(call.func, "id", None)
+                 or getattr(call.func, "attr", None))
+        if fname != "capability" or not call.args:
+            continue
+        a = call.args[0]
+        if not isinstance(a, ast.Constant):
+            continue
+        nm = str(a.value)
+        out.setdefault(nm, set()).update(_cap_names(node, nm))
+
+
+def _cap_names(node, nm):
+    """三种证据都算接线（缺一种就误判）:
+
+    1. 被 @capability 装饰的函数名本身   （gaze_shift 这类直接实现）
+    2. 该函数 return 的名字             （high5 是工厂: _cap_high5() 返回
+                                        high5_pose，用例调的是 high5_pose，
+                                        只认 1 会把已 PASS 的 D21 击掌误报未接线）
+    3. 能力名字符串本身                 （同名的常规情况）
+    """
+    names = {nm, node.name}
+    for sub in ast.walk(node):
+        if not isinstance(sub, ast.Return):
+            continue
+        if isinstance(sub.value, ast.Name):
+            names.add(sub.value.id)
+        elif isinstance(sub.value, ast.Attribute):
+            names.add(sub.value.attr)
+    return names
 
 
 def cap_registered():

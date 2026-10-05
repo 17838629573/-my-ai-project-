@@ -173,27 +173,16 @@ class World:
         cand.sort()
         return cand
 
-    def _contacts(self, write_cache=True):
-        """接触生成 + 持久流形暖启动（出处[1][6]。
+    def _broadphase_radii(self):
+        """包围圆半径表：宽相一次平方距离比较排掉 95% 以上候选对。
 
-        write_cache=False 用于诊断性重算或只读调用：只读取已有冲量，绝不写回。
-
-        【已修缺陷】step() 末尾的 _relax() 原先也用默认 write_cache=True 调用本函数，
-        把求解收敛后写回的 Pn/Pt 覆盖成空槽 → 下一帧暖启动读到空列表，
-        warm starting 全程空转。堆叠靠 Baumgarte 反复推离形成极限环。
-        凡非"求解前生成"的调用，一律须显式 write_cache=False。
-
-        关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
-        若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
-        底层微抖，正是 Catto 2005 描述的"冷启动三箱塔滑开"现象。
+        包围圆是保守的（盒子旋转时外接圆必包含本体），不会漏接触。
         """
-        cs = []
-        cnt = {}
-        # ── 包围圆半径：宽相一次平方距离比较排掉 95% 以上 ──────────────
-        # 包围圆是保守的（盒子旋转时外接圆必包含本体），不会漏接触。
-        rad = {}
-        for b in self.bodies:
-            rad[id(b)] = _math.hypot(b.hw, b.hh) if b.shape == "box" else b.r
+        return {id(b): (_math.hypot(b.hw, b.hh) if b.shape == "box" else b.r)
+                for b in self.bodies}
+
+    def _pair_contacts(self, rad, cs, cnt):
+        """动体—动体：宽相筛掉远对，再按形状走 box-box 或圆-圆/圆-盒窄相。"""
         for (i, j) in self._pair_candidates(rad):
             A, B = self.bodies[i], self.bodies[j]
             if A.fixed and B.fixed:
@@ -210,21 +199,48 @@ class World:
                 for k, c in enumerate(_round_pair(A, B)):
                     c.fid = ("r", k)
                     cs.append(self._mk(cnt, A, B, c.p, c.n, c.pen, c.fid))
+
+    def _static_contacts(self, rad, cs, cnt):
+        """静态几何（地面 + 线段墙）：只对非 fixed 动体生成接触。"""
         for b in self.bodies:
             if b.fixed:
                 continue
             for k, (q, nn, pen) in enumerate(collide_ground(b, self.gy)):
                 cs.append(self._mk(cnt, _ANCHOR, b, q, nn, pen, ("g", k)))
             for si, sg in enumerate(self.segments):
-                x0, x1, y0, y1 = self._seg_aabb(sg)
-                rr = rad[id(b)] + sg.t
-                px, py = float(b.p[0]), float(b.p[1])
-                dx = (x0 - px) if px < x0 else (px - x1 if px > x1 else 0.0)
-                dy = (y0 - py) if py < y0 else (py - y1 if py > y1 else 0.0)
-                if dx * dx + dy * dy > rr * rr:
+                if not self._seg_near(b, sg, rad[id(b)]):
                     continue
                 for k, (q, nn, pen) in enumerate(collide_seg(b, sg)):
                     cs.append(self._mk(cnt, sg, b, q, nn, pen, ("s", si, k)))
+
+    def _seg_near(self, b, sg, rb):
+        """动体包围圆 vs 线段 AABB 的宽相：点—盒最近距离平方比较。"""
+        x0, x1, y0, y1 = self._seg_aabb(sg)
+        rr = rb + sg.t
+        px, py = float(b.p[0]), float(b.p[1])
+        dx = (x0 - px) if px < x0 else (px - x1 if px > x1 else 0.0)
+        dy = (y0 - py) if py < y0 else (py - y1 if py > y1 else 0.0)
+        return dx * dx + dy * dy <= rr * rr
+
+    def _contacts(self, write_cache=True):
+        """接触生成 + 持久流形暖启动（出处[1][6]。
+
+        write_cache=False 用于诊断性重算或只读调用：只读取已有冲量，绝不写回。
+
+        【已修缺陷】step() 末尾的 _relax() 原先也用默认 write_cache=True 调用本函数，
+        把求解收敛后写回的 Pn/Pt 覆盖成空槽 → 下一帧暖启动读到空列表，
+        warm starting 全程空转。堆叠靠 Baumgarte 反复推离形成极限环。
+        凡非"求解前生成"的调用，一律须显式 write_cache=False。
+
+        关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
+        若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
+        底层微抖，正是 Catto 2005 描述的"冷启动三箱塔滑开"现象。
+        """
+        cs = []
+        cnt = {}
+        rad = self._broadphase_radii()
+        self._pair_contacts(rad, cs, cnt)
+        self._static_contacts(rad, cs, cnt)
         # 只保留本帧仍存在的接触，防止陈旧冲量复活
         if write_cache:
             self._cache = {k: [] for k in cnt}

@@ -136,6 +136,52 @@ def _scan_undefined_names(tree, rel):
     return out
 
 
+def _sc_empty_return(node, rel):
+    """S03 自检空转：self_check 返回空列表/空元组，等于没检查。"""
+    out = []
+    for n in ast.walk(node):
+        if not (isinstance(n, ast.Return)
+                and isinstance(n.value, (ast.List, ast.Tuple))):
+            continue
+        if len(n.value.elts) == 0:
+            out.append("[S03 自检空转] %s:%d self_check 返回空列表，等于没检查"
+                       % (rel, n.lineno))
+    return out
+
+
+def _sc_const_true(node, rel):
+    """S02 判据恒真：判据位写成常量 True（出处 PIT/mutmut 变异永远存活）。"""
+    out = []
+    for n in ast.walk(node):
+        if not (isinstance(n, ast.Constant) and n.value is True):
+            continue
+        if isinstance(getattr(n, "_parent_stmt", None), ast.Return):
+            continue
+        par = getattr(n, "_ps_parent", None)
+        if isinstance(par, ast.Tuple) and len(par.elts) >= 2 and par.elts[1] is n:
+            out.append("[S02 判据恒真] %s:%d self_check 把判据写成常量 True"
+                       % (rel, n.lineno))
+    return out
+
+
+def _sc_bad_thresh(node, rel):
+    """S08 阈值失真：米制物理量的阈值 >1e3，判据形同虚设。"""
+    out = []
+    for n in ast.walk(node):
+        if not isinstance(n, ast.Compare):
+            continue
+        for c in n.comparators:
+            if isinstance(c, ast.Constant) and isinstance(c.value, float):
+                if c.value > 1e3:
+                    out.append(
+                        "[S08 阈值失真] %s:%d self_check 阈值 %.0e 过大，"
+                        "判据形同虚设" % (rel, n.lineno, c.value))
+    return out
+
+
+_SC_SCANNERS = (_sc_empty_return, _sc_const_true, _sc_bad_thresh)
+
+
 def _scan_selfcheck(tree, rel):
     """S02 判据恒真 + S03 自检空转 + S08 阈值失真（只作用于 self_check）。
 
@@ -146,27 +192,8 @@ def _scan_selfcheck(tree, rel):
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef) or node.name != "self_check":
             continue
-        for n in ast.walk(node):
-            if isinstance(n, ast.Return) and isinstance(n.value, (ast.List, ast.Tuple)):
-                if len(n.value.elts) == 0:
-                    out.append("[S03 自检空转] %s:%d self_check 返回空列表，等于没检查"
-                               % (rel, n.lineno))
-        for n in ast.walk(node):
-            if isinstance(n, ast.Constant) and n.value is True:
-                if isinstance(getattr(n, "_parent_stmt", None), ast.Return):
-                    continue
-                par = getattr(n, "_ps_parent", None)
-                if isinstance(par, ast.Tuple) and len(par.elts) >= 2 and par.elts[1] is n:
-                    out.append("[S02 判据恒真] %s:%d self_check 把判据写成常量 True"
-                               % (rel, n.lineno))
-        for n in ast.walk(node):
-            if isinstance(n, ast.Compare):
-                for c in n.comparators:
-                    if isinstance(c, ast.Constant) and isinstance(c.value, float):
-                        if c.value > 1e3:
-                            out.append(
-                                "[S08 阈值失真] %s:%d self_check 阈值 %.0e 过大，"
-                                "判据形同虚设" % (rel, n.lineno, c.value))
+        for scan in _SC_SCANNERS:
+            out.extend(scan(node, rel))
     return out
 
 

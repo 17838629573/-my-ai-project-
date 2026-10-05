@@ -3,9 +3,12 @@
 """Enforce architecture contracts: layer direction, size limits, public surface.
 
 规则与出处（不凭记忆，逐条可查）：
-  R1 依赖单向，且含传递依赖   import-linter layers: "even indirectly"
+  R1 依赖单向，且含传递依赖   已迁至 import-linter(见 .importlinter / tools/layers.py)
+                              —— 自造 ALLOW 表漏登记层会产生假阳性, 且只认 _proc.* 包名,
+                                 扁平包名(motion.xxx) 完全漏检(实测注入未被报出)。
   R2 模块 50~500 行           AlgoMaster / mrognlie 两处独立来源
-  R3 函数 <=50 行             mrognlie coding guide
+  R3 函数 <=50 行             已迁至 lizard(tools/complexity.py), 同一阈值 50,
+                              由 lizard 的 length 字段产出, 避免两套口径各报各的。
   R4 包条目 3~20 个           mrognlie coding guide
   R5 公开名 <=40，否则拆      AlgoMaster: "A module with 40 public names is doing too much"
   R6 契约首行 <=72 字符       numpydoc 规范
@@ -62,7 +65,6 @@ EXHAUSTIVE_IGNORES = {"_bak", "__pycache__", "_archive_旧链路"}
 
 LIMIT_MIN, LIMIT_MAX = 50, 500
 LIMIT_MIN_EFF = 20   # R2 下界改用有效代码行，依据 SIG/SonarQube NCLoC      # R2
-LIMIT_FUNC = 50                      # R3
 PKG_MIN, PKG_MAX = 3, 20             # R4
 LIMIT_PUBLIC = 40                    # R5
 LIMIT_SUMMARY = 72                   # R6
@@ -138,12 +140,10 @@ def _check_interface(tag, src):
     return out
 
 
-def _check_structure(tag, pkg, direct, transit):
-    """架构层断言：依赖方向单向，同包内 import 放行。"""
-    allow = ALLOW.get(pkg, set()) | {pkg}
-    return [f"[R1 逆向依赖] {tag} -> {b}"
-            for b in sorted((direct | transit) - allow)]
-
+# R1(依赖方向)已于 2026-10-06 迁至 import-linter：本文件的 ALLOW 表只认 _proc.* 包名，
+# 对本项目大量使用的扁平包名(motion.xxx / tools.xxx)完全漏检——
+# 实测注入 shape/_tmp_rev.py 写 "from motion import beat", R1 报错而 lint-imports 报 KEPT。
+# 配置见项目根 .importlinter，门禁入口 tools/layers.py。
 
 def _eff_lines(src):
     """有效代码行 NCLoC：去空行、注释、docstring。
@@ -184,21 +184,8 @@ def _check_size(tag, n, src=None):
     return []
 
 
-def _check_funcs(tag, src):
-    """实现层 R3：单个函数不超过 50 行。"""
-    out = []
-    try:
-        tree = ast.parse(src)
-    except SyntaxError as e:
-        _SYNTAX_ERRS.append(f"[R0 语法错误] {tag}:{getattr(e,'lineno','?')} {e.msg}")
-        return out
-    for fn in [x for x in ast.walk(tree)
-               if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef))]:
-        ln = (fn.end_lineno or fn.lineno) - fn.lineno + 1
-        if ln > LIMIT_FUNC:
-            out.append(f"[R3 函数过长] {tag}::{fn.name} {ln}>{LIMIT_FUNC}")
-    return out
-
+# R3(函数<=50行)已迁至 tools/complexity.py：由 lizard 的 length 字段产出，
+# 阈值仍为 50(mrognlie)，严重度不变，仅换实现方。
 
 def _check_public(tag, src):
     """实现层 R5：公开名不超过 40，超了说明模块干太多。"""
@@ -230,9 +217,13 @@ def _check_complexity(tag, src):
     return out
 
 def _check_internals(tag, src, n):
-    """实现层断言汇总：尺寸 + 函数 + 公开面。"""
+    """实现层断言汇总：尺寸 + 公开面 + 复杂度。
+
+    函数长度(R3)已于 2026-10-06 迁至 tools/complexity.py(lizard)，
+    依赖方向(R1)迁至 import-linter —— 两者都由上游工具产出同一口径，
+    本文件不再重复实现，避免"两套标准各报各的"。
+    """
     return (_check_size(tag, n, src)
-            + _check_funcs(tag, src)
             + _check_public(tag, src)
             + _check_complexity(tag, src))
 
@@ -313,8 +304,6 @@ def _scan_file(f, graph):
     tag = f"{pkg}/{os.path.basename(f)}"
     direct = {p for p, _ in edges(f)}
     out = (_check_interface(tag, src)
-           + _check_structure(tag, pkg, direct,
-                              _reach(graph, node_of(f)) - {pkg})
            + _check_internals(tag, src, n))
     size = "超纲" if n > LIMIT_MAX else ("过短" if n < LIMIT_MIN else "OK")
     row = (pkg, os.path.basename(f), n, size,

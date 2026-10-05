@@ -418,6 +418,46 @@ def case_B9():
 
 
 
+def _g36_series(name, kw, N, gait, gesture, layer):
+    """单个 additive 能力的 base/over 两条序列（N 帧 gait + 上层叠加）。"""
+    fn = getattr(gesture, name)
+    base = [gait.gait(i / (N - 1), "natural") for i in range(N)]
+    over = [layer.blend(base[i], fn(i / (N - 1), kw),
+                        region="upper", mode="additive", layer_w=1.0)
+            for i in range(N)]
+    return base, over
+
+
+def _g36_lower_pollution(base, over, N, layer):
+    """下半身污染量：additive 只作用上半身，LOWER 区必须逐帧零偏差。"""
+    worst = 0.0
+    for i in range(N):
+        for jn in layer.LOWER:
+            if jn in base[i] and jn in over[i]:
+                dv = max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
+                worst = max(worst, dv)
+    return worst
+
+
+def _g36_upper_delta(base, over, N, layer):
+    """上半身叠加生效量：over 相对 base 的最大位移（必须 > 0 才算真的叠加）。"""
+    pairs = [(i, jn) for i in range(N) for jn in layer.UPPER
+             if jn in base[i] and jn in over[i]]
+    return max(max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
+               for i, jn in pairs)
+
+
+def _g36_jump_ratio(base, over, N, layer):
+    """帧间一致性比值：叠加后帧间步长 / 叠加前帧间步长（应 ≈1，不引入跳变）。"""
+    b_d = max(max(abs(base[i + 1][jn][k] - base[i][jn][k]) for k in range(3))
+              for i in range(N - 1) for jn in layer.UPPER if jn in base[i])
+    pairs = [(i, jn) for i in range(N - 1) for jn in layer.UPPER
+             if jn in base[i] and jn in over[i]]
+    o_d = max(max(abs(over[i + 1][jn][k] - over[i][jn][k]) for k in range(3))
+              for i, jn in pairs)
+    return o_d / max(b_d, 1e-12)
+
+
 def case_G36():
     """ADDITIVE 三能力接线：gaze_shift / finger_tap / page_flip 叠加到 gait
 
@@ -437,26 +477,12 @@ def case_G36():
     worst_lower = 0.0
     worst_ratio = 0.0
     for name, kw in ADDS:
-        fn = getattr(gesture, name)
-        base = [gait.gait(i / (N - 1), "natural") for i in range(N)]
-        over = [layer.blend(base[i], fn(i / (N - 1), kw),
-                            region="upper", mode="additive", layer_w=1.0)
-                for i in range(N)]
-        for i in range(N):
-            for jn in layer.LOWER:
-                if jn in base[i] and jn in over[i]:
-                    dv = max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
-                    worst_lower = max(worst_lower, dv)
-        moved = max(max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
-                    for i in range(N) for jn in layer.UPPER
-                    if jn in base[i] and jn in over[i])
+        base, over = _g36_series(name, kw, N, gait, gesture, layer)
+        worst_lower = max(worst_lower,
+                          _g36_lower_pollution(base, over, N, layer))
+        moved = _g36_upper_delta(base, over, N, layer)
         assert moved > 1e-4, f"{name}: additive 未生效 (上半身位移 {moved})"
-        b_d = max(max(abs(base[i + 1][jn][k] - base[i][jn][k]) for k in range(3))
-                  for i in range(N - 1) for jn in layer.UPPER if jn in base[i])
-        o_d = max(max(abs(over[i + 1][jn][k] - over[i][jn][k]) for k in range(3))
-                  for i in range(N - 1) for jn in layer.UPPER
-                  if jn in base[i] and jn in over[i])
-        worst_ratio = max(worst_ratio, o_d / max(b_d, 1e-12))
+        worst_ratio = max(worst_ratio, _g36_jump_ratio(base, over, N, layer))
     return [
         ("lower_pollution", worst_lower),
         ("frame_jump_ratio", worst_ratio),

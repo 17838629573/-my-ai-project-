@@ -39,8 +39,15 @@ def run():
         return {"ok": False, "kept": 0, "broken": 0, "contracts": [],
                 "error": "配置文件缺失: %s" % CONFIG}
     try:
+        # PYTHONPATH 必须含 _proc: 项目存在 _proc.motion 与 motion 两套包名(双包名),
+        # 缺 _proc 时 grimp 找不到扁平包, 直接报
+        #   "Could not find package 'tools' in your Python path."
+        # —— 这不是契约通过, 是工具压根没跑起来, 必须避免被当成"绿"。
+        _env = dict(os.environ)
+        _pp = _env.get("PYTHONPATH", "")
+        _env["PYTHONPATH"] = (_PROC + os.pathsep + _ROOT + os.pathsep + _pp).strip(os.pathsep)
         p = subprocess.run(
-            ["lint-imports"], cwd=_ROOT, timeout=600,
+            ["lint-imports"], cwd=_ROOT, timeout=600, env=_env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
         out = p.stdout.decode("utf-8", "replace")
@@ -55,6 +62,11 @@ def run():
     mk = KEPT_RE.search(out)
     kept = int(mk.group(1)) if mk else sum(1 for c in contracts if c["state"] == "KEPT")
     broken = int(mk.group(2)) if mk else sum(1 for c in contracts if c["state"] == "BROKEN")
+    if kept + broken == 0:
+        # 一个契约都没解析到 = 工具没真正执行(未安装/路径错/配置空), 不能当成"零违规"。
+        return {"ok": False, "kept": 0, "broken": 0, "contracts": [],
+                "error": "未解析到任何契约, 工具可能未真正执行: " + out.strip()[-300:],
+                "raw_tail": out[-800:]}
     return {"ok": broken == 0, "kept": kept, "broken": broken,
             "contracts": contracts, "error": None, "raw_tail": out[-800:]}
 
