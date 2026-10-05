@@ -42,7 +42,9 @@ tl.add("walk", 6, 9, params={"speed": SP, "dur": 3.0}, bid="3再走近",
 tl.add("walk", 9, 12, params={"speed": 0.45, "dur": 3.0}, bid="4侧向离场",
        root={"X0": 0.0, "Z0": 6.99, "yaw": 90.0}, blend_in=0.5, blend_out=0.5)
 
-frames, poses = [], []
+# 流式写出：每帧渲染完立刻落盘，不攒帧（攒帧在 2GB 机器上会 OOM）
+poses = []
+sw = run.StreamWriter("W1_时间线_4段12秒.mp4", fps=FPS, keep_every=FPS)
 for i in range(FPS * 12):
     t = i / FPS
     J, Xc, Zc, yaw = tl.solve(t)
@@ -52,23 +54,21 @@ for i in range(FPS * 12):
     cv.d = ImageDraw.Draw(cv.img)
     run.draw_actor(cv, cam, J, Xc=Xc, Zc=Zc, yaw=yaw,
                    body_h=1.70, template="humanoid", palette=None)
-    frames.append(cv.img)
+    sw.push(cv.img)
+NF = sw.close()
 
-run.to_mp4(frames, "W1_时间线_4段12秒.mp4", FPS)
-
-# 索引图：每 1 秒取一帧
+# 索引图：每 1 秒取一帧（用抽样帧，不用全片）
+frames = sw.kept
 idx = Image.new("RGB", (W * 4, H // 4 * 3), "white")
-for k, f in enumerate(frames[::FPS][:12]):
+for k, f in enumerate(frames[:12]):
     idx.paste(f.resize((W, H // 4)), ((k % 4) * W, (k // 4) * (H // 4)))
 idx.save("W1_时间线_每秒一格.png")
 
-# 验证
-a = np.stack([np.asarray(f, dtype=float) for f in frames])
-diff = np.abs(a[1:] - a[:-1]).mean(axis=(1, 2))
+# 验证（帧间差由 StreamWriter 边写边累计，无需全片重扫）
 p = np.array(poses)
 print("段数           4")
-print("总帧           %d" % len(frames))
-print("帧间差 均值    %.3f  最大 %.3f" % (diff.mean(), diff.max()))
+print("总帧           %d" % NF)
+print("帧间差 均值    %.3f  最大 %.3f" % (sw.diff_mean, sw.diff_max))
 print("X 轨迹         %.2f → %.2f" % (p[0, 0], p[-1, 0]))
 print("Z 轨迹         %.2f → %.2f" % (p[0, 1], p[-1, 1]))
 print("yaw 轨迹       %.0f → %.0f" % (p[0, 2], p[-1, 2]))

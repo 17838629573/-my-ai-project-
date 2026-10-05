@@ -20,7 +20,10 @@ import sys
 import numpy as np
 from PIL import Image
 
-ROOT = "/data/workspace/视频工作流_dump/视频工作流"
+# 自举：按 __file__ 上溯定位项目根，禁止硬编码绝对路径
+# （硬编码会导致 clone 到别处就 ImportError）
+# gen.py 位于 <root>/_proc/tests/ → 上溯三级
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROC = os.path.join(ROOT, "_proc")
 for p in (ROOT, os.path.dirname(PROC)):
     if p not in sys.path:

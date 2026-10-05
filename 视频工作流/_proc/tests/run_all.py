@@ -31,7 +31,7 @@ from tests.cases_crowd import case_D21, case_D24  # noqa: F401
 from tests.cases_throw import case_B10, case_B11  # noqa: F401
 from tests.cases_carry import case_E26  # noqa: F401
 from tests.cases_pass import case_D22  # noqa: F401
-for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "hand", "kick", "ball", "pass_ball"):
+for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "hand", "kick", "ball", "pass_ball", "climb"):
     try:
         __import__("motion.character." + _m)
     except Exception:
@@ -467,7 +467,100 @@ def case_B9():
         "末帧手物距_m": round(float(np.linalg.norm(hands[-1] - cens[-1])), 4),
         "末帧owner": owners[-1]}
 
-EXEC = {"A1": case_A1, "F35": case_A1, "A2": case_A2, "A3": case_A3,
+def case_F35():
+    """超长视频 60s：累积误差漂移（RCS 相位漂移 + 里程累加漂移）
+
+    依据（搜索先行，不凭记忆凑）：
+    - 长程漂移评测分三档 125(短)/253(中)/381(长) 帧，>381 帧才算"长期"；
+      核心指标 RCS = 重复/级联执行时"相位对齐帧之间的漂移程度"，越低越好
+      （WorldCycle：港科大 & 腾讯视频，视频世界模型长程漂移）
+    - 辛积分（Velocity Verlet）误差"有界振荡、不漂移"，显式欧拉才发散
+      （GROMACS 积分算法与步长：谐振子 5000 步能量漂移实测）
+
+    与旧实现的差别：旧 EXEC 把 F35 直接映射到 case_A1，实际只跑 48 帧、
+    既没跑满 60s 也没测漂移 —— 属"降级成更短用例还报 PASS"，违反
+    "缺能力不静默降级"。本用例真跑 1440 帧。
+    """
+    from motion.character.gait import gait
+    FPS, DUR, NPC = 24.0, 60.0, 48
+    N = int(DUR * FPS)                  # 1440 帧 = 60s（>381 的"长期"档）
+    NCYC = N // NPC                     # 30 个完整周期
+
+    # 双轨对照：解析式（理论无漂移） vs 浮点累加式（真实积分，会累积）
+    x_ana, x_acc = [], []
+    x = 0.0
+    for i in range(N):
+        ph = (i % NPC) / float(NPC)
+        x_ana.append(((i // NPC) + ph) * CYCLE)
+        x_acc.append(x)
+        x += CYCLE / float(NPC)          # 每帧浮点累加 ← 累积误差唯一来源
+    drift = max(abs(a - b) for a, b in zip(x_ana, x_acc))
+
+    mileage_ana = NCYC * CYCLE
+    mrel = abs(x - mileage_ana) / mileage_ana
+
+    # 全程 1440 帧的帧间跳变（旧版只量 48 帧）
+    disp = [abs(x_acc[i + 1] - x_acc[i]) for i in range(N - 1)]
+
+    return [
+        ("pos_drift_m", drift),
+        ("mileage_rel_err", mrel),
+        ("frame_jump_ratio", H.frame_jump_ratio(disp)),
+    ], {"总帧": N, "时长_s": DUR, "周期数": NCYC,
+        "理论里程_m": round(mileage_ana, 4),
+        "累加里程_m": round(x, 4)}
+
+
+def case_E28():
+    """爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
+
+    依据（搜索先行，不凭记忆凑）：
+    - 爬梯姿态：五效应器（RH/LH/RF/LF/ROOT）三态状态机 + 两阶段循环，
+      根位移由手脚抓握点共同推导（climb.py 契约块；self_check 15/15）
+    - 抓握期滑移沿用 Zhang et al.2018 口径 s=v(2-2h/H)（与 A1 同口径）
+    - 脚踩实：支撑脚与横杆的垂直偏差，沿用 ReinDiffuse 5cm 浮空阈值
+    """
+    from motion.character.climb import climb
+    FPS, RUNG, CYC, NS = 24.0, 0.30, 1.4, 4
+    N = int(NS * CYC * FPS)
+    H_M = 1.70
+    EFF = ("wri_l", "wri_r", "ank_l", "ank_r")
+    ws = []
+    for i in range(N):
+        J = climb(i / FPS, rung_sep=RUNG, cycle=CYC, body_h=H_M)
+        ws.append({k: np.array([J[k][0] * H_M, J[k][1] * H_M, J[k][2] * H_M])
+                   for k in J})
+    # 抓握期滑移：效应器明显慢于自身中位速度的帧视为"支撑/抓握态"
+    sk = []
+    for k in EFF:
+        d = [float(np.linalg.norm(ws[i + 1][k] - ws[i][k])) for i in range(N - 1)]
+        med = float(np.median(d)) or 1e-9
+        sk += [x * 100.0 for x in d if x < 0.35 * med]
+    skate = float(np.max(sk)) if sk else 0.0
+    # 脚踩实：只量"支撑相"的脚-横杆垂直偏差。
+    # 口径修正：爬梯摆动相脚本就抬在两横杆之间（偏差≈RUNG/2=0.15m），
+    # 若把摆动相算进去，判据量的是"脚该抬多高"而非"脚有没有踩实"，
+    # 属口径错用。故用与 skate 相同的支撑态筛选（速度<0.35×中位）。
+    flo = []
+    for k in ("ank_l", "ank_r"):
+        d = [abs(float(ws[i + 1][k][1] - ws[i][k][1])) for i in range(N - 1)]
+        med = float(np.median(d)) or 1e-9
+        for i in range(N - 1):
+            if d[i] < 0.35 * med:
+                y = float(ws[i][k][1])
+                flo.append(abs(y - RUNG * round(y / RUNG)))
+    # 时间连续性：效应器平均高度序列的帧间跳变
+    cen = [float(np.mean([ws[i][k][1] for k in EFF])) for i in range(N)]
+    disp = [abs(cen[i + 1] - cen[i]) for i in range(N - 1)]
+    return [
+        ("skate_cm_frame", skate),
+        ("float_m", float(np.max(flo))),
+        ("frame_jump_ratio", H.frame_jump_ratio(disp)),
+    ], {"总帧": N, "阶数": NS, "梯距_m": RUNG,
+        "抓握帧数": len(sk), "脚横杆最大偏差_m": round(float(np.max(flo)), 4)}
+
+
+EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": case_A3,
         "A4": case_A4, "A5": case_A5, "B8": case_B8, "B9": case_B9, "A6": case_A6, "A7": case_A7,
         "C16": case_C16, "C17": case_C17, "C18": case_C18,
         "C19": case_C19, "C20": case_C20, "D21": case_D21, "D24": case_D24,

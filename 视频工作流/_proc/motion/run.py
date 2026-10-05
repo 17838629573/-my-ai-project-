@@ -184,6 +184,12 @@ def frame(t, scene=None, geom=None, bg=None, yaw=90.0, lane=0.0,
 
 
 def to_mp4(frames, path, fps=30):
+    """短片用：frames 为已驻留内存的 PIL 图列表。
+
+    警告：长视频不要用这个——先把全部帧攒进内存再写，
+    实测约 5MB/帧，60s@24fps(1440帧) 峰值 ~7GB，2GB 机器直接 OOM。
+    长视频改用 StreamWriter。
+    """
     if not frames:
         return False
     w, h = frames[0].size
@@ -192,6 +198,67 @@ def to_mp4(frames, path, fps=30):
         vw.write(cv2.cvtColor(np.asarray(f), cv2.COLOR_RGB2BGR))
     vw.release()
     return True
+
+
+class StreamWriter(object):
+    """流式 MP4 写出：渲染完一帧立刻落盘，帧不驻留。
+
+    峰值内存 = 1 帧 + 抽样帧（keep_every），与总帧数无关。
+    同时顺带累计帧间差分均值，供漂移/跳变判据使用，省一次全片重扫。
+
+    用法：
+        w = StreamWriter("out.mp4", fps=24, keep_every=24)
+        for i in range(N):
+            w.push(render(i))
+        n = w.close()
+    """
+
+    def __init__(self, path, fps=30, keep_every=0):
+        self.path = path
+        self.fps = fps
+        self.keep_every = int(keep_every)
+        self.vw = None
+        self.n = 0
+        self.kept = []
+        self._prev = None
+        self.diff_sum = 0.0
+        self.diff_max = 0.0
+
+    def push(self, img):
+        a = np.asarray(img)
+        if self.vw is None:
+            h, w = a.shape[:2]
+            self.vw = cv2.VideoWriter(
+                self.path, cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (w, h))
+        self.vw.write(cv2.cvtColor(a, cv2.COLOR_RGB2BGR))
+        if self._prev is not None:
+            d = float(np.abs(a.astype(np.float32) - self._prev).mean())
+            self.diff_sum += d
+            if d > self.diff_max:
+                self.diff_max = d
+        self._prev = a
+        if self.keep_every and self.n % self.keep_every == 0:
+            self.kept.append(img.copy())
+        self.n += 1
+
+    # 兼容列表接口
+    write = push
+
+    def close(self):
+        if self.vw is not None:
+            self.vw.release()
+            self.vw = None
+        return self.n
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+    @property
+    def diff_mean(self):
+        return self.diff_sum / max(1, self.n - 1)
 
 
 # ---------------------------------------------------------------- 自检
