@@ -1,0 +1,18 @@
+[
+  {
+    "id": "S1",
+    "rule": "R1 逆向依赖",
+    "target": "tools -> motion",
+    "reason": "tools 是检查者层，必须能读到被检查的每一层，已登记进 ALLOW 最上层。原报错源于 ALLOW 表漏定义 tools 层。",
+    "expect": "absent",
+    "repro": "import sys; sys.path.insert(0,'.')\nimport check\nsaved = check.ALLOW.pop('tools', None)\na = check._check_structure('tools/xxx.py','tools',{'motion'},set())\nif saved is not None: check.ALLOW['tools'] = saved\nb = check._check_structure('tools/xxx.py','tools',{'motion'},set())\nprint('对照组删tools层:', len(a), '条') \nprint('实验组恢复后:', len(b), '条')\nprint('OBSERVED=', 'absent' if (len(a) > 0 and len(b) == 0) else 'present')"
+  },
+  {
+    "id": "S2",
+    "rule": "capaudit 23个不可用",
+    "target": "ADDITIVE/PHYS/AUX 三类共20个",
+    "reason": "wave 等返回 {J:delta} 是 additive 增量、bounce/stack 等是物理仿真、turn/brake 等是求解器——三类本就不产出姿态，属设计如此。capaudit 直接调 CAP 表导致误判；正确口径应走 capbridge.normalize 分流。",
+    "expect": "absent",
+    "repro": "import sys; sys.path.insert(0,'.')\nfrom motion import beat, capbridge\nfor m in ('sit','gesture','prop','turn','jump','crouch','run','carry','throw','catch','kick','climb','pass_ball'):\n    try: __import__('motion.character.'+m)\n    except Exception: pass\nfor m in ('motion.crowd','motion.rigid','motion.rigid2d','motion.rigid2d_sim'):\n    try: __import__(m)\n    except Exception: pass\nout = capbridge.normalize(beat.CAP, getattr(beat,'CAP_SRC',{}), getattr(beat,'CAP_GROUP',{}), verbose=False)\nnames = lambda k: [x[0] if isinstance(x,tuple) else x for x in out[k]]\nA,PH,AU = names('ADDITIVE'), names('PHYS'), names('AUX')\nbad = [n for n in ('wave','gaze_shift','finger_tap','page_flip') if n not in A]\nbad += [n for n in ('bounce','pendulum','ramp','rigid_body','stack') if n not in PH]\nbad += [n for n in ('turn','brake','ball','high5','contact','multi_actor','carry_prop','prop_release','box_release','pass_ball','crowd_collide') if n not in AU]\nprint('正确口径下未被正确归类:', bad)\nprint('OBSERVED=', 'absent' if not bad else 'present')"
+  }
+]

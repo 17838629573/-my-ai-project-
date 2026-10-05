@@ -1,8 +1,8 @@
 # 契约: proc/tools/consistency
 #   一句话: 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
 #   完整契约见 tools/__init__.py
-#   依据: 依据 cross-reference integrity：交叉引用的实体必须互相对得上。
-探测两种静默失败：多 ID 指向同一函数（F35 事故）、注册了但用例没接（climb 事故）。
+#   依据: cross-reference integrity：交叉引用的实体必须互相对得上。
+#         探测两种静默失败：多 ID 指向同一函数（F35 事故）、注册了但用例没接（climb 事故）。
 # -*- coding: utf-8 -*-
 """R14 三表一致性 —— 能力注册表 / 用例执行表 / 桥接器 交叉校验。
 

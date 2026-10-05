@@ -1,8 +1,8 @@
 # 契约: proc/tools/capaudit
 #   一句话: 能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
 #   完整契约见 tools/__init__.py
-#   依据: 依据 ADAPT blend node 分层与 UE additive/override 之分：
-能力分 POSE/ADDITIVE/PHYS/AUX 四类，只有 POSE 能产出 21 关节供时间线合成。
+#   依据: ADAPT blend node 分层与 UE additive/override 之分：
+#         能力分 POSE/ADDITIVE/PHYS/AUX 四类，只有 POSE 能产出 21 关节供时间线合成。
 # -*- coding: utf-8 -*-
 """能力可用性审计：CAP 里注册的能力，能否被 beat.Timeline 真正调用。
 
@@ -34,12 +34,30 @@ for m in ("motion.crowd", "motion.rigid", "motion.rigid2d", "motion.rigid2d_sim"
     except Exception:
         pass
 
-print("CAP 共 %d 个\n" % len(beat.CAP))
+# 正确口径：先经 capbridge 归一化分流，再判定。
+# 出处: capbridge 按 ADAPT blend node 分层 + UE additive/override 之分做四类分流；
+#       直接调 CAP 表会把「设计如此」的增量/物理/求解器误判成不可用。
+_TOTAL = len(beat.CAP)          # normalize 会就地 del，必须先记录总数
+try:
+    from motion import capbridge
+    _out = capbridge.normalize(beat.CAP, getattr(beat, "CAP_SRC", {}),
+                               getattr(beat, "CAP_GROUP", {}), verbose=False)
+    _nm = lambda k: [x[0] if isinstance(x, tuple) else x for x in _out[k]]
+    _BY_DESIGN = set(_nm("ADDITIVE")) | set(_nm("PHYS")) | set(_nm("AUX"))
+except Exception:
+    _BY_DESIGN = set()
+print("CAP 共 %d 个" % _TOTAL)
+print("正确口径(capbridge): POSE 可驱动 %d / ADDITIVE+PHYS+AUX 设计如此 %d\n"
+      % (_TOTAL - len(_BY_DESIGN), len(_BY_DESIGN)))
 print("%-14s %-6s %-6s %-6s  %s" % ("能力", "签名", "调用", "格式", "实测"))
 print("-" * 78)
 
 rows = []
+by_design = []
 for name in sorted(beat.CAP):
+    if name in _BY_DESIGN:
+        by_design.append(name)
+        continue
     fn = beat.CAP[name]
     sig_ok = call_ok = fmt_ok = False
     note = ""

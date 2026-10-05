@@ -94,12 +94,15 @@ def node_of(path):
     return rel.replace(os.sep, ".")
 
 
+_SYNTAX_ERRS = []   # 语法错误收集器：绝不静默吞掉
+
 def edges(path):
     """返回该文件 import 到的 (pkg, module) 节点集合。"""
     out = set()
     try:
         tree = ast.parse(open(path, encoding="utf-8").read())
-    except SyntaxError:
+    except SyntaxError as e:
+        _SYNTAX_ERRS.append(f"[R0 语法错误] {path}:{getattr(e,'lineno','?')} {e.msg}")
         return out
     for n in ast.walk(tree):
         if isinstance(n, ast.Import):
@@ -158,7 +161,8 @@ def _check_funcs(tag, src):
     out = []
     try:
         tree = ast.parse(src)
-    except SyntaxError:
+    except SyntaxError as e:
+        _SYNTAX_ERRS.append(f"[R0 语法错误] {tag}:{getattr(e,'lineno','?')} {e.msg}")
         return out
     for fn in [x for x in ast.walk(tree)
                if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef))]:
@@ -297,7 +301,8 @@ def _caps_without_source(path):
     """
     try:
         tree = ast.parse(open(path, encoding="utf-8").read())
-    except SyntaxError:
+    except SyntaxError as e:
+        _SYNTAX_ERRS.append(f"[R0 语法错误] {path}:{getattr(e,'lineno','?')} {e.msg}")
         return []
     out = []
     for node in ast.walk(tree):
@@ -449,6 +454,7 @@ def main():
             if tgt != src:
                 rdep.setdefault(tgt, set()).add(src)
     rdep = {k: len(v) for k, v in rdep.items()}
+    problems = _SYNTAX_ERRS + problems        # R0 置顶：坏文件绝不当"零问题"
     problems += (_check_pkg_counts(counts, rdep) + _check_layer_exhaustive(counts)
                  + _check_importable()
                  + _check_provenance()
