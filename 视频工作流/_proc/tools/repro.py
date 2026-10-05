@@ -1,3 +1,6 @@
+# 契约: proc/tools/repro
+#   一句话: 假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
+#   完整契约见 tools/__init__.py
 #   依据: gosec 要求 rule-scoped #nosec + justification；
 #         Microsoft C++ 支持 gsl::suppress(rule-id, justification)；
 #         semgrep 要求 // nosemgrep + justification；
