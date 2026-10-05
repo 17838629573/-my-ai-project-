@@ -212,81 +212,71 @@ class GlobalParams:
         }
 
 
-def self_check():
-    """自检：连续性 + 值域 + 可复现性。"""
-    ok = []
-    P = GlobalParams(seed=20261005)
-
-    def chk(name, cond, extra=""):
-        ok.append((name, bool(cond), extra))
-
-    # 1) 关键帧处取值正确（Catmull-Rom 必须穿过关键帧）
-    e0 = abs(P.g_mul(0.0) - 1.0)
-    chk("g(0)=1.0", e0 < 1e-9, "err=%.2g" % e0)
-    e1 = abs(P.g_mul(18.0) - 0.8)
-    chk("g(18)=0.8", e1 < 1e-9, "err=%.2g" % e1)
-
-    # 2) 连续性：密采样，相邻差必须远小于阈值（无硬切）
+def _g_continuity(P):
+    """g(t) 的最大单步跳变：dt=1/240 密采样全程 90s。"""
     dt = 1.0 / 240.0
-    mx = 0.0
-    prev = P.g(0.0)
-    t = dt
+    mx, prev, t = 0.0, P.g(0.0), dt
     while t <= 90.0:
         v = P.g(t)
         mx = max(mx, abs(v - prev))
         prev = v
         t += dt
-    # 最大档位差 1.2g，最短过渡 6s → 理论最大斜率约 0.2g/s，dt=1/240 → 单步 < 0.01
-    chk("g 无硬切", mx < 0.02, "max_step=%.4g m/s²" % mx)
+    return mx
 
+
+def _wind_angle(P):
+    """风向相邻采样的最大角度变化；只在 |F|>1 m/s 时统计（口径见 self_check）。"""
+    mxang, pa = 0.0, None
+    for i in range(900):
+        wx, wz = P.wind(i / 10.0)
+        if math.hypot(wx, wz) > 1.0:
+            a = math.atan2(wz, wx)
+            if pa is not None:
+                d = abs(a - pa)
+                mxang = max(mxang, min(d, 2 * math.pi - d))
+            pa = a
+        else:
+            pa = None
+    return mxang
+
+
+def self_check():
+    """自检：连续性 + 值域 + 可复现性（判据不变，断言交统一执行器）。"""
+    from base.assertrun import Checker
+    c = Checker("params")
+    P = GlobalParams(seed=20261005)
+    # 1) 关键帧处取值正确（Catmull-Rom 必须穿过关键帧）
+    e0 = abs(P.g_mul(0.0) - 1.0)
+    e1 = abs(P.g_mul(18.0) - 0.8)
+    c.chk("g(0)=1.0", e0 < 1e-9, "err=%.2g" % e0)
+    c.chk("g(18)=0.8", e1 < 1e-9, "err=%.2g" % e1)
+    # 2) 连续性：最大档位差 1.2g，最短过渡 6s → 理论最大斜率约 0.2g/s，
+    #    dt=1/240 → 单步 < 0.01
+    mx = _g_continuity(P)
+    c.chk("g 无硬切", mx < 0.02, "max_step=%.4g m/s²" % mx)
     # 3) 值域
     vals = [P.restitution(t / 10.0) for t in range(0, 900)]
-    chk("e 在 [0.1,0.9]", all(0.1 - 1e-9 <= v <= 0.9 + 1e-9 for v in vals),
-        "min=%.3f max=%.3f" % (min(vals), max(vals)))
-
+    c.chk("e 在 [0.1,0.9]", all(0.1 - 1e-9 <= v <= 0.9 + 1e-9 for v in vals),
+          "min=%.3f max=%.3f" % (min(vals), max(vals)))
     ts = [P.timescale(t / 10.0) for t in range(0, 900)]
-    chk("timeScale 在 [0.3,2.0]", all(0.3 - 1e-9 <= v <= 2.0 + 1e-9 for v in ts),
-        "min=%.3f max=%.3f" % (min(ts), max(ts)))
-
-    # 4) 风向量插值不绕圈：相邻帧角度变化有界
+    c.chk("timeScale 在 [0.3,2.0]",
+          all(0.3 - 1e-9 <= v <= 2.0 + 1e-9 for v in ts),
+          "min=%.3f max=%.3f" % (min(ts), max(ts)))
+    # 4) 风向量插值不绕圈
     #
     # 口径修正（不是放宽判据，是原判据本身错）：
     #   风力趋零时**方向无定义**——向量插值在模长≈0 处角度必然乱转，
     #   但此刻 |F|≈0，物理上完全无害（这正是"插值向量而非角度"的优点）。
     #   原判据把这段也算进去，等于在量一个不存在的量。
     #   → 只在风力有意义（|F| > 1.0 m/s）时量角度变化率。
-    mxang = 0.0
-    pa = None
-    for i in range(0, 900):
-        wx, wz = P.wind(i / 10.0)
-        if math.hypot(wx, wz) > 1.0:
-            a = math.atan2(wz, wx)
-            if pa is not None:
-                d = abs(a - pa)
-                d = min(d, 2 * math.pi - d)
-                mxang = max(mxang, d)
-            pa = a
-        else:
-            pa = None
-    chk("风向无猛甩(|F|>1)", mxang < 0.35, "max_dAngle=%.4g rad/0.1s" % mxang)
-
+    mxang = _wind_angle(P)
+    c.chk("风向无猛甩(|F|>1)", mxang < 0.35, "max_dAngle=%.4g rad/0.1s" % mxang)
     # 5) 可复现：同种子两次逐位相同
     Q = GlobalParams(seed=20261005)
-    same = all(P.g(t / 7.0) == Q.g(t / 7.0) for t in range(0, 600))
-    chk("同种子可复现", same)
-
+    c.chk("同种子可复现",
+          all(P.g(t / 7.0) == Q.g(t / 7.0) for t in range(0, 600)))
     # 6) 质量扰动值域 [0.8, 1.2]
     ms = [P.mass_scale(t / 10.0) for t in range(0, 900)]
-    chk("质量 ±20%%", all(0.8 - 1e-9 <= v <= 1.2 + 1e-9 for v in ms),
-        "min=%.3f max=%.3f" % (min(ms), max(ms)))
-
-    n_pass = sum(1 for _, c, _ in ok if c)
-    for name, c, extra in ok:
-        print("  %s %s %s" % ("OK " if c else "NG ", name, extra))
-    print("rigid2d/params self_check: %d/%d" % (n_pass, len(ok)))
-    return n_pass == len(ok)
-
-
-if __name__ == "__main__":
-    import sys
-    sys.exit(0 if self_check() else 1)
+    c.chk("质量 ±20%%", all(0.8 - 1e-9 <= v <= 1.2 + 1e-9 for v in ms),
+          "min=%.3f max=%.3f" % (min(ms), max(ms)))
+    return c.report()

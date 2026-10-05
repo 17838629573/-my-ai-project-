@@ -166,80 +166,68 @@ def attach(obj_xyz, pose, joint, offset=(0.0, 0.0, 0.0)):
 
 # ---------------- 自检 ----------------
 
-def self_check():
-    ok = []
+def _flat_pose(v):
+    """自检用平骨架：所有关节 y=v，x=z=0。"""
+    return {j: (0.0, float(v), 0.0) for j in J.JOINTS}
 
-    def _pose(v):
-        return {j: (0.0, float(v), 0.0) for j in J.JOINTS}
 
-    # 1 分区覆盖全骨架且不重不漏
+def _chk_mask(c):
+    """分区覆盖全骨架、权重沿脊柱单调递增（不硬切）。"""
     allj = set(LOWER) | set(BRIDGE) | set(UPPER)
-    ok.append(("分区覆盖 17 关节", set(J.JOINTS) == allj,
-               f"{len(allj)}/{len(J.JOINTS)}"))
-
-    # 2 权重沿脊柱单调递增（不硬切）
+    c.chk("分区覆盖 17 关节", set(J.JOINTS) == allj,
+          "%d/%d" % (len(allj), len(J.JOINTS)))
     seq = [WEIGHT[k] for k in ("pelvis", "waist", "chest", "neck", "head")]
-    ok.append(("脊柱权重单调递增", all(a < b for a, b in zip(seq, seq[1:])),
-               str(seq)))
+    c.chk("脊柱权重单调递增", all(a < b for a, b in zip(seq, seq[1:])), str(seq))
 
-    # 3 override 在 w=1 时完全替代
-    b = _pose(0.0)
-    o = _pose(1.0)
+
+def _chk_blend(c):
+    """blend 四性：override 替代 / additive 纯加法 / 层权重乘法 / 分区外不动。"""
+    b, o = _flat_pose(0.0), _flat_pose(1.0)
     r = blend(b, o, "upper", "override", 1.0)
-    ok.append(("override w=1 完全替代",
-               abs(r["wri_r"][1] - 1.0) < 1e-12, f"{r['wri_r'][1]:.4f}"))
-    ok.append(("override 不动下半身",
-               abs(r["ank_l"][1] - 0.0) < 1e-12, f"{r['ank_l'][1]:.4f}"))
-
-    # 4 additive 为纯加法
+    c.chk("override w=1 完全替代", abs(r["wri_r"][1] - 1.0) < 1e-12,
+          "%.4f" % r["wri_r"][1])
+    c.chk("override 不动下半身", abs(r["ank_l"][1] - 0.0) < 1e-12,
+          "%.4f" % r["ank_l"][1])
     r2 = blend(b, {"wri_r": (0.0, 0.5, 0.0)}, "upper", "additive", 1.0)
-    ok.append(("additive 纯加法", abs(r2["wri_r"][1] - 0.5) < 1e-12,
-               f"{r2['wri_r'][1]:.4f}"))
-
-    # 5 层权重与 mask 权重相乘（Unity 口径）
+    c.chk("additive 纯加法", abs(r2["wri_r"][1] - 0.5) < 1e-12,
+          "%.4f" % r2["wri_r"][1])
     r3 = blend(b, o, "upper", "override", 0.5)
-    ok.append(("层权重乘法生效", abs(r3["wri_r"][1] - 0.5) < 1e-12,
-               f"{r3['wri_r'][1]:.4f}"))
-
-    # 6 分区外骨骼不受影响
+    c.chk("层权重乘法生效", abs(r3["wri_r"][1] - 0.5) < 1e-12,
+          "%.4f" % r3["wri_r"][1])     # Unity 口径：层权重 × mask 权重
     r4 = blend(b, o, "lower", "override", 1.0)
-    ok.append(("分区外不受影响", abs(r4["wri_r"][1] - 0.0) < 1e-12,
-               f"{r4['wri_r'][1]:.4f}"))
+    c.chk("分区外不受影响", abs(r4["wri_r"][1] - 0.0) < 1e-12,
+          "%.4f" % r4["wri_r"][1])
 
-    # 7 最小急动度边界：起止速度加速度为 0 且端点精确
-    c = solve_min_jerk((0.0, 0.0), (1.0, 0.5), 0.8)
-    ok.append(("min_jerk 起点精确",
-               np.allclose(min_jerk_at(c, 0.0), (0.0, 0.0), atol=1e-12), "0"))
-    ok.append(("min_jerk 终点精确",
-               np.allclose(min_jerk_at(c, 0.8), (1.0, 0.5), atol=1e-12), "1"))
+
+def _chk_solver(c):
+    """自动求解三性：min_jerk 边界、弹道球速恒定、attach 跟随。"""
+    c_ = solve_min_jerk((0.0, 0.0), (1.0, 0.5), 0.8)
+    c.chk("min_jerk 起点精确",
+          np.allclose(min_jerk_at(c_, 0.0), (0.0, 0.0), atol=1e-12), "0")
+    c.chk("min_jerk 终点精确",
+          np.allclose(min_jerk_at(c_, 0.8), (1.0, 0.5), atol=1e-12), "1")
     h = 1e-4
-    v0 = (min_jerk_at(c, h) - min_jerk_at(c, 0.0)) / h
-    ok.append(("min_jerk 起点速度为 0", abs(v0[0]) < 1e-3, f"{v0[0]:.2e}"))
-
-    # 8 抛体：飞行时间由球速决定，不是由手决定
-    _, v, T = solve_ballistic((0.0, 1.5), (3.5, 1.3))
-    ok.append(("飞行时间由球速决定",
-               abs(abs(v[0]) - V_PASS) < 1e-9, f"vx={v[0]:.4f} T={T:.4f}s"))
-
-    # 9 距离变化时球速恒定（旧实现的病：会被拉成 8m/s）
-    _, v2, T2 = solve_ballistic((0.0, 1.5), (7.0, 1.3))
-    ok.append(("距离变化而球速不漂移",
-               abs(abs(v2[0]) - abs(v[0])) < 1e-9,
-               f"{abs(v[0]):.3f} vs {abs(v2[0]):.3f}, T {T:.3f}->{T2:.3f}"))
-
-    # 10 物体跟随
-    p = {j: (0.1, 0.2, 0.0) for j in J.JOINTS}
-    ok.append(("attach 自动跟随",
-               abs(attach(None, p, "wri_r", (0.0, 0.05, 0.0))[1] - 0.25) < 1e-12,
-               "0.25"))
-
-    npass = sum(1 for _, o_, _ in ok if o_)
-    for name, o_, val in ok:
-        print(f"  [{'PASS' if o_ else 'FAIL'}] {name}  {val}")
-    print(f"layer self_check: {npass}/{len(ok)}")
-    return npass == len(ok)
+    v0 = (min_jerk_at(c_, h) - min_jerk_at(c_, 0.0)) / h
+    c.chk("min_jerk 起点速度为 0", abs(v0[0]) < 1e-3, "%.2e" % v0[0])
+    # 飞行时间由球速决定，不是由手决定
+    _p, v, T = solve_ballistic((0.0, 1.5), (3.5, 1.3))
+    c.chk("飞行时间由球速决定", abs(abs(v[0]) - V_PASS) < 1e-9,
+          "vx=%.4f T=%.4fs" % (v[0], T))
+    # 距离变化时球速恒定（旧实现的病：会被拉成 8m/s）
+    _p2, v2, T2 = solve_ballistic((0.0, 1.5), (7.0, 1.3))
+    c.chk("距离变化而球速不漂移", abs(abs(v2[0]) - abs(v[0])) < 1e-9,
+          "%.3f vs %.3f, T %.3f->%.3f" % (abs(v[0]), abs(v2[0]), T, T2))
+    pose = {j: (0.1, 0.2, 0.0) for j in J.JOINTS}
+    c.chk("attach 自动跟随",
+          abs(attach(None, pose, "wri_r", (0.0, 0.05, 0.0))[1] - 0.25) < 1e-12,
+          "0.25")
 
 
-if __name__ == "__main__":
-    import sys
-    sys.exit(0 if self_check() else 1)
+def self_check():
+    """分层自检：判据不变，断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("layer")
+    _chk_mask(c)
+    _chk_blend(c)
+    _chk_solver(c)
+    return c.report()

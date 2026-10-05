@@ -132,69 +132,68 @@ def _d(a, b):
     return math.sqrt(sum((a[i] - b[i]) ** 2 for i in range(3)))
 
 
-def self_check():
-    """爬梯自检：连续性、骨长守恒、不超伸、无 NaN、周期闭合。"""
-    ok = []
+def _jump_y(Js, key):
+    return max(abs(Js[i + 1][key][1] - Js[i][key][1])
+               for i in range(len(Js) - 1))
 
-    def chk(name, cond, info=""):
-        ok.append((name, bool(cond), info))
 
-    ts = [i / 240.0 for i in range(0, 2400)]
-    Js = [climb(t) for t in ts]
-    keys = sorted(Js[0].keys())
-
-    chk("关节数=21", len(keys) == 21, str(len(keys)))
-
+def _chk_basic(c, Js, keys):
+    """基本：关节数、无 NaN、上升单调、末端不跳。"""
+    c.chk("关节数=21", len(keys) == 21, str(len(keys)))
     bad = [k for J in Js for k, v in J.items()
-           if any(math.isnan(c) or math.isinf(c) for c in v)]
-    chk("无NaN/Inf", not bad, str(bad[:3]))
+           if any(math.isnan(x) or math.isinf(x) for x in v)]
+    c.chk("无NaN/Inf", not bad, str(bad[:3]))
+    dy = [Js[i + 1]["pelvis"][1] - Js[i]["pelvis"][1]
+          for i in range(len(Js) - 1)]
+    c.chk("pelvis单调上升", all(d >= -1e-12 for d in dy), "min=%g" % min(dy))
+    c.chk("腕跳变<0.02", _jump_y(Js, "wri_l") < 0.02, "%.5f" % _jump_y(Js, "wri_l"))
+    c.chk("踝跳变<0.02", _jump_y(Js, "ank_l") < 0.02, "%.5f" % _jump_y(Js, "ank_l"))
 
-    dy = [Js[i + 1]["pelvis"][1] - Js[i]["pelvis"][1] for i in range(len(Js) - 1)]
-    chk("pelvis单调上升", all(d >= -1e-12 for d in dy), "min=%g" % min(dy))
 
-    def jump(key):
-        return max(abs(Js[i + 1][key][1] - Js[i][key][1]) for i in range(len(Js) - 1))
-
-    jw = jump("wri_l")
-    chk("腕跳变<0.02", jw < 0.02, "%.5f" % jw)
-    jf = jump("ank_l")
-    chk("踝跳变<0.02", jf < 0.02, "%.5f" % jf)
-
-    # 骨长守恒
+def _chk_bone(c, Js):
+    """骨长守恒 + 不超伸 + 不折叠。"""
     e1 = max(abs(_d(J["sh_l"], J["elb_l"]) - UPPER_ARM) for J in Js)
     e2 = max(abs(_d(J["elb_l"], J["wri_l"]) - FOREARM) for J in Js)
     e3 = max(abs(_d(J["hip_l"], J["knee_l"]) - THIGH) for J in Js)
     e4 = max(abs(_d(J["knee_l"], J["ank_l"]) - SHANK) for J in Js)
-    chk("上臂长守恒", e1 < 1e-6, "%.2e" % e1)
-    chk("前臂长守恒", e2 < 1e-6, "%.2e" % e2)
-    chk("大腿长守恒", e3 < 1e-6, "%.2e" % e3)
-    chk("小腿长守恒", e4 < 1e-6, "%.2e" % e4)
-
-    # 不超伸
+    c.chk("上臂长守恒", e1 < 1e-6, "%.2e" % e1)
+    c.chk("前臂长守恒", e2 < 1e-6, "%.2e" % e2)
+    c.chk("大腿长守恒", e3 < 1e-6, "%.2e" % e3)
+    c.chk("小腿长守恒", e4 < 1e-6, "%.2e" % e4)
     arm = max(_d(J["sh_l"], J["wri_l"]) for J in Js)
-    chk("臂不超伸<=0.332", arm <= ARM_FULL + 1e-6, "max=%.4f" % arm)
+    c.chk("臂不超伸<=0.332", arm <= ARM_FULL + 1e-6, "max=%.4f" % arm)
     legn = max(_d(J["hip_l"], J["ank_l"]) for J in Js)
-    chk("腿不超伸<=0.491", legn <= LEG_FULL + 1e-6, "max=%.4f" % legn)
-
+    c.chk("腿不超伸<=0.491", legn <= LEG_FULL + 1e-6, "max=%.4f" % legn)
     # 不折叠（末端不得短于 |L1-L2|）
     amin = min(_d(J["sh_l"], J["wri_l"]) for J in Js)
-    chk("臂不折叠>=0.041", amin >= abs(UPPER_ARM - FOREARM) - 1e-6, "min=%.4f" % amin)
+    c.chk("臂不折叠>=0.041", amin >= abs(UPPER_ARM - FOREARM) - 1e-6,
+          "min=%.4f" % amin)
 
+
+def _chk_shape(c, Js, keys):
+    """形态：肘不反折、脚不穿地、周期边界闭合。"""
     forw = [J["elb_l"][0] - min(J["sh_l"][0], J["wri_l"][0]) for J in Js]
-    chk("肘前向(不反折)", all(f >= -1e-9 for f in forw), "min=%g" % min(forw))
-
-    chk("脚不穿地", min(J["ank_l"][1] for J in Js) >= -1e-9,
-        "min=%g" % min(J["ank_l"][1] for J in Js))
-
-    a = climb(1.4 - 1e-9)
-    b2 = climb(1.4 + 1e-9)
+    c.chk("肘前向(不反折)", all(f >= -1e-9 for f in forw), "min=%g" % min(forw))
+    c.chk("脚不穿地", min(J["ank_l"][1] for J in Js) >= -1e-9,
+          "min=%g" % min(J["ank_l"][1] for J in Js))
+    a, b2 = climb(1.4 - 1e-9), climb(1.4 + 1e-9)
     d = max(abs(a[k][1] - b2[k][1]) for k in keys)
-    chk("周期边界连续", d < 1e-6, "%.2e" % d)
+    c.chk("周期边界连续", d < 1e-6, "%.2e" % d)
 
-    return ok
+
+def self_check():
+    """爬梯自检：连续性、骨长守恒、不超伸、无 NaN、周期闭合。"""
+    from base.assertrun import Checker
+    c = Checker("climb")
+    ts = [i / 240.0 for i in range(0, 2400)]
+    Js = [climb(t) for t in ts]
+    keys = sorted(Js[0].keys())
+    _chk_basic(c, Js, keys)
+    _chk_bone(c, Js)
+    _chk_shape(c, Js, keys)
+    return c.report()
 
 
 if __name__ == "__main__":
-    for n, p, i in self_check():
-        print("%-18s %s  %s" % (n, "PASS" if p else "NG", i))
-    print("---- %d/%d" % (sum(1 for _, p, _ in self_check() if p), len(self_check())))
+    import sys
+    sys.exit(0 if self_check() else 1)

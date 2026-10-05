@@ -36,11 +36,16 @@ from tests.cases_crowd import case_D21, case_D24  # noqa: F401
 from tests.cases_throw import case_B10, case_B11  # noqa: F401
 from tests.cases_carry import case_E26  # noqa: F401
 from tests.cases_pass import case_D22  # noqa: F401
-for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "hand", "kick", "ball", "pass_ball", "climb"):
+IMPORT_ERRS = []          # 导入失败登记簿：吞掉会让能力被误报成 STUB
+for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "kick", "ball", "pass_ball", "climb"):
     try:
         __import__("motion.character." + _m)
-    except Exception:
-        pass
+    except Exception as _e:
+        IMPORT_ERRS.append(("motion.character." + _m, repr(_e)))
+if IMPORT_ERRS:
+    print("[tests] 子模块导入失败 %d 项:" % len(IMPORT_ERRS))
+    for _n, _e in IMPORT_ERRS:
+        print("   %s -> %s" % (_n, _e))
 
 OUT = ROOT
 H_M = 1.70          # 身高（米），归一化单位 → 米

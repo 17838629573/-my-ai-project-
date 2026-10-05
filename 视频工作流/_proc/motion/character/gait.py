@@ -203,7 +203,7 @@ def gait(ph, preset="natural", scale_h=1.0, stride=None, stance=STANCE_FRAC):
     out.update(spine.joints)
     out.update(solve_arms(ph, P, spine))
 
-    if scale_h != 1.0:
+    if abs(scale_h - 1.0) > 1e-12:
         out = {k: np.asarray(v) * scale_h for k, v in out.items()}
     return out
 

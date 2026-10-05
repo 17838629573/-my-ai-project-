@@ -92,6 +92,40 @@ def _seg(t):
     return 0.5 * sit._ease(min(1.0, u)), SF[0], SF[1], False, YAW1
 
 
+def _pose_add(J, delta):
+    """把 additive 增量 {"J": {关节: (dx,dy,dz)}} 叠加到绝对姿态 J。
+
+    依据: UE Layered Blend per Bone——增量层不改绝对层的根与下肢
+    """
+    for k, v in delta["J"].items():
+        if k in J:
+            J[k] = np.asarray(J[k]) + np.asarray(v)
+    return J
+
+
+def _pose_magazine(J, t):
+    """杂志相关姿态：段1 食指敲桌 → 段2 抬头+注视+翻页 → 段4 重翻。
+
+    从 pose_at 抽出（原函数 51 行 > R3 上限 50），三段均为 additive 叠加。
+    """
+    if t < 3.0:
+        return _pose_add(J, G.finger_tap((t % 1.0), {"side": "right", "reps": 1}))
+    if 3.0 <= t < 6.0:
+        u = (t - 3.0) / 3.0
+        lift = 0.030 * math.sin(math.pi * u)
+        for k in ("head", "chest", "neck"):
+            if k in J:
+                J[k] = np.asarray(J[k]) + np.array([0.0, lift, 0.0])
+        if u < 0.8:                              # 视线移向窗外（注视转移）
+            _pose_add(J, G.gaze_shift(min(1.0, u / 0.8), {"dir": 1.0}))
+        if 0.35 <= u < 0.95:                     # 翻过一页书
+            _pose_add(J, G.page_flip((u - 0.35) / 0.60, {"side": "right"}))
+        return J
+    if t >= 10.2:                                # 段4 重新翻开杂志
+        return _pose_add(J, G.page_flip(min(1.0, (t - 10.2) / 1.6), {"side": "right"}))
+    return J
+
+
 def pose_at(t):
     sp, Xc, Zc, walk, yaw = _seg(t)
     J = sit.sit_pose(max(0.0, min(1.0, sp)))
@@ -101,32 +135,7 @@ def pose_at(t):
     if T_TURN[0] <= t < T_TURN[1]:               # 原地转身：换步抬脚 + 躯干滞后
         u = (t - T_TURN[0]) / (T_TURN[1] - T_TURN[0])
         J = T.turn_legs(J, u)
-    if t < 3.0:                                  # 段1 右手食指轻敲桌面
-        tp = G.finger_tap((t % 1.0), {"side": "right", "reps": 1})
-        for k, v in tp["J"].items():
-            if k in J:
-                J[k] = np.asarray(J[k]) + np.asarray(v)
-    if 3.0 <= t < 6.0:                           # 抬头：胸头略抬
-        u = (t - 3.0) / 3.0
-        lift = 0.030 * math.sin(math.pi * u)
-        for k in ("head", "chest", "neck"):
-            if k in J:
-                J[k] = np.asarray(J[k]) + np.array([0.0, lift, 0.0])
-        if u < 0.8:                              # 视线移向窗外（注视转移）
-            gz = G.gaze_shift(min(1.0, u / 0.8), {"dir": 1.0})
-            for k, v in gz["J"].items():
-                if k in J:
-                    J[k] = np.asarray(J[k]) + np.asarray(v)
-        if 0.35 <= u < 0.95:                     # 翻过一页书
-            pf = G.page_flip((u - 0.35) / 0.60, {"side": "right"})
-            for k, v in pf["J"].items():
-                if k in J:
-                    J[k] = np.asarray(J[k]) + np.asarray(v)
-    if t >= 10.2:                                # 段4 重新翻开杂志
-        pf = G.page_flip(min(1.0, (t - 10.2) / 1.6), {"side": "right"})
-        for k, v in pf["J"].items():
-            if k in J:
-                J[k] = np.asarray(J[k]) + np.asarray(v)
+    J = _pose_magazine(J, t)                     # 敲桌 / 抬头 / 翻页：全 additive
     yaw = _seg(t)[4]
     if CUP.owner == "world":                     # 杯在世界中：桌面 / 矮桌
         CUP.pivot = np.array(CUP_W1 if t >= T_DETACH else CUP_W0, float)

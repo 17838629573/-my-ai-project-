@@ -124,7 +124,8 @@ EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": ca
         "C19": case_C19, "C20": case_C20, "D21": case_D21, "D24": case_D24,
         "D22": case_D22,
         "E26": case_E26,
-        "B10": case_B10, "B11": case_B11}
+        "B10": case_B10, "B11": case_B11,
+        "G36": case_G36}
 
 
 from tests.cases_crowd import case_D21, case_D24  # noqa: F401

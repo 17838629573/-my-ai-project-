@@ -327,63 +327,64 @@ def _cap_high5():
     return high5_pose
 
 
-def self_check():
-    out = []
-
-    # [2] VO 圆盘：正对且相对速度为 0 必在 VO 内
-    a = Agent(0.0, 0.0, 1.0, 0.0)
-    b = Agent(1.0, 0.0, -1.0, 0.0)
-    a.vpref = np.array([1.0, 0.0]); b.vpref = np.array([-1.0, 0.0])
+def _chk_orca(c):
+    """ORCA：正对撞产生约束、背向远离不产生、双方各担一半。"""
+    a, b = Agent(0.0, 0.0, 1.0, 0.0), Agent(1.0, 0.0, -1.0, 0.0)
+    a.vpref, b.vpref = np.array([1.0, 0.0]), np.array([-1.0, 0.0])
     pl = orca_plane(a, b, tau=2.0)
-    out.append(("正对撞产生ORCA约束", pl is not None, pl is not None))
-
-    # 远离的双方不产生约束
-    c = Agent(0.0, 0.0, -1.0, 0.0)
-    d = Agent(1.0, 0.0, 1.0, 0.0)
-    c.vpref = np.array([-1.0, 0.0]); d.vpref = np.array([1.0, 0.0])
-    out.append(("背向远离无约束", orca_plane(c, d, tau=2.0) is None, None))
-
-    # [1] ORCA 对称：双方各担一半
+    c.chk("正对撞产生ORCA约束", pl is not None)
+    far_a, far_b = Agent(0.0, 0.0, -1.0, 0.0), Agent(1.0, 0.0, 1.0, 0.0)
+    far_a.vpref = np.array([-1.0, 0.0])
+    far_b.vpref = np.array([1.0, 0.0])
+    c.chk("背向远离无约束", orca_plane(far_a, far_b, tau=2.0) is None)
+    # ORCA 对称：双方各担一半
     if pl is not None:
         n, pA, pB = pl
         share = float(np.linalg.norm(pA - a.vpref) - np.linalg.norm(pB - b.vpref))
-        out.append(("ORCA双方各担一半", abs(share) < 1e-9, round(share, 12)))
+        c.chk("ORCA双方各担一半", abs(share) < 1e-9, "%.12g" % share)
 
-    # [4] 接触分离：平分
-    e = Agent(0.0, 0.0); f = Agent(0.30, 0.0)   # R=0.50 > 0.30 → 确实重叠
+
+def _chk_contact(c):
+    """接触分离：平分、等质量对称、静态不动、多人可收敛。"""
+    e, f = Agent(0.0, 0.0), Agent(0.30, 0.0)   # R=0.50 > 0.30 → 确实重叠
     dep0 = contact_depth(e, f)
     resolve_contact(e, f)
     dep1 = contact_depth(e, f)
-    out.append(("重叠被分离", dep0 > 0 and dep1 < 1e-6,
-                (round(dep0, 5), round(dep1, 9))))
+    c.chk("重叠被分离", dep0 > 0 and dep1 < 1e-6,
+          "%g -> %g" % (round(dep0, 5), round(dep1, 9)))
     # 等质量：双方位移量相等（初始位置不对称，故比位移不能比坐标）
-    move_e = float(e.p[0]) - 0.0
-    move_f = float(f.p[0]) - 0.30
-    out.append(("等质量对称分离",
-                abs(abs(move_e) - abs(move_f)) < 1e-9,
-                (round(move_e, 6), round(move_f, 6))))
-
+    move_e, move_f = float(e.p[0]) - 0.0, float(f.p[0]) - 0.30
+    c.chk("等质量对称分离", abs(abs(move_e) - abs(move_f)) < 1e-9,
+          "%g / %g" % (round(move_e, 6), round(move_f, 6)))
     # 静态障碍：分离量全给 agent
-    g = Agent(0.0, 0.0); h = Agent(0.30, 0.0, m=float("inf"))
+    g, h = Agent(0.0, 0.0), Agent(0.30, 0.0, m=float("inf"))
     h0 = float(h.p[0])
     resolve_contact(g, h)
-    out.append(("静态障碍不被推动", abs(float(h.p[0]) - h0) < 1e-12, round(float(h.p[0]), 6)))
-
-    # 迭代分离收敛（三人挤在一点）
-    ags = [Agent(0.0, 0.0, r=0.25), Agent(0.05, 0.0, r=0.25), Agent(0.0, 0.05, r=0.25)]
+    c.chk("静态障碍不被推动", abs(float(h.p[0]) - h0) < 1e-12,
+          "%.6f" % float(h.p[0]))
+    ags = [Agent(0.0, 0.0, r=0.25), Agent(0.05, 0.0, r=0.25),
+           Agent(0.0, 0.05, r=0.25)]
     separate_all(ags, iters=20)
     w = max(contact_depth(ags[i], ags[j])
             for i in range(3) for j in range(i + 1, 3))
-    out.append(("三人重叠可收敛分离", w < 1e-3, round(w, 8)))
+    c.chk("三人重叠可收敛分离", w < 1e-3, "%.8g" % w)
 
-    # [5] 击掌：拍合瞬间掌心恰好接触（不穿模）
+
+def _chk_high5(c):
+    """击掌：不穿模、抬手腕不低于肩、拍合时上臂外展约 90°。"""
     _, _, gap_at_contact = high5_pose(0.0, 0.0, gap=1.10, H=1.70)
-    out.append(("击掌掌心不穿模", gap_at_contact >= -1e-9, round(gap_at_contact, 6)))
-    # 抬起过程中腕高不低于肩高
+    c.chk("击掌掌心不穿模", gap_at_contact >= -1e-9, "%.6f" % gap_at_contact)
     ws = [high5_arm(0.0 + k * 0.05, 0.45, 1.2, 1.70)[2] for k in range(10)]
-    out.append(("抬手时腕不低于肩", min(ws) >= 0.818 * 1.70 - 1e-9, round(min(ws), 5)))
-    # 拍合时上臂外展接近 90°
+    c.chk("抬手时腕不低于肩", min(ws) >= 0.818 * 1.70 - 1e-9, "%.5f" % min(ws))
     ab, _, _ = high5_arm(0.61, 0.55, 1.2, 1.70)   # u=0.50 落在拍合保持段
-    out.append(("拍合时上臂外展约90°", abs(abs(ab) - 90.0) < 1e-6, round(abs(ab), 4)))
+    c.chk("拍合时上臂外展约90°", abs(abs(ab) - 90.0) < 1e-6, "%.4f" % abs(ab))
 
-    return out
+
+def self_check():
+    """群体自检：判据不变，断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("crowd")
+    _chk_orca(c)
+    _chk_contact(c)
+    _chk_high5(c)
+    return c.report()

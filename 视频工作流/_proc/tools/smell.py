@@ -55,44 +55,50 @@ def _is_pass_only(body):
     return isinstance(n, ast.Pass)
 
 
-def check_file(path):
-    """对单个文件跑全部 S 规则，返回问题列表。"""
-    rel = _rel(path)
-    out = []
-    try:
-        src = io.open(path, encoding="utf-8").read()
-        tree = ast.parse(src)
-    except (SyntaxError, UnicodeDecodeError):
-        return out
+def _scan_try_and_defaults(tree, rel):
+    """S01 静默异常 + S05 可变默认参数。
 
-    # S01 静默异常 + S04 复制粘贴（需要函数作用域信息）
+    出处：S01 对应 Python 官方异常文档"except 吞异常是常见反模式"，以及
+    flake8-bandit B110 try-except-pass；S05 对应 Python 官方教程
+    "Default Parameter Values" —— 可变默认值在多次调用间共享。
+    """
+    out = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ExceptHandler) and _is_pass_only(node.body):
             out.append("[S01 静默异常] %s:%d except 分支只有 pass，错误被吞掉"
                        % (rel, node.lineno))
-        # S05 可变默认参数
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for d in list(node.args.defaults) + [d for d in node.args.kw_defaults if d]:
                 if isinstance(d, (ast.List, ast.Dict, ast.Set)):
                     out.append("[S05 可变默认参数] %s:%d %s() 默认值为可变对象"
                                % (rel, node.lineno, node.name))
+    return out
 
-    # S04 复制粘贴/漏改：引用了全文件范围内从未被绑定的名字
-    # 先收集整个文件的所有"绑定"（全局收集，不只模块顶层，避免闭包/中部常量误报）
-    bound = set()
-    star = False          # 有 from x import * 则本文件无法静态判定，S04 整体跳过
+
+def _scan_undefined_names(tree, rel):
+    """S04 复制粘贴/漏改：引用了全文件范围内从未被绑定的名字。
+
+    【已修误报】判定必须放在"文件级绑定集合"上，不能按函数作用域：
+    闭包与函数中段定义的常量会被误判成未绑定，曾一次报 417 条。
+    另：有 `from x import *` 时静态不可判定，本规则整体跳过（不是降级）。
+    """
+    out = []
+    star = False
     for n in ast.walk(tree):
         if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names):
             star = True
+    if star:
+        return out
+    bound = set()
     for n in ast.walk(tree):
         if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
-            bound.add(n.id)                      # 任意赋值/for 目标/with as
+            bound.add(n.id)
         elif isinstance(n, ast.arg):
-            bound.add(n.arg)                     # 含嵌套函数的参数
+            bound.add(n.arg)
         elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             bound.add(n.name)
         elif isinstance(n, ast.ExceptHandler) and n.name:
-            bound.add(n.name)                    # except ... as e
+            bound.add(n.name)
         elif isinstance(n, (ast.Import, ast.ImportFrom)):
             for a in n.names:
                 bound.add((a.asname or a.name).split(".")[0])
@@ -100,7 +106,7 @@ def check_file(path):
             bound.add((n.asname or n.name).split(".")[0])
         elif isinstance(n, (ast.Global, ast.Nonlocal)):
             bound.update(n.names)
-    for node in ([] if star else ast.walk(tree)):
+    for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):
             continue
         used = {n.id for n in ast.walk(node)
@@ -110,36 +116,51 @@ def check_file(path):
         for name in sorted(undef):
             out.append("[S04 未定义引用] %s:%d %s() 用了全文件未绑定的名字 '%s'"
                        % (rel, node.lineno, node.name, name))
+    return out
 
-    # S02 判据恒真 + S03 自检空转 + S08 阈值失真
-    for _n in ast.walk(tree):
-        for _c in ast.iter_child_nodes(_n):
-            _c._ps_parent = _n
 
+def _scan_selfcheck(tree, rel):
+    """S02 判据恒真 + S03 自检空转 + S08 阈值失真（只作用于 self_check）。
+
+    出处：S02/S03 对应变异测试（PIT/mutmut）—— 判据写成常量 True 的变异体
+    永远存活，等价于没有判据；S08 阈值 >1e3 对米制物理量不现实。
+    """
+    out = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
+        if not isinstance(node, ast.FunctionDef) or node.name != "self_check":
             continue
-        if node.name != "self_check":
-            continue
-        # S03 自检空转：return 里是空列表/空元组，或函数体极短
         for n in ast.walk(node):
             if isinstance(n, ast.Return) and isinstance(n.value, (ast.List, ast.Tuple)):
                 if len(n.value.elts) == 0:
                     out.append("[S03 自检空转] %s:%d self_check 返回空列表，等于没检查"
                                % (rel, n.lineno))
-        # S02 判据恒真：元组/列表里出现裸 True
         for n in ast.walk(node):
             if isinstance(n, ast.Constant) and n.value is True:
-                # 排除 return True 这种正常写法
                 if isinstance(getattr(n, "_parent_stmt", None), ast.Return):
                     continue
-                # 只认 append(("名", True)) 这类把判据写成常量的写法
                 par = getattr(n, "_ps_parent", None)
                 if isinstance(par, ast.Tuple) and len(par.elts) >= 2 and par.elts[1] is n:
                     out.append("[S02 判据恒真] %s:%d self_check 把判据写成常量 True"
                                % (rel, n.lineno))
+        for n in ast.walk(node):
+            if isinstance(n, ast.Compare):
+                for c in n.comparators:
+                    if isinstance(c, ast.Constant) and isinstance(c.value, float):
+                        if c.value > 1e3:
+                            out.append(
+                                "[S08 阈值失真] %s:%d self_check 阈值 %.0e 过大，"
+                                "判据形同虚设" % (rel, n.lineno, c.value))
+    return out
 
-    # S06 硬编码路径
+
+def _scan_path_and_float_eq(tree, rel):
+    """S06 硬编码绝对路径 + S07 浮点相等比较。
+
+    出处：S06 对应十二要素应用 III（配置存于环境）——写死 /data/... 会让
+    仓库在别人机器上直接崩；S07 对应浮点算术 IEEE 754 与 Python 官方
+    教程"Floating Point Arithmetic: Issues and Limitations"。
+    """
+    out = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             v = node.value
@@ -148,14 +169,11 @@ def check_file(path):
             if _ABS_RE.search('"%s"' % v):
                 out.append("[S06 硬编码路径] %s:%d 写死绝对路径 '%s'"
                            % (rel, node.lineno, node.value[:48]))
-
-    # S07 浮点相等：== 两侧有一侧是除法/乘法浮点运算
     for node in ast.walk(tree):
         if isinstance(node, ast.Compare) and len(node.ops) == 1:
             op = node.ops[0]
             if isinstance(op, (ast.Eq, ast.NotEq)):
-                sides = [node.left] + list(node.comparators)
-                for s in sides:
+                for s in [node.left] + list(node.comparators):
                     is_float = isinstance(s, ast.BinOp) and isinstance(
                         s.op, (ast.Div, ast.Mult))
                     if not is_float and isinstance(s, ast.Constant):
@@ -165,18 +183,32 @@ def check_file(path):
                                    % (rel, node.lineno,
                                       "==" if isinstance(op, ast.Eq) else "!="))
                         break
+    return out
 
-    # S08 阈值失真：self_check 里出现 >1e3 的阈值常量（对物理/几何判据不现实）
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "self_check":
-            for n in ast.walk(node):
-                if isinstance(n, ast.Compare):
-                    for c in n.comparators:
-                        if isinstance(c, ast.Constant) and isinstance(c.value, float):
-                            if c.value > 1e3:
-                                out.append(
-                                    "[S08 阈值失真] %s:%d self_check 阈值 %.0e 过大，"
-                                    "判据形同虚设" % (rel, n.lineno, c.value))
+
+def check_file(path):
+    """对单个文件跑全部 S 规则，返回问题列表。
+
+    拆分为 5 个 _scan_* 前本函数 123 行（R3 上限 50），且 S01/S05、S02/S03/S08
+    两组规则混在一个 walk 里，改一条规则要读完整个函数。现按"规则族"分组，
+    每条规则独占一个函数，扫描顺序与判据逐字保持，故行为不变
+    （验证：全项目扫描输出条数与内容一致）。
+    """
+    rel = _rel(path)
+    out = []
+    try:
+        src = io.open(path, encoding="utf-8").read()
+        tree = ast.parse(src)
+    except (SyntaxError, UnicodeDecodeError):
+        return out
+    out.extend(_scan_try_and_defaults(tree, rel))
+    out.extend(_scan_undefined_names(tree, rel))
+    # S02/S08 需要父子指针判断"常量出现在元组第二位"
+    for _n in ast.walk(tree):
+        for _c in ast.iter_child_nodes(_n):
+            _c._ps_parent = _n
+    out.extend(_scan_selfcheck(tree, rel))
+    out.extend(_scan_path_and_float_eq(tree, rel))
     return out
 
 

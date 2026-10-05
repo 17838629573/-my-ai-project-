@@ -22,17 +22,22 @@ for p in (os.path.dirname(_H), _H):
 
 from motion import beat
 import motion.character as C          # 触发子模块注册
+IMPORT_ERRS = []          # 导入失败登记簿：吞掉会让能力被误报成 STUB
 for m in ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
           "carry", "throw", "catch", "kick", "climb", "pass_ball"):
     try:
         __import__("motion.character." + m)
-    except Exception:
-        pass
+    except Exception as _e:
+        IMPORT_ERRS.append(("motion.character." + m, repr(_e)))
 for m in ("motion.crowd", "motion.rigid", "motion.rigid2d", "motion.rigid2d_sim"):
     try:
         __import__(m)
-    except Exception:
-        pass
+    except Exception as _e:
+        IMPORT_ERRS.append((m, repr(_e)))
+if IMPORT_ERRS:
+    print("[capaudit] 子模块导入失败 %d 项:" % len(IMPORT_ERRS))
+    for _n, _e in IMPORT_ERRS:
+        print("   %s -> %s" % (_n, _e))
 
 # 正确口径：先经 capbridge 归一化分流，再判定。
 # 出处: capbridge 按 ADAPT blend node 分层 + UE additive/override 之分做四类分流；

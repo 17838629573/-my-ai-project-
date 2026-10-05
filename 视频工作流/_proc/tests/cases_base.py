@@ -353,6 +353,29 @@ def case_B8():
         "末帧owner": owners[-1]}
 
 
+def _b9_hand(u, G0, land_hand):
+    """B9 单帧手位：抬起→水平运到落点上方→垂直下放→收回。
+
+    从 case_B9 主循环抽出（原函数 54 行 > R3 上限 50）。
+    相位划分与插值口径逐条照搬，未改判据。
+    """
+    from motion.character import prop as P
+    over = land_hand + np.array([0.0, 0.25, 0.0])   # 落点正上方的提运高度
+    ph = P.phase_of(u)
+    if ph == "pickup":                              # 抬起
+        k = u / P.ATTACH_AT
+        return G0 + (over - G0) * float(np.clip(k, 0.0, 1.0))
+    if ph == "held":                                # 水平运到落点上方
+        k = (u - P.ATTACH_AT) / P.SPANS[1]
+        return over + (land_hand + np.array([0.0, 0.25, 0.0]) - over) * float(np.clip(k, 0, 1))
+    if ph == "release":                             # 垂直下放
+        k = (u - P.ATTACH_AT - P.SPANS[1]) / P.SPANS[2]
+        hi = land_hand + np.array([0.0, 0.25, 0.0])
+        return hi + (land_hand - hi) * float(np.clip(k, 0, 1))
+    k = (u - P.ATTACH_AT - P.SPANS[1] - P.SPANS[2]) / P.SPANS[3]
+    return land_hand + (np.array([0.24, 1.02, 0.0]) - land_hand) * float(np.clip(k, 0, 1))
+
+
 def case_B9():
     """放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
 
@@ -373,22 +396,7 @@ def case_B9():
     hands, cens, owners = [], [], []
     for i in range(N):
         u = i / (N - 1)
-        ph = P.phase_of(u)
-        over = land_hand + np.array([0.0, 0.25, 0.0])   # 落点正上方的提运高度
-        if ph == "pickup":                              # 抬起
-            k = u / P.ATTACH_AT
-            hand = G0 + (over - G0) * float(np.clip(k, 0.0, 1.0))
-        elif ph == "held":                              # 水平运到落点上方
-            k = (u - P.ATTACH_AT) / P.SPANS[1]
-            hand = over + (land_hand + np.array([0.0, 0.25, 0.0]) - over) * float(np.clip(k, 0, 1))
-        elif ph == "release":                           # 垂直下放
-            k = (u - P.ATTACH_AT - P.SPANS[1]) / P.SPANS[2]
-            hand = (land_hand + np.array([0.0, 0.25, 0.0])
-                    + (land_hand - (land_hand + np.array([0.0, 0.25, 0.0]))) * float(np.clip(k, 0, 1)))
-        else:
-            k = (u - P.ATTACH_AT - P.SPANS[1] - P.SPANS[2]) / P.SPANS[3]
-            hand = land_hand + (np.array([0.24, 1.02, 0.0]) - land_hand) * float(np.clip(k, 0, 1))
-        hand = np.asarray(hand, float)
+        hand = np.asarray(_b9_hand(u, G0, land_hand), float)
         ho.advance(u)
         cup.pivot = (hand + rel) if cup.owner.startswith("hand") else land
         hands.append(hand.copy())
@@ -408,3 +416,48 @@ def case_B9():
         "末帧手物距_m": round(float(np.linalg.norm(hands[-1] - cens[-1])), 4),
         "末帧owner": owners[-1]}
 
+
+
+def case_G36():
+    """ADDITIVE 三能力接线：gaze_shift / finger_tap / page_flip 叠加到 gait
+
+    接线依据: UE Layered Blend per Bone — additive 层只作用于 mask 覆盖的骨骼，
+    下半身必须零污染；分界点选腰部(waist)，选骨盆太靠下手臂混合不彻底。
+    """
+    import importlib
+    gait = importlib.import_module("motion.character.gait")
+    gesture = importlib.import_module("motion.character.gesture")
+    from motion import layer
+    from tests import harness as H
+
+    ADDS = (("gaze_shift", {"yaw": 1.0}),
+            ("finger_tap", {"side": "right", "reps": 2}),
+            ("page_flip", {"side": "right"}))
+    N = 48
+    worst_lower = 0.0
+    worst_ratio = 0.0
+    for name, kw in ADDS:
+        fn = getattr(gesture, name)
+        base = [gait.gait(i / (N - 1), "natural") for i in range(N)]
+        over = [layer.blend(base[i], fn(i / (N - 1), kw),
+                            region="upper", mode="additive", layer_w=1.0)
+                for i in range(N)]
+        for i in range(N):
+            for jn in layer.LOWER:
+                if jn in base[i] and jn in over[i]:
+                    dv = max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
+                    worst_lower = max(worst_lower, dv)
+        moved = max(max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
+                    for i in range(N) for jn in layer.UPPER
+                    if jn in base[i] and jn in over[i])
+        assert moved > 1e-4, f"{name}: additive 未生效 (上半身位移 {moved})"
+        b_d = max(max(abs(base[i + 1][jn][k] - base[i][jn][k]) for k in range(3))
+                  for i in range(N - 1) for jn in layer.UPPER if jn in base[i])
+        o_d = max(max(abs(over[i + 1][jn][k] - over[i][jn][k]) for k in range(3))
+                  for i in range(N - 1) for jn in layer.UPPER
+                  if jn in base[i] and jn in over[i])
+        worst_ratio = max(worst_ratio, o_d / max(b_d, 1e-12))
+    return [
+        ("lower_pollution", worst_lower),
+        ("frame_jump_ratio", worst_ratio),
+    ], {"能力数": len(ADDS), "帧数": N}

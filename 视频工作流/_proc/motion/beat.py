@@ -333,7 +333,7 @@ if __name__ == "__main__":
     # 2 三相位 envelope
     b = Beat("walk", 0, 3, phases=(0.2, 0.6, 0.2), blend_in=0.0, blend_out=0.0, bid="p")
     e0, e1, e2, e3 = (b.envelope(x) for x in (0.0, 0.1, 0.5, 1.0))
-    chk("三相位 prep→stroke→relax", e0 < 1e-9 and 0.4 < e1 < 0.6 and e2 == 1.0 and e3 < 1e-9,
+    chk("三相位 prep→stroke→relax", e0 < 1e-9 and 0.4 < e1 < 0.6 and abs(e2 - 1.0) < 1e-9 and e3 < 1e-9,
         "0/0.1/0.5/1 = %.2f/%.2f/%.2f/%.2f" % (e0, e1, e2, e3))
 
     # 3 跨段边界连续（关键：没有这条，12 秒会一顿一顿）

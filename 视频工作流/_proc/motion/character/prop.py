@@ -404,15 +404,17 @@ if __name__ == "__main__":
 
     # 8 未知握持手 / 未知 side 报错，不静默
     errs = 0
+    caught = 0
     for fn in (lambda: Prop("x", grip="middle"),
                lambda: grip_offset((1, 1, 1), "middle"),
                lambda: reach_arm(J, "mid", (0, 0, 0)),
                lambda: phase_of(1.5)):
         try:
-            fn(); errs += 1
+            fn(); errs += 1          # 没抛异常 = 漏报
         except (ValueError, KeyError):
-            pass
-    chk("未知参数报错不静默", errs == 0, "漏报 %d 处" % errs)
+            caught += 1              # 抛了才是正确行为，显式计数不留裸 pass
+    chk("未知参数报错不静默", errs == 0 and caught == 4,
+        "漏报 %d 处 / 已捕获 %d 处" % (errs, caught))
 
     # --- 世界↔身体反算（抓点对齐的前提）---
     for yaw in (0.0, 90.0, 180.0, 143.0):

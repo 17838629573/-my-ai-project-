@@ -198,63 +198,60 @@ def ball_world(t):
 @capability("pass_ball", "Peper et al. 1994 tau 耦合; "
             "Belousov et al. NIPS 2016 接球策略; 篮球双手胸前传球教学",
             group="interaction")
-def self_check():
-    ts = np.linspace(0.0, T_TOTAL, 241)
+def _vx_err(ts, lo, hi):
+    """飞行段水平速度相对极差：分段量（两程方向相反，混量会跨正负号虚高）。"""
+    vs = [(ball_world(b)[0] - ball_world(a)[0]) / (b - a)
+          for a, b in zip(ts[:-1], ts[1:]) if lo <= a and b <= hi]
+    if len(vs) < 3:
+        return 9.9
+    return (max(vs) - min(vs)) / max(abs(float(np.mean(vs))), 1e-9)
 
-    # 1) 时序单调且覆盖全程
+
+def _chk_time(c):
+    """时序单调且覆盖全程。"""
     seq = [0.0, T_REL_A, T_ARRIVE1, T_B_CATCH1, T_B_THROW0,
            T_REL_B, T_ARRIVE2, T_TOTAL]
-    ok_seq = all(seq[i] < seq[i + 1] for i in range(len(seq) - 1))
+    c.chk("时序单调递增", all(seq[i] < seq[i + 1] for i in range(len(seq) - 1)))
 
-    # 2) 球-手在接触时刻严格重合（tau 耦合的结果，不是容差凑出来的）
+
+def _chk_ball(c, ts):
+    """球：接触重合、水平速度守恒、不脱手、不落地。"""
+    # 球-手在接触时刻严格重合（tau 耦合的结果，不是容差凑出来的）
     d1 = float(np.linalg.norm(ball_world(T_ARRIVE1) - hand_world(T_ARRIVE1)))
     d2 = float(np.linalg.norm(ball_world(T_ARRIVE2) - hand_world(T_ARRIVE2)))
-
-    # 3) 飞行段水平速度守恒（水平方向无外力）
-    #    两程方向相反（+X / -X），必须分段量；混在一组里 max-min 会跨越
-    #    正负号而虚高，那是判据口径错，不是物理错。
-    def _vx_err(lo, hi):
-        vs = [(ball_world(b)[0] - ball_world(a)[0]) / (b - a)
-              for a, b in zip(ts[:-1], ts[1:]) if lo <= a and b <= hi]
-        if len(vs) < 3:
-            return 9.9
-        return (max(vs) - min(vs)) / max(abs(float(np.mean(vs))), 1e-9)
-    vx_err = max(_vx_err(T_REL_A, T_ARRIVE1), _vx_err(T_REL_B, T_ARRIVE2))
-
-    # 4) 持球段球不脱手
+    c.chk("接触1 球手重合", d1 < 1e-9, "dist=%.3e" % d1)
+    c.chk("接触2 球手重合", d2 < 1e-9, "dist=%.3e" % d2)
+    # 飞行段水平速度守恒（水平方向无外力）
+    vx_err = max(_vx_err(ts, T_REL_A, T_ARRIVE1), _vx_err(ts, T_REL_B, T_ARRIVE2))
+    c.chk("飞行水平速度守恒", vx_err < 1e-6, "rel=%.3e" % vx_err)
     held = 0.0
     for t in ts:
         if held_by(t) is not None:
-            held = max(held, float(np.linalg.norm(
-                ball_world(t) - hand_world(t))))
-
-    # 5) 球全程不落地
+            held = max(held, float(np.linalg.norm(ball_world(t) - hand_world(t))))
+    c.chk("持球段不脱手", held < 1e-9, "max=%.3e" % held)
     ymin = min(ball_world(t)[1] for t in ts)
+    c.chk("球不落地", ymin > ball.R_BALL, "min y=%.4f m" % ymin)
 
-    # 6) 两人不重叠（间距恒为 D_APART）
-    ok_gap = abs((XC_B - XC_A) - D_APART) < 1e-12
 
-    # 7) 拦截点在臂展内
+def _chk_people(c):
+    """人：间距、臂展、出手速度。"""
+    c.chk("两人间距", abs((XC_B - XC_A) - D_APART) < 1e-12,
+          "%.4f" % (XC_B - XC_A))
     from .proportions import arm_reach
     sh = np.array([0.0, CT._SH_Y]) * CT.H_M
     reach = float(arm_reach(sh, np.asarray(CT.intercept_point()), CT.H_M))
-
-    # 8) 出手速度合理（< 12 m/s，超出即编排有误）
+    c.chk("拦截点在臂展内", reach < 0.40, "%.4f" % reach)
+    # 出手速度合理（< 12 m/s，超出即编排有误）
     sp = max(float(np.linalg.norm(_V1)), float(np.linalg.norm(_V2)))
+    c.chk("出手速度合理", sp < 12.0, "%.3f m/s" % sp)
 
-    chk = [("时序单调递增", ok_seq),
-           ("接触1 球手重合", d1 < 1e-9),
-           ("接触2 球手重合", d2 < 1e-9),
-           ("飞行水平速度守恒", vx_err < 1e-6),
-           ("持球段不脱手", held < 1e-9),
-           ("球不落地", ymin > ball.R_BALL),
-           ("两人间距", ok_gap),
-           ("拦截点在臂展内", reach < 0.40),
-           ("出手速度合理", sp < 12.0)]
-    for k, v in chk:
-        print("  %-16s %s" % (k, "OK" if v else "NG"))
-    print("  接触1 距离 %.3e  接触2 距离 %.3e" % (d1, d2))
-    print("  水平速度相对差 %.3e  持球最大脱手 %.3e" % (vx_err, held))
-    print("  最低球心 %.4f m  出手速度 %.3f m/s  拦截臂展 %.4f"
-          % (ymin, sp, reach))
-    return sum(1 for _, v in chk if v), len(chk)
+
+def self_check():
+    """对传自检：判据不变，断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("pass_ball")
+    ts = np.linspace(0.0, T_TOTAL, 241)
+    _chk_time(c)
+    _chk_ball(c, ts)
+    _chk_people(c)
+    return c.report()

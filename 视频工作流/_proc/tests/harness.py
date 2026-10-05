@@ -29,7 +29,10 @@ for _p in (_ROOT, os.path.dirname(_ROOT)):
 # name -> (阈值, 比较符, 出处)
 CRIT = {
     # Zhang et al. 2018：s = v(2 - 2h/H)，H 取 2.5cm；动捕真值约 0.10 cm/frame
-    "skate_cm_frame":   (1.0, "<", "Zhang et al.2018 foot skating s=v(2-2h/H), H=2.5cm; 动捕真值0.10cm/frame"),
+        # UE Layered Blend per Bone：additive 层不得污染下半身
+    "lower_pollution":  (1e-9, "<", "UE Layered Blend per Bone: additive 只作用于 mask 覆盖骨，下半身零污染"),
+    "box_rest_m":       (1e-9, "<", "放箱 detach 后 owner=world，箱体底面贴合台面（carry.box_release 契约）"),
+"skate_cm_frame":   (1.0, "<", "Zhang et al.2018 foot skating s=v(2-2h/H), H=2.5cm; 动捕真值0.10cm/frame"),
     # ReinDiffuse：最低关节离地 >5cm 判 float
     "float_m":          (0.05, "<", "ReinDiffuse(arXiv:2410.07296) Floating: 距地面最低关节>5cm"),
     # ReinDiffuse：双脚距离 <5cm 判 clip

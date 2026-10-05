@@ -95,54 +95,50 @@ class World:
                 [c.pen for c in self._contacts(write_cache=False)], default=0.0)
         return cs
 
-    def _contacts(self, write_cache=True):
-        """接触生成 + 持久流形暖启动（出处[1][6]。
+    @staticmethod
+    def _seg_aabb(sg):
+        """线段 AABB：静态段只算一次，挂回 sg._aabb（出处：静态体宽相预计算）。
 
-        write_cache=False 用于诊断性重算（本帧末尾算 max_pen）：
-        只读取已有冲量，绝不写回。step() 原先在末尾无条件重建接触，
-        把求解收敛后的 Pn/Pt 覆盖成空槽 → 下一帧暖启动读到空列表，
-        warm starting 全程空转，堆叠靠 Baumgarte 反复推离形成极限环。
-
-
-        关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
-        若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
-        底层微抖，正是 Catto 2005 描述的"冷启动三箱塔滑开"现象。
+        街道场景 8 根梯蹬 + 坡面 + 地形瓦片共 50 余段，若每步重算是 81×53
+        ≈ 4300 次无谓的 min/max。
         """
-        cs = []
+        ab = getattr(sg, "_aabb", None)
+        if ab is None:
+            x0 = min(sg.a[0], sg.b[0]); x1 = max(sg.a[0], sg.b[0])
+            y0 = min(sg.a[1], sg.b[1]); y1 = max(sg.a[1], sg.b[1])
+            ab = (x0, x1, y0, y1)
+            sg._aabb = ab
+        return ab
+
+    def _mk(self, cnt, a, b, q, nn, pen, fid):
+        """构造接触 + 按物体对聚合继承上帧冲量（暖启动，出处[1][6]）。
+
+        按"物体对"聚合匹配：接触点 fid 会随微抖漂移导致漏配，配对级缓存更稳。
+        cnt 记录该对已生成的第几个接触点，用于同对多接触点时**按序**取用旧冲量。
+
+        【已修缺陷】原实现 slot 建了却从不累积，idx 恒为 0，
+        同对第 2 个接触点会错取 old[0]（第一个接触点的冲量），
+        与注释"按序取用"不符——箱-箱两接触点的暖启动实际是错的。
+        """
+        c = Contact(a, b, q, nn, pen, fid)
+        key = (id(a), id(b))
+        rev = (id(b), id(a))
+        idx = cnt.get(key, 0)
+        cnt[key] = idx + 1
+        old = self._cache.get(key) or self._cache.get(rev) or []
+        if idx < len(old):
+            c.Pn, c.Pt = old[idx]
+        return c
+
+    def _pair_candidates(self, rad):
+        """宽相空间哈希：返回去重且排序后的候选对（出处：均匀网格 broadphase）。
+
+        81 体暴力 = 3240 对/步，压力段 131 体 = 8555 对/步。只做候选对筛选、
+        窄相一字不改，所以数值必须与暴力版逐位一致（自检已验）。
+        正确性：AABB 相交 ⟺ 存在公共格子，故不会漏接触。
+        返回前 sort() 是为了让候选对顺序与暴力版一致——顺序变会改浮点求和次序。
+        """
         n = len(self.bodies)
-        new_cache = {}
-
-        def _mk(a, b, q, nn, pen, fid):
-            c = Contact(a, b, q, nn, pen, fid)
-            # 按"物体对"聚合匹配：接触点 fid 会随微抖漂移导致漏配，
-            # 配对级缓存更稳；同对多接触点时按序取用。
-            key = (id(a), id(b))
-            rev = (id(b), id(a))
-            slot = new_cache.get(key, None)
-            if slot is None:
-                slot = []
-                new_cache[key] = slot
-            idx = len(slot)
-            old = self._cache.get(key) or self._cache.get(rev) or []
-            if idx < len(old):
-                c.Pn, c.Pt = old[idx]
-            return c
-
-        # ── 宽相：包围圆快速排除 ────────────────────────────────────
-        # 窄相 SAT 是 O(顶点数) 的 numpy 运算，81 体全对 = 3240 对/步，
-        # 实测 1.43 s/步，90 秒长片要跑 8 小时。街道场景物体沿 X 铺开，
-        # 包围圆一次平方距离比较能排掉 95% 以上，是收益最高的一步。
-        # 包围圆是保守的（盒子旋转时外接圆必包含本体），不会漏接触。
-        rad = {}
-        for b in self.bodies:
-            rad[id(b)] = _math.hypot(b.hw, b.hh) if b.shape == "box" else b.r
-        # ── 宽相 0：空间哈希候选对 ──────────────────────────────────
-        # 出处：Broadphase 标准做法（Box2D dynamic tree / 均匀网格空间哈希）。
-        # 81 体暴力 = 3240 对/步，压力段 131 体 = 8555 对/步，实测 0.276 s/步，
-        # 全片 21600 步要 100 分钟。只做候选对筛选、窄相一字不改，
-        # 所以数值必须与暴力版逐位一致（自检已验）。
-        # 正确性：AABB 相交 ⟺ 存在公共格子。两体 AABB 若相交，交集内任一点
-        # 所在格子必被两者同时登记 → 该对必进候选，不会漏接触。
         cell = 1e-6
         for b in self.bodies:
             d = 2.0 * rad[id(b)]
@@ -175,7 +171,30 @@ class World:
                     seen.add(k)
                     cand.append((i0, j0))
         cand.sort()
-        for (i, j) in cand:
+        return cand
+
+    def _contacts(self, write_cache=True):
+        """接触生成 + 持久流形暖启动（出处[1][6]。
+
+        write_cache=False 用于诊断性重算或只读调用：只读取已有冲量，绝不写回。
+
+        【已修缺陷】step() 末尾的 _relax() 原先也用默认 write_cache=True 调用本函数，
+        把求解收敛后写回的 Pn/Pt 覆盖成空槽 → 下一帧暖启动读到空列表，
+        warm starting 全程空转。堆叠靠 Baumgarte 反复推离形成极限环。
+        凡非"求解前生成"的调用，一律须显式 write_cache=False。
+
+        关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
+        若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
+        底层微抖，正是 Catto 2005 描述的"冷启动三箱塔滑开"现象。
+        """
+        cs = []
+        cnt = {}
+        # ── 包围圆半径：宽相一次平方距离比较排掉 95% 以上 ──────────────
+        # 包围圆是保守的（盒子旋转时外接圆必包含本体），不会漏接触。
+        rad = {}
+        for b in self.bodies:
+            rad[id(b)] = _math.hypot(b.hw, b.hh) if b.shape == "box" else b.r
+        for (i, j) in self._pair_candidates(rad):
             A, B = self.bodies[i], self.bodies[j]
             if A.fixed and B.fixed:
                 continue
@@ -186,30 +205,18 @@ class World:
                 continue
             if A.shape == "box" and B.shape == "box":
                 for q, nn, pen, fid in collide_box_box(A, B):
-                    cs.append(_mk(A, B, q, nn, pen, fid))
+                    cs.append(self._mk(cnt, A, B, q, nn, pen, fid))
             else:
                 for k, c in enumerate(_round_pair(A, B)):
                     c.fid = ("r", k)
-                    cs.append(_mk(A, B, c.p, c.n, c.pen, c.fid))
+                    cs.append(self._mk(cnt, A, B, c.p, c.n, c.pen, c.fid))
         for b in self.bodies:
             if b.fixed:
                 continue
             for k, (q, nn, pen) in enumerate(collide_ground(b, self.gy)):
-                cs.append(_mk(_ANCHOR, b, q, nn, pen, ("g", k)))
+                cs.append(self._mk(cnt, _ANCHOR, b, q, nn, pen, ("g", k)))
             for si, sg in enumerate(self.segments):
-                # 宽相：线段是静态的，AABB 只算一次（挂在 seg 上）。
-                # 街道场景 8 根梯蹬 + 坡面 + 地形瓦片共 50 余段，
-                # 若不做筛除就是 81×53 ≈ 4300 次 collide_seg/步，
-                #  profiling 实测占全流程 57%（每个盒还要重算 4 个顶点）。
-                ab = getattr(sg, "_aabb", None)
-                if ab is None:
-                    x0 = min(sg.a[0], sg.b[0])
-                    x1 = max(sg.a[0], sg.b[0])
-                    y0 = min(sg.a[1], sg.b[1])
-                    y1 = max(sg.a[1], sg.b[1])
-                    ab = (x0, x1, y0, y1)
-                    sg._aabb = ab
-                x0, x1, y0, y1 = ab
+                x0, x1, y0, y1 = self._seg_aabb(sg)
                 rr = rad[id(b)] + sg.t
                 px, py = float(b.p[0]), float(b.p[1])
                 dx = (x0 - px) if px < x0 else (px - x1 if px > x1 else 0.0)
@@ -217,10 +224,10 @@ class World:
                 if dx * dx + dy * dy > rr * rr:
                     continue
                 for k, (q, nn, pen) in enumerate(collide_seg(b, sg)):
-                    cs.append(_mk(sg, b, q, nn, pen, ("s", si, k)))
+                    cs.append(self._mk(cnt, sg, b, q, nn, pen, ("s", si, k)))
         # 只保留本帧仍存在的接触，防止陈旧冲量复活
         if write_cache:
-            self._cache = new_cache
+            self._cache = {k: [] for k in cnt}
         return cs
 
     def _wake(self, cs):
@@ -276,7 +283,9 @@ class World:
 
         等价性自检见 self_check 的「解析穿透更新==重算窄相」。
         """
-        cs = self._contacts()
+        # write_cache=False：_relax 在求解之后执行，若写回会把
+        # 收敛后的 Pn/Pt 冲掉，暖启动全程空转（已修缺陷，见 _contacts）。
+        cs = self._contacts(write_cache=False)
         if not cs:
             return
         for _ in range(iters):

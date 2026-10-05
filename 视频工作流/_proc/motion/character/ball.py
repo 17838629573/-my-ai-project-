@@ -114,12 +114,12 @@ def self_check():
     r.append(("反弹 h_n=ε^{2n}h_0", ok, " ".join("%.4f" % h for h in hs)))
     _, P = trajectory([0.0, R_BALL], [6.0, 6.0], 3.0, 1.0 / 60.0)
     r.append(("不穿地", P[:, 1].min() >= R_BALL - 1e-6, "min y=%.4f" % P[:, 1].min()))
-    peaks, mono = [], True
+    peaks = []
     for i in range(1, len(P) - 1):
         if P[i, 1] > P[i - 1, 1] and P[i, 1] >= P[i + 1, 1]:
             peaks.append(P[i, 1] - R_BALL)
-    for a, b in zip(peaks, peaks[1:]):
-        mono = mono and b < a
+    # 逐峰高度严格递减（用 all() 而非布尔累加器初始化，避免被误读成常量判据）
+    mono = all(b < a for a, b in zip(peaks, peaks[1:])) and len(peaks) >= 2
     r.append(("峰高逐次衰减", mono and len(peaks) >= 2,
               "peaks=%s" % ", ".join("%.3f" % p for p in peaks[:4])))
     ok = True

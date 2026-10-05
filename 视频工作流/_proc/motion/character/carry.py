@@ -234,88 +234,109 @@ def carry_box(u, params=None):
     """全程进度 u∈[0,1] → {'phase','owner','J','box'}。
 
     params: {'size':(w,h,d), 'walk_cycles':N, 'step':float, 'speed':float}
+    四个相位各自独立成 helper（_ph_*），主函数只做参数归一与分派。
     """
     p = dict(params or {})
     size = tuple(p.get("size", BOX))
-    sp = float(p.get("speed", 0.67))
-    step = float(p.get("step", 0.561))
     cyc = float(p.get("walk_cycles", 2.0))
-    # 默认：箱在 0.75 m 台面上（半蹲可达；地面拾取属 crouch 用例）
     start_v = float(p.get("start_v", TABLE_TOP + 0.5 * size[1]))
     end_v = float(p.get("end_v", TABLE_TOP + 0.5 * size[1]))
     cb = CarryBox(box=size, start_v=start_v, end_v=end_v)
     st = cb.advance(u)
     ph = st["phase"]
     a, b, c, d = cb.spans
-    from .gait import gait as _g
     half = np.array([0.5 * size[2], 0.5 * size[1], 0.5 * size[0]])
-
-    def _mkbox(vv):
-        return np.array([BOX_BACK_U * H_M + 0.5 * size[2], vv, 0.0])
-
-    # 抱持高度（站立位，随躯干起伏）
+    from .gait import gait as _g
     V_CARRY = float(box_pose(_g(0.25, "natural"), size)["c"][1])
-
+    ctx = {"size": size, "half": half, "cyc": cyc, "g": _g,
+           "start_v": start_v, "end_v": end_v, "V_CARRY": V_CARRY}
     if ph == "lift":
-        s = u / max(a, 1e-9)
-        # 前 50% 下蹲去够 → 后 50% 起立把箱子抬到抱持高度
-        q = _ss(1.0 - abs(2.0 * s - 1.0))
-        J = semi_squat(q)
-        bv = start_v
-        if s >= 0.5:
-            # 起立后半程同时把姿态融回行走起势(phs=0), 否则进入 carry 时
-            # 双脚从半蹲位(局部 u≈0)瞬移到行走支撑位(u≈+0.2m) = 20cm 跳变
-            w = _ss(2.0 * s - 1.0)
-            bv = start_v + (V_CARRY - start_v) * w
-            J = {k: (1.0 - w) * np.asarray(v, float)
-                 + w * np.asarray(_g(0.0, "natural")[k], float)
-                 for k, v in J.items()}
-        box_v = _mkbox(bv)
-        J = hug_arms(J, {"c": box_v, "half": half}, blend=max(q, 0.6))
+        J, box_v = _ph_lift(u, a, ctx)
     elif ph == "carry":
-        du = (u - a) / max(b, 1e-9)
-        phs = (cyc * du) % 1.0
-        J = _g(phs, "natural")
-        # 持箱行走：摆臂减小（负载贴紧身体，NIOSH H 最小化）
-        base = _g(0.25, "natural")
-        for side in ("l", "r"):
-            for k in ("sh_", "elb_", "wri_"):
-                key = k + side
-                if key in J and key in base:
-                    nat = np.asarray(base[key], float)
-                    cur = np.asarray(J[key], float)
-                    J[key] = nat + (cur - nat) * 0.25
-        box = box_pose(J, size)
-        J = hug_arms(J, box)
-        box_v = box["c"]
+        J, box_v = _ph_carry(u, a, b, ctx)
     elif ph == "setdown":
-        s = (u - a - b) / max(c, 1e-9)
-        Jw = _g((cyc * 1.0) % 1.0, "natural")
-        Js = semi_squat(s)
-        J = {}
-        for k, vv in Js.items():
-            if k in Jw:
-                J[k] = np.asarray(Jw[k], float) + (
-                    np.asarray(vv, float) - np.asarray(Jw[k], float)) * _ss(s)
-            else:
-                J[k] = np.asarray(vv, float)
-        bv = V_CARRY + (end_v - V_CARRY) * _ss(s)
-        box_v = _mkbox(bv)
-        J = hug_arms(J, {"c": box_v, "half": half}, blend=1.0)
+        J, box_v = _ph_setdown(u, a, b, c, ctx)
     else:  # rise
-        s = (u - a - b - c) / max(d, 1e-9)
-        J = semi_squat(1.0 - _ss(s))
-        box_v = _mkbox(end_v)
-        # 双手已释放，自然垂放（保持关节表完整，缺关节会让下游崩）
-        for side, sgn in (("l", 1.0), ("r", -1.0)):
-            sh = np.array([float(J["chest"][0]),
-                           float(J["chest"][1]) - 0.02])
-            (ex, ey), (wx, wy) = _arm(sh[0], sh[1], 0.15 * sgn, -0.5 * sgn)
-            J["sh_" + side] = _S(sh[0], sh[1], SHOULDER_Z * sgn)
-            J["elb_" + side] = _S(ex, ey, SHOULDER_Z * sgn)
-            J["wri_" + side] = _S(wx, wy, SHOULDER_Z * sgn)
+        J, box_v = _ph_rise(u, a, b, c, d, ctx)
     return {"phase": ph, "owner": st["owner"], "J": J,
             "box": {"c": box_v, "half": half, "size": size}}
+
+
+def _mkbox(vv, size):
+    """箱体中心：贴背偏移 BOX_BACK_U + 半深。"""
+    return np.array([BOX_BACK_U * H_M + 0.5 * size[2], vv, 0.0])
+
+
+def _ph_lift(u, a, ctx):
+    """抱起：前 50% 下蹲去够 → 后 50% 起立抬到抱持高度。"""
+    size, half, g = ctx["size"], ctx["half"], ctx["g"]
+    s = u / max(a, 1e-9)
+    q = _ss(1.0 - abs(2.0 * s - 1.0))
+    J = semi_squat(q)
+    bv = ctx["start_v"]
+    if s >= 0.5:
+        # 起立后半程同时把姿态融回行走起势(phs=0), 否则进入 carry 时
+        # 双脚从半蹲位(局部 u≈0)瞬移到行走支撑位(u≈+0.2m) = 20cm 跳变
+        w = _ss(2.0 * s - 1.0)
+        bv = ctx["start_v"] + (ctx["V_CARRY"] - ctx["start_v"]) * w
+        J = {k: (1.0 - w) * np.asarray(v, float)
+             + w * np.asarray(g(0.0, "natural")[k], float)
+             for k, v in J.items()}
+    box_v = _mkbox(bv, size)
+    return hug_arms(J, {"c": box_v, "half": half}, blend=max(q, 0.6)), box_v
+
+
+def _ph_carry(u, a, b, ctx):
+    """持箱行走：摆臂减小（负载贴紧身体，NIOSH H 最小化）。"""
+    size, half, g = ctx["size"], ctx["half"], ctx["g"]
+    du = (u - a) / max(b, 1e-9)
+    phs = (ctx["cyc"] * du) % 1.0
+    J = g(phs, "natural")
+    base = g(0.25, "natural")
+    for side in ("l", "r"):
+        for k in ("sh_", "elb_", "wri_"):
+            key = k + side
+            if key in J and key in base:
+                nat = np.asarray(base[key], float)
+                cur = np.asarray(J[key], float)
+                J[key] = nat + (cur - nat) * 0.25
+    box = box_pose(J, size)
+    J = hug_arms(J, box)
+    return J, box["c"]
+
+
+def _ph_setdown(u, a, b, c, ctx):
+    """放下：行走姿态 → 半蹲，箱体降到台面。"""
+    size, half, g = ctx["size"], ctx["half"], ctx["g"]
+    s = (u - a - b) / max(c, 1e-9)
+    Jw = g((ctx["cyc"] * 1.0) % 1.0, "natural")
+    Js = semi_squat(s)
+    J = {}
+    for k, vv in Js.items():
+        if k in Jw:
+            J[k] = np.asarray(Jw[k], float) + (
+                np.asarray(vv, float) - np.asarray(Jw[k], float)) * _ss(s)
+        else:
+            J[k] = np.asarray(vv, float)
+    bv = ctx["V_CARRY"] + (ctx["end_v"] - ctx["V_CARRY"]) * _ss(s)
+    box_v = _mkbox(bv, size)
+    return hug_arms(J, {"c": box_v, "half": half}, blend=1.0), box_v
+
+
+def _ph_rise(u, a, b, c, d, ctx):
+    """起身：半蹲归零，双手已释放自然垂放（缺关节会让下游崩）。"""
+    size, g = ctx["size"], ctx["g"]
+    s = (u - a - b - c) / max(d, 1e-9)
+    J = semi_squat(1.0 - _ss(s))
+    box_v = _mkbox(ctx["end_v"], size)
+    for side, sgn in (("l", 1.0), ("r", -1.0)):
+        sh = np.array([float(J["chest"][0]),
+                       float(J["chest"][1]) - 0.02])
+        (ex, ey), (wx, wy) = _arm(sh[0], sh[1], 0.15 * sgn, -0.5 * sgn)
+        J["sh_" + side] = _S(sh[0], sh[1], SHOULDER_Z * sgn)
+        J["elb_" + side] = _S(ex, ey, SHOULDER_Z * sgn)
+        J["wri_" + side] = _S(wx, wy, SHOULDER_Z * sgn)
+    return J, box_v
 
 
 @capability("box_release",

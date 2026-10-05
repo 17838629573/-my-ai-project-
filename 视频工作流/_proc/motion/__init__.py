@@ -33,18 +33,33 @@ __all__ = ["camera", "run", "stage", "beat", "wind"]
 # ---- 能力表归一（capbridge）----
 # 不这样做会怎样：CAP 名义是「姿态函数」，实际混了物理仿真/增量/求解器/群体函数，
 # 时间线拿到非姿态返回值当关节字典遍历，要么崩要么把标量混进骨架。
+# 导入失败登记簿 —— 绝不静默吞掉
+# 为什么不写 except: pass —— 这正是「climb 白写」事故的机制性根因：
+# climb.py 写好了、self_check 也过，但导入时炸了被 pass 吞掉，
+# 外界看到的不是「导入失败」，而是「STUB 缺能力」，误导排查方向整整一轮。
+# 出处: Python 官方 logging 教程「记录异常供诊断，不要用裸 except 吞掉」；
+#       IEEE Software 对 silent failure 的归类即为 anti-pattern。
+IMPORT_ERRS = []
+
+
 def init_capabilities(verbose=False):
     from . import beat as _b, capbridge as _cb
     import importlib
+    del IMPORT_ERRS[:]
     for m in ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
               "carry", "throw", "catch", "kick", "climb", "pass_ball"):
         try:
             importlib.import_module(".character." + m, __name__)
-        except Exception:
-            pass
+        except Exception as _e:
+            IMPORT_ERRS.append(("motion.character." + m, repr(_e)))
     for m in ("crowd", "rigid", "rigid2d"):
         try:
             importlib.import_module("." + m, __name__)
-        except Exception:
-            pass
+        except Exception as _e:
+            IMPORT_ERRS.append(("motion." + m, repr(_e)))
+    if IMPORT_ERRS:
+        # 不抛异常：能力表应尽力注册齐其余部分；但必须留下可读证据
+        print("[motion] 子模块导入失败 %d 项（能力会被误报为 STUB）:" % len(IMPORT_ERRS))
+        for _n, _e in IMPORT_ERRS:
+            print("   %s -> %s" % (_n, _e))
     return _cb.normalize(_b.CAP, _b.CAP_SRC, _b.CAP_GROUP, verbose=verbose)

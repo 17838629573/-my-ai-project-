@@ -23,6 +23,9 @@
 """
 import inspect
 
+# 工厂解包失败登记簿（绝不静默吞掉）
+UNWRAP_ERRS = []
+
 # 必填参数默认值（这些能力注册时没给默认，时间线无法直接调）
 DEFAULTS = {"t_contact": 0.6, "gap": 0.18, "H": 1.70, "duration": 1.2}
 # 返回 {"J":...} 但 J 是绝对姿态（不是增量）的能力
@@ -145,8 +148,9 @@ def normalize(cap, cap_src, cap_group, verbose=True):
                 r = fn()
                 if callable(r):
                     real = r
-        except Exception:
-            pass
+        except Exception as _e:
+            # 不静默：工厂解包失败会让能力被错误归类，登记后可见
+            UNWRAP_ERRS.append((k, repr(_e)))
         try:
             nps = len(inspect.signature(real).parameters)
         except Exception:

@@ -23,6 +23,8 @@
 """
 import ast
 import os
+
+_SYNTAX_ERRS = []   # 语法坏文件不静默跳过，统一上报
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,8 +89,9 @@ def import_list():
         if fn.endswith(".py"):
             try:
                 trees.append(_parse(os.path.join(tdir, fn)))
-            except SyntaxError:
-                pass
+            except SyntaxError as e:
+                # 不静默：语法坏的文件若被跳过，后续"未接线"判定会假阴性
+                _SYNTAX_ERRS.append("tests/%s: %s" % (fn, e))
     names = set()
     for tree in trees:
         for n in ast.walk(tree):

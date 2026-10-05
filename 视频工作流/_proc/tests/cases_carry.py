@@ -78,6 +78,7 @@ def case_E26():
             feet.append((_side, travel + float(J[_side][0]) * CB.H_M,
                          float(J[_side][1]) * CB.H_M))
         owners.append(CB.carry_box(u)["owner"])
+        last_J = J
     g0 = min(f[2] for f in feet)
     # 滑步按"每只脚各自的支撑段"分段量:
     # 串成一条会在换脚那一帧比到另一只脚——它本来就落在前方半个步长
@@ -95,9 +96,13 @@ def case_E26():
         _ms.append(_m)
         _xs = max(_xs, _x)
     skate = (float(np.mean(_ms)) if _ms else 0.0, _xs)
+    # --- 放下相位：走 carry.box_release，校验 detach 后底面贴合台面
+    _rel = CB.box_release(last_J, float(g0))
+    _rest = abs(float(_rel["c"][1] - _rel["half"][1]) - float(g0))
     checks = [
         ("penetration_m", H.penetration_m(pairs)),
         ("skate_cm_frame", skate[1]),
+        ("box_rest_m", _rest),
     ]
     # --- 所有权链路：world → both → world，各切换一次
     seq = [o for o in owners]
@@ -109,6 +114,8 @@ def case_E26():
            "起始_owner": seq[0], "结束_owner": seq[-1],
            "手箱最大穿透_m": round(H.penetration_m(pairs), 6),
            "滑步_最大_cm每帧": round(float(skate[1]), 4),
+           "box_release_owner": _rel["owner"],
+           "box_release_底面贴合偏差_m": round(_rest, 9),
            "落足间距_m": [round(float(segs[i + 1][1][0][0])
                            - float(segs[i][1][0][0]), 4)
                           for i in range(len(segs) - 1)]}

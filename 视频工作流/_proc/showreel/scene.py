@@ -334,60 +334,60 @@ class Street:
         return info
 
 
-def self_check():
-    ok = []
-
-    def chk(n, c, x=""):
-        ok.append((n, bool(c), x))
-
+def _chk_domino(c, st, gp):
+    """多米诺：倾倒角、间距、数量、链传导。"""
     # 1) 多米诺判据：θ_c = arcsin(s/h)
     th = topple_angle(0.010, 0.060)
-    chk("倾倒角=arcsin(s/h)", abs(th - math.asin(1 / 6.0)) < 1e-12,
-        "θ_c=%.4f rad=%.2f°" % (th, math.degrees(th)))
-
+    c.chk("倾倒角=arcsin(s/h)", abs(th - math.asin(1 / 6.0)) < 1e-12,
+          "θ_c=%.4f rad=%.2f°" % (th, math.degrees(th)))
     # 2) 间距 ≈ 1× 高
-    chk("间距≈1×高", abs(domino_pitch(0.060) - 0.12) < 1e-12,
-        "pitch=%.3f" % domino_pitch(0.060))
-
+    c.chk("间距≈1×高", abs(domino_pitch(0.060) - 0.12) < 1e-12,
+          "pitch=%.3f" % domino_pitch(0.060))
     # 3) 世界装配后物体齐全
-    st = Street()
-    n_dom = len(st.dominoes)
-    n_wall = len(st.wall)
-    chk("多米诺 20 块", n_dom == 20, "n=%d" % n_dom)
-    chk("墙体 40 块", n_wall == 40, "n=%d" % n_wall)
-
+    c.chk("多米诺 20 块", len(st.dominoes) == 20, "n=%d" % len(st.dominoes))
+    c.chk("墙体 40 块", len(st.wall) == 40, "n=%d" % len(st.wall))
     # 4) 多米诺链确实会倒：推第一块，看最后一块是否转动
-    from .params import GlobalParams
-    gp = GlobalParams()
     st.dominoes[0].v = np.array([3.0, 0.0])
     th0 = st.dominoes[-1].th
     for i in range(1200):
         st.step(gp, i * st.dt)
-    moved = abs(st.dominoes[-1].th - th0) > 0.05
-    chk("多米诺链传导到末块", moved,
-        "th_end=%.3f" % st.dominoes[-1].th)
+    c.chk("多米诺链传导到末块", abs(st.dominoes[-1].th - th0) > 0.05,
+          "th_end=%.3f" % st.dominoes[-1].th)
 
-    # 5) 移动靶连续（sin 往复，端点速度为 0）
+
+def _chk_target(c):
+    """移动靶：sin 往复，速度连续（端点速度为 0）、位置连续。"""
     mt = MovingTarget()
     vs = [abs(mt.vel(k * 0.01)[0]) for k in range(0, 500)]
-    mv=1.5*(2*math.pi/4.0)  # 振幅1.5 周期4s -> v_max=A*w=2.356，阈值按解析值放宽，不是放水
-    chk("移动靶速度连续", max(vs) < mv*1.05+1e-9, "max_v=%.3f 解析=%.3f" % (max(vs), mv))
+    # 振幅1.5 周期4s -> v_max=A*w=2.356，阈值按解析值放宽，不是放水
+    mv = 1.5 * (2 * math.pi / 4.0)
+    c.chk("移动靶速度连续", max(vs) < mv * 1.05 + 1e-9,
+          "max_v=%.3f 解析=%.3f" % (max(vs), mv))
     p0, p1 = mt.pos(0.0), mt.pos(0.01)
-    chk("移动靶位置连续", math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 0.05)
+    c.chk("移动靶位置连续", math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 0.05)
 
-    # 6) 摆锤绳长守恒
+
+def _chk_pend(c, st, gp):
+    """摆锤绳长守恒。"""
     pb, con = st.pend, st.pend_con
     L0 = float(np.linalg.norm(pb.p - np.array(con.a)))
     for i in range(400):
         st.step(gp, i * st.dt)
     L1 = float(np.linalg.norm(pb.p - np.array(con.a)))
-    chk("摆绳长守恒", abs(L1 - L0) < 5e-3, "L0=%.4f L1=%.4f" % (L0, L1))
+    c.chk("摆绳长守恒", abs(L1 - L0) < 5e-3, "L0=%.4f L1=%.4f" % (L0, L1))
 
-    n_pass = sum(1 for _, c, _ in ok if c)
-    for n, c, x in ok:
-        print("  %s %s %s" % ("OK " if c else "NG ", n, x))
-    print("scene self_check: %d/%d" % (n_pass, len(ok)))
-    return n_pass == len(ok)
+
+def self_check():
+    """街景自检：判据不变，断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("scene")
+    from .params import GlobalParams
+    gp = GlobalParams()
+    st = Street()
+    _chk_domino(c, st, gp)
+    _chk_target(c)
+    _chk_pend(c, st, gp)
+    return c.report()
 
 
 if __name__ == "__main__":
@@ -400,4 +400,4 @@ if __name__ == "__main__":
     for _p in (_os.path.dirname(_d), _d):
         if _p not in _sys.path:
             _sys.path.insert(0, _p)
-    sys.exit(0 if self_check() else 1)
+    _sys.exit(0 if self_check() else 1)

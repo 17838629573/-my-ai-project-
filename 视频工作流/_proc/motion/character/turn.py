@@ -239,86 +239,116 @@ def turn_torso(J, u, delta_deg):
     return torso, head
 
 
-def self_check():
-    ok = True
-    # 速率分档
-    assert abs(turn_speed(90) - TURN_RATE_BASE) < 1e-9, "90° 应用基础速率"
-    assert abs(turn_speed(180) - TURN_RATE_FAST) < 1e-9, "180° 应达上限速率"
-    assert TURN_RATE_BASE < turn_speed(140) < TURN_RATE_FAST, "140° 应介于两者之间"
-    # 时长落在实测区间
-    d180 = turn_duration(180)
-    assert 0.6 - 1e-9 <= d180 <= 1.44, f"180°转身 {d180:.3f}s 应落在 0.6~1.44s"
-    # 峰值角速度不得超生理上限（ISBS 2015 运动员带球 180° 转身 414±90 °/s）
-    N1 = 2000
-    y1 = [turn_yaw(0.0, 180.0, i / float(N1)) for i in range(N1 + 1)]
-    pk = max(abs(y1[i + 1] - y1[i]) for i in range(N1)) * N1 / d180
-    assert pk <= TURN_PEAK_RATE * 1.02, \
-        f"180° 峰值角速度 {pk:.1f}°/s 超上限 {TURN_PEAK_RATE}°/s"
-    d90 = turn_duration(90)
-    y9 = [turn_yaw(0.0, 90.0, i / float(N1)) for i in range(N1 + 1)]
-    pk9 = max(abs(y9[i + 1] - y9[i]) for i in range(N1)) * N1 / d90
-    assert pk9 <= TURN_PEAK_RATE * 1.02, f"90° 峰值角速度 {pk9:.1f}°/s 超上限"
-    # 小角度仍由经验速率主导（不应被峰值约束拖慢）
-    assert abs(turn_duration(90) - 90.0 / TURN_RATE_BASE) < 1e-9, \
-        "90° 应由经验速率分档主导"
-    assert turn_duration(180) > 180.0 / TURN_RATE_FAST, \
-        "180° 应由峰值角速度约束主导（慢于纯速率分档）"
-    assert turn_duration(0) == 0.0, "0° 转身耗时 0"
-    # yaw 连续且端点准确
-    assert abs(turn_yaw(180.0, 180.0, 0.0) - 180.0) < 1e-9, "起点应等于 yaw0"
-    assert abs(turn_yaw(180.0, 180.0, 1.0) - 360.0) < 1e-9, "终点应等于 yaw0+delta"
-    N = 400
-    ys = [turn_yaw(0.0, 180.0, i / float(N)) for i in range(N + 1)]
-    dif = [abs(ys[i + 1] - ys[i]) for i in range(N)]
-    # 总行程含反向预备与过冲，阈值按总行程放宽（不是放水：仍要求 3 倍均速以内）
-    total = 180.0 * (1.0 + TURN_OVERSHOOT) + TURN_ANTIC_DEG
-    assert max(dif) < total * 3.0 / float(N), f"单帧 yaw 跳变过大 {max(dif):.3f}"
-    # 反向预备（Disney anticipation）：起步先朝反方向微转
-    assert ys[1] < ys[0], f"起步应有反向预备，实际 {ys[1]:.4f} vs {ys[0]}"
-    # 过冲 + settle（Disney overshoot）：中途超目标再回落，末值精确
-    assert max(ys) > 180.0 + 1e-6, f"应有过冲，峰值 {max(ys):.3f}"
-    assert abs(ys[-1] - 180.0) < 1e-9, "settle 后必须精确回到目标"
-    # 不对称：到"侧面"(50%角度)的时间 ≠ 0.5，且偏前
-    # （505 变向 IJERPH 18(11):5519：启动慢、末端收得急）
-    u50 = None
-    for i in range(N + 1):
-        if ys[i] >= 90.0:
-            u50 = i / float(N)
-            break
-    assert u50 is not None, "未到达侧面"
-    assert abs(u50 - 0.5) > 0.03, f"前后半程应不等时，实测 u50={u50:.3f}"
-    assert u50 < 0.5, f"峰值应偏前（前半程更快），实测 u50={u50:.3f}"
-    # 收尾慢于中段（settle）
-    assert abs(ys[-1] - ys[-2]) < abs(ys[N // 2] - ys[N // 2 - 1]), "收尾应慢于中段"
-    # 换步：支撑侧不抬起
+def _peak_rate(delta, N=2000):
+    """峰值角速度 °/s：yaw 序列的最大单步差按真实时长折算。"""
+    d = turn_duration(delta)
+    y = [turn_yaw(0.0, delta, i / float(N)) for i in range(N + 1)]
+    return max(abs(y[i + 1] - y[i]) for i in range(N)) * N / d
+
+
+def _yaw_seq(delta=180.0, N=400):
+    return [turn_yaw(0.0, delta, i / float(N)) for i in range(N + 1)]
+
+
+def _u_half(ys):
+    """首次到达 50% 角度(90°)的归一化时刻；None = 全程未到达。"""
+    for i, v in enumerate(ys):
+        if v >= 90.0:
+            return i / float(len(ys) - 1)
+    return None
+
+
+def _stance_ok():
+    """换步约束：抬脚高度非负、绝不双脚同抬、首尾不抬脚。"""
     for i in range(101):
         ll, lr, _c = turn_stance(i / 100.0)
-        assert ll >= -1e-12 and lr >= -1e-12, "抬脚高度不得为负"
-        assert not (ll > 1e-9 and lr > 1e-9), "不得双脚同时抬起（会跳）"
-    assert turn_stance(0.0)[0] < 1e-12 and turn_stance(1.0)[0] < 1e-12, "首尾不抬脚"
-    # 换步施加：抬起侧确实抬高，支撑侧不动
-    J = {"ank_l": np.array([0.0, 0.05, 0.1]), "ank_r": np.array([0.0, 0.05, -0.1]),
-         "toe_l": np.array([0.09, 0.02, 0.1]), "toe_r": np.array([0.09, 0.02, -0.1]),
-         "knee_l": np.array([0.0, 0.29, 0.1]), "knee_r": np.array([0.0, 0.29, -0.1]),
-         "hip_l": np.array([0.0, 0.53, 0.09]), "hip_r": np.array([0.0, 0.53, -0.09])}
-    # u=0.125 左脚摆动 / u=0.375 右脚摆动 / u=0.25 恰是双脚同时着地的换步瞬间
-    m1 = [k for k in ("ank_l", "ank_r")
-          if abs(turn_legs(J, 0.125)[k][1] - J[k][1]) > 1e-9]
-    m2 = [k for k in ("ank_l", "ank_r")
-          if abs(turn_legs(J, 0.375)[k][1] - J[k][1]) > 1e-9]
-    assert len(m1) == 1 and len(m2) == 1, f"摆动期应只有一只脚在动 {m1} {m2}"
-    assert m1 != m2, f"两次摆动必须换脚，实际都是 {m1}"
-    assert turn_stance(0.25)[0] < 1e-9 and turn_stance(0.25)[1] < 1e-9, \
-        "换步瞬间应双脚同时着地（真人 double support）"
-    # 分段转向首尾回正
+        if ll < -1e-12 or lr < -1e-12:
+            return False
+        if ll > 1e-9 and lr > 1e-9:
+            return False
+    return turn_stance(0.0)[0] < 1e-12 and turn_stance(1.0)[0] < 1e-12
+
+
+def _sample_J():
+    """自检用基准关节（站立姿态，左右对称）。"""
+    return {"ank_l": np.array([0.0, 0.05, 0.1]), "ank_r": np.array([0.0, 0.05, -0.1]),
+            "toe_l": np.array([0.09, 0.02, 0.1]), "toe_r": np.array([0.09, 0.02, -0.1]),
+            "knee_l": np.array([0.0, 0.29, 0.1]), "knee_r": np.array([0.0, 0.29, -0.1]),
+            "hip_l": np.array([0.0, 0.53, 0.09]), "hip_r": np.array([0.0, 0.53, -0.09])}
+
+
+def _swing_feet(J, u):
+    """在进度 u 下被抬起的脚（比对施加换步前后的 y 变化）。"""
+    return [k for k in ("ank_l", "ank_r")
+            if abs(turn_legs(J, u)[k][1] - J[k][1]) > 1e-9]
+
+
+def _chk_rate(c):
+    """速率分档 / 时长 / 峰值角速度——A4 转身判据的物理地基。"""
+    c.chk("90° 应用基础速率", abs(turn_speed(90) - TURN_RATE_BASE) < 1e-9)
+    c.chk("180° 应达上限速率", abs(turn_speed(180) - TURN_RATE_FAST) < 1e-9)
+    c.chk("140° 介于两者之间", TURN_RATE_BASE < turn_speed(140) < TURN_RATE_FAST)
+    d180, d90 = turn_duration(180), turn_duration(90)
+    c.chk("180°时长落实测区间", 0.6 - 1e-9 <= d180 <= 1.44, "%.3fs" % d180)
+    c.chk("0° 转身耗时 0", abs(turn_duration(0)) < 1e-12)
+    # 峰值不超生理上限（ISBS 2015 运动员带球 180° 转身 414±90 °/s）
+    pk, pk9 = _peak_rate(180.0), _peak_rate(90.0)
+    c.chk("180°峰值不超生理上限", pk <= TURN_PEAK_RATE * 1.02, "%.1f°/s" % pk)
+    c.chk("90°峰值不超生理上限", pk9 <= TURN_PEAK_RATE * 1.02, "%.1f°/s" % pk9)
+    # 主导约束：小角度靠经验速率分档，大角度靠峰值上限
+    c.chk("90°由经验速率主导", abs(d90 - 90.0 / TURN_RATE_BASE) < 1e-9)
+    c.chk("180°由峰值约束主导", d180 > 180.0 / TURN_RATE_FAST)
+    return d180, d90
+
+
+def _chk_curve(c):
+    """曲线形态：端点准确、无单帧跳变、反向预备、过冲、settle、前后不等时。"""
+    c.chk("起点等于 yaw0", abs(turn_yaw(180.0, 180.0, 0.0) - 180.0) < 1e-9)
+    c.chk("终点等于 yaw0+delta", abs(turn_yaw(180.0, 180.0, 1.0) - 360.0) < 1e-9)
+    ys = _yaw_seq(180.0, 400)
+    dif = [abs(ys[i + 1] - ys[i]) for i in range(len(ys) - 1)]
+    total = 180.0 * (1.0 + TURN_OVERSHOOT) + TURN_ANTIC_DEG
+    c.chk("单帧 yaw 无跳变", max(dif) < total * 3.0 / float(len(dif)),
+          "%.3f" % max(dif))
+    c.chk("起步有反向预备", ys[1] < ys[0])
+    c.chk("有过冲", max(ys) > 180.0 + 1e-6, "峰值%.3f" % max(ys))
+    c.chk("settle 精确回目标", abs(ys[-1] - 180.0) < 1e-9)
+    # 不对称（505 变向 IJERPH 18(11):5519：启动慢、末端收得急）
+    u50 = _u_half(ys)
+    c.chk("到达侧面", u50 is not None)
+    c.chk("前后半程不等时", u50 is not None and abs(u50 - 0.5) > 0.03,
+          "u50=%.3f" % u50 if u50 else "-")
+    c.chk("前半程更快", u50 is not None and u50 < 0.5)
+    c.chk("收尾慢于中段",
+          abs(ys[-1] - ys[-2]) < abs(ys[len(ys) // 2] - ys[len(ys) // 2 - 1]))
+    return max(dif)
+
+
+def _chk_stance(c):
+    """换步（不双脚同抬、摆期换脚）与分段转向（头部滞后>躯干）。"""
+    c.chk("换步非负且不同抬", _stance_ok())
+    J = _sample_J()
+    m1, m2 = _swing_feet(J, 0.125), _swing_feet(J, 0.375)
+    c.chk("摆动期只有一只脚动", len(m1) == 1 and len(m2) == 1, "%s %s" % (m1, m2))
+    c.chk("两次摆动必须换脚", bool(m1) and bool(m2) and m1 != m2)
+    c.chk("换步瞬间双脚着地",
+          turn_stance(0.25)[0] < 1e-9 and turn_stance(0.25)[1] < 1e-9)
     t0, h0 = turn_torso(J, 0.0, 180.0)
-    assert abs(t0) < 1e-9 and abs(h0) < 1e-9, "转身结束扭转必须回正"
     tm, hm = turn_torso(J, 0.5, 180.0)
-    assert hm > tm > 0, "头部滞后应大于躯干滞后"
-    print(f"  turn: 180°={d180:.3f}s  90°={turn_duration(90):.3f}s  "
-          f"换步{TURN_STEPS}次  单帧最大{ max(dif):.3f}°")
-    print("SELF_CHECK: PASS (turn)")
-    return ok
+    c.chk("转身结束扭转回正", abs(t0) < 1e-9 and abs(h0) < 1e-9)
+    c.chk("头部滞后大于躯干", hm > tm > 0)
+
+
+def self_check():
+    """转身自检：判据与改造前逐条一致，计算抽 helper、断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("turn")
+    d180, d90 = _chk_rate(c)
+    mx = _chk_curve(c)
+    _chk_stance(c)
+    c.note("180°=%.3fs  90°=%.3fs  换步%d次  单帧最大%.3f°"
+           % (d180, d90, TURN_STEPS, mx))
+    return c.report()
 
 
 if __name__ == "__main__":

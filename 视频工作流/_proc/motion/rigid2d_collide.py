@@ -117,27 +117,48 @@ def collide_box_box(A, B):
     numpy 的 per-call 开销远大于计算本身，标量版反而快一个量级。
     等价性由 self_check 的「标量 SAT == numpy 参考实现」守护（随机 5000 对）。
     """
+
+    VA, VB = _obb_verts(A), _obb_verts(B)
     ahw, ahh = A.hw, A.hh
     bhw, bhh = B.hw, B.hh
-    apx, apy = float(A.p[0]), float(A.p[1])
-    bpx, bpy = float(B.p[0]), float(B.p[1])
     ca, sa = math.cos(A.th), math.sin(A.th)
     cb, sb = math.cos(B.th), math.sin(B.th)
-    ax1, ax2 = ca * ahw, sa * ahh          # A 顶点分量
-    ay1, ay2 = sa * ahw, ca * ahh
-    bx1, bx2 = cb * bhw, sb * bhh          # B 顶点分量
-    by1, by2 = sb * bhw, cb * bhh
-    VA = ((apx - ax1 + ax2, apy - ay1 - ay2),
-          (apx + ax1 + ax2, apy + ay1 - ay2),
-          (apx + ax1 - ax2, apy + ay1 + ay2),
-          (apx - ax1 - ax2, apy - ay1 + ay2))
-    VB = ((bpx - bx1 + bx2, bpy - by1 - by2),
-          (bpx + bx1 + bx2, bpy + by1 - by2),
-          (bpx + bx1 - bx2, bpy + by1 + by2),
-          (bpx - bx1 - bx2, bpy - by1 + by2))
+    apx, apy = float(A.p[0]), float(A.p[1])
+    bpx, bpy = float(B.p[0]), float(B.p[1])
+    pen, bxx, bxy = _sat_pick_axis(VA, VB,
+                                   ((ca, sa), (-sa, ca), (cb, sb), (-sb, cb)))
+    if pen < 0.0:
+        return []                                      # 找到分离轴
+    if (bpx - apx) * bxx + (bpy - apy) * bxy < 0.0:
+        bxx, bxy = -bxx, -bxy                          # 法线统一由 A 指向 B
+    cand = _vertex_contain(VA, VB, bxx, bxy, ca, sa, cb, sb,
+                           ahw, ahh, bhw, bhh, apx, apy, bpx, bpy)
+    if not cand:
+        return []
+    cand.sort(key=lambda t: -t[0])
+    n = np.array([bxx, bxy])
+    return [(np.array(v, float), n, float(pen), fid)
+            for _, v, fid in cand[:2]]
+
+
+def _obb_verts(B_):
+    """OBB 四顶点（2D：两根半轴的 ± 组合）。"""
+    hw, hh = B_.hw, B_.hh
+    c, s = math.cos(B_.th), math.sin(B_.th)
+    x1, x2 = c * hw, s * hh
+    y1, y2 = s * hw, c * hh
+    px, py = float(B_.p[0]), float(B_.p[1])
+    return ((px - x1 + x2, py - y1 - y2),
+            (px + x1 + x2, py + y1 - y2),
+            (px + x1 - x2, py + y1 + y2),
+            (px - x1 - x2, py - y1 + y2))
+
+
+def _sat_pick_axis(VA, VB, axes):
+    """SAT 四轴投影：任一轴分离 → pen=-1；否则返回最小重叠轴 (pen,nx,ny)。"""
     best = -1.0
     bxx = bxy = 0.0
-    for axx, axy in ((ca, sa), (-sa, ca), (cb, sb), (-sb, cb)):
+    for axx, axy in axes:
         v = VA[0]
         amin = amax = v[0] * axx + v[1] * axy
         for v in VA[1:]:
@@ -156,11 +177,15 @@ def collide_box_box(A, B):
                 bmax = pr
         ov = (amax if amax < bmax else bmax) - (amin if amin > bmin else bmin)
         if ov <= 0.0:
-            return []                                  # 找到分离轴
+            return -1.0, 0.0, 0.0
         if best < 0.0 or ov < best:
             best, bxx, bxy = ov, axx, axy
-    if (bpx - apx) * bxx + (bpy - apy) * bxy < 0.0:
-        bxx, bxy = -bxx, -bxy                          # 法线统一由 A 指向 B
+    return best, bxx, bxy
+
+
+def _vertex_contain(VA, VB, bxx, bxy, ca, sa, cb, sb,
+                    ahw, ahh, bhw, bhh, apx, apy, bpx, bpy):
+    """顶点包含法：嵌进对方体内的顶点，深度 = 沿法线到对方支撑面的距离。"""
     a_hi = -1e30
     for v in VA:
         pr = v[0] * bxx + v[1] * bxy
@@ -186,12 +211,8 @@ def collide_box_box(A, B):
         ly = -dx * sa + dy * ca
         if abs(lx) <= ahw + 1e-9 and abs(ly) <= ahh + 1e-9:
             cand.append((a_hi - (vx * bxx + vy * bxy), (vx, vy), ("B", bi)))
-    if not cand:
-        return []
-    cand.sort(key=lambda t: -t[0])
-    n = np.array([bxx, bxy])
-    return [(np.array(v, float), n, float(best), fid)
-            for _, v, fid in cand[:2]]
+    return cand
+
 
 
 def collide_ground(b, gy=0.0, n=(0.0, 1.0)):

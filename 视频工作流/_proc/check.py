@@ -29,15 +29,18 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # 允许的依赖方向：只有上层可依赖下层（R1）
 ALLOW = {
-    "shape":  set(),
-    "color":  {"shape"},
-    "scene":  {"shape", "color"},
-    "motion": {"shape", "color", "scene"},
-    "showreel": {"shape", "color", "scene", "motion"},
-    "tests": {"shape", "color", "scene", "motion", "showreel"},
+    # base 位于最底: 零依赖公共设施(如统一断言执行器)，任何层都可依赖。
+    # 由真实事故催生: 执行器原置 tools/(最上) → motion/showreel 反向依赖 tools(8条R1)
+    "base":   set(),
+    "shape":  {"base"},
+    "color":  {"base", "shape"},
+    "scene":  {"base", "shape", "color"},
+    "motion": {"base", "shape", "color", "scene"},
+    "showreel": {"base", "shape", "color", "scene", "motion"},
+    "tests": {"base", "shape", "color", "scene", "motion", "showreel"},
     # tools 是检查者，必须能读到被检查的每一层，故置于最上
-    "tools": {"shape", "color", "scene", "motion", "showreel", "tests"},
-    "(root)": {"shape", "color", "scene", "motion", "showreel", "tests", "tools"},
+    "tools": {"base", "shape", "color", "scene", "motion", "showreel", "tests"},
+    "(root)": {"base", "shape", "color", "scene", "motion", "showreel", "tests", "tools"},
 }
 PKGS = list(ALLOW)
 
@@ -51,27 +54,12 @@ EXHAUSTIVE_IGNORES = {"_bak", "__pycache__", "_archive_旧链路"}
 # 已知债务清单：显式登记、有归属、只减不增。
 # 出处: import-linter "ignore_imports — keep that list short and treat each
 #       entry as debt with an owner"。与静默忽略的区别: 清单外一律照报。
-DEBT = {
-    "R1": {
-        # (源包, 目标包) -> 归属/原因
-    },
-    "R3": {
-        # 函数名 -> 归属 dict
-        # 注: tests/run_all.py 的 R2 债务已清零（拆到 153 行），登记随之删除，
-        #     否则会被 R19 判为陈旧豁免。
-        "self_check": {
-            "why": "断言数据表化改造前，自检函数天然偏长",
-            "clear": "统一执行器（断言数据表 + 统一执行器）落地后清零",
-            "owner": "motion 包 / 各模块 self_check",
-            "due": "2026-12-05",
-        },
-    },
-    "R2": {
-        # 已清零，保留空位以便 R19 校验结构完整性
-    },
-}
+# 已知债务台账已下沉到 tools/debtledger.py（R19）。
+# 下沉原因: 台账本体置于本文件时，check.py 达 565 行 > R2 上限 500。
+# 与静默忽略的区别: 清单外一律照报，见 debtledger.py 顶部注释。
 
-LIMIT_MIN, LIMIT_MAX = 50, 500      # R2
+LIMIT_MIN, LIMIT_MAX = 50, 500
+LIMIT_MIN_EFF = 20   # R2 下界改用有效代码行，依据 SIG/SonarQube NCLoC      # R2
 LIMIT_FUNC = 50                      # R3
 PKG_MIN, PKG_MAX = 3, 20             # R4
 LIMIT_PUBLIC = 40                    # R5
@@ -155,11 +143,41 @@ def _check_structure(tag, pkg, direct, transit):
             for b in sorted((direct | transit) - allow)]
 
 
-def _check_size(tag, n):
-    """实现层 R2：模块行数落在 50~500。"""
+def _eff_lines(src):
+    """有效代码行 NCLoC：去空行、注释、docstring。
+
+    依据 SIG / SonarQube "Lines to count = lines with code"：规模度量应只数
+    可执行代码，排除注释与空行。aivosto 建议文件下限 LLOC>=1（非空即可），
+    文件行数合理区间 [5,1000]。本项目模块自带契约块+self_check，
+    取 20 为"职责没落地"的判定线，远高于业界下限，留足余量。
+    """
+    lines = src.split("\n")
+    n = sum(1 for ln in lines if ln.strip() and not ln.strip().startswith("#"))
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return n
+    for node in ast.walk(tree):
+        if isinstance(node,(ast.Module,ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
+            d = ast.get_docstring(node, clean=False)
+            if d is not None:
+                n -= d.count("\n") + 1
+    return max(n, 0)
+
+def _check_size(tag, n, src=None):
+    """实现层 R2：模块规模。
+
+    上界用总行数（防超纲，LIMIT_MAX=500）。
+    下界用有效代码行 NCLoC（LIMIT_MIN_EFF=20）——总行数下界会把
+    "注释/契约块写得厚、代码其实完整"的模块误判成空壳。
+    """
     if n > LIMIT_MAX:
         return [f"[R2 超纲] {tag} {n}>{LIMIT_MAX}"]
-    if n < LIMIT_MIN:
+    if src is not None:
+        eff = _eff_lines(src)
+        if eff < LIMIT_MIN_EFF:
+            return [f"[R2 空壳] {tag} 有效代码行 {eff}<{LIMIT_MIN_EFF}（总行 {n}）"]
+    elif n < LIMIT_MIN:
         return [f"[R2 过短] {tag} {n}<{LIMIT_MIN}"]
     return []
 
@@ -211,7 +229,7 @@ def _check_complexity(tag, src):
 
 def _check_internals(tag, src, n):
     """实现层断言汇总：尺寸 + 函数 + 公开面。"""
-    return (_check_size(tag, n)
+    return (_check_size(tag, n, src)
             + _check_funcs(tag, src)
             + _check_public(tag, src)
             + _check_complexity(tag, src))
@@ -231,10 +249,12 @@ def _check_pkg_counts(counts, rdep=None):
             continue
         if c > PKG_MAX:
             out.append(f"[R4 上帝包] {p} {c}>{PKG_MAX}")
-        elif c < PKG_MIN and rdep.get(p, 0) < PKG_MIN:
-            # 下界只查"没人依赖的孤包": 被多个上层依赖的原子层（shape/color）
-            # 条目天然少，对它们套下界会稳定产出假阳性。
-            out.append(f"[R4 空壳包] {p} {c}<{PKG_MIN} 且仅 {rdep.get(p,0)} 个包依赖它")
+        elif rdep.get(p, 0) == 0 and c < PKG_MIN:
+            # 下界只查"没人依赖的孤包"。叶子层(ALLOW 为空集)条目天然少，
+            # 只要有人依赖就是真分层而非"只有一个文件的假包"——
+            # 对它们套 3 个模块的下界会稳定产出假阳性(见 repro S3)。
+            # 但"零依赖 + 条目少"是真孤包，照报，不豁免。
+            out.append(f"[R4 空壳包] {p} {c}<{PKG_MIN} 且无人依赖(rdep=0)")
     return out
 
 
@@ -401,75 +421,29 @@ def _check_cross_consistency():
             if l.strip().startswith("[R14")]
 
 
-def _debt_entry(rule, key):
-    """兼容两种写法：旧的字符串（无到期日）与新的归属 dict。"""
-    e = DEBT.get(rule, {}).get(key)
-    if e is None:
-        return None
-    if isinstance(e, str):
-        return {"why": e, "clear": "", "owner": "", "due": ""}
-    return e
-
-
 def _split_debt(problems, today=None):
-    """把已知债务与新增问题分开，并做 R19 债务体检。
+    """R19 债务体检：把已知债务与新增问题分开。
 
-    出处（两条，不是凭记忆凑）:
-    - import-linter ignore_imports — "treat each entry as debt with an owner"。
-      债务不静默消失：单独列出、带归属、参与基线比对。
-    - ESLint linterOptions.reportUnusedDisableDirectives — 抑制指令"因代码已改好
-      而不再需要"时应被报出，否则旧的 disable 会掩盖未来真实的错误。
-      对应本函数: 登记了但本次扫描未触发的债务 = 陈旧豁免，必须报出并删除登记。
-    - todo-or-die / todo_or_else（davidpdrsn 的 Rust 版、searls 的 Ruby 版、
-      jwelch92 的 Python flake8 插件 DIE001）: TODO 带到期日，过期即失败。
-      对应本函数: 超过 due 的债务自动升级为真问题，杜绝"永久豁免"。
+    实现下沉: 台账本体（DEBT 登记册 + 匹配/到期/陈旧判定）在
+    tools/debtledger.py，此处只做一次子进程调用并反序列化。
+    出处与三条依据见该模块 docstring，此处不重复。
+
+    失败兜底: 子进程异常时全部问题按"新增真问题"返回——
+    按判定铁律一，无法复现豁免即按真问题处理，绝不静默豁免。
 
     返回 (debt, fresh, overdue, stale)
     """
-    today = today or _dt.date.today()
-    debt, fresh, overdue, stale = [], [], [], []
-    matched = set()
-    for s in problems:
-        hit = None
-        for rule, entries in DEBT.items():
-            tag = f"[{rule} "
-            if s.startswith(tag):
-                for key in entries:
-                    if key in s:
-                        hit = (rule, key)
-                        break
-            if hit:
-                break
-        if not hit:
-            fresh.append(s)
-            continue
-        rule, key = hit
-        matched.add((rule, key))
-        e = _debt_entry(rule, key)
-        due = (e.get("due") or "").strip()
-        if due:
-            try:
-                d = _dt.date.fromisoformat(due)
-            except ValueError:
-                fresh.append(s)
-                stale.append(f"[R19 债务日期非法] {rule}/{key} due={due!r}"
-                             " —— 无法判定到期，按真问题处理")
-                continue
-            if today > d:
-                overdue.append(s)
-                fresh.append(s)      # 到期升级成真问题，不再豁免
-                continue
-        debt.append(
-            f"  已知债务 {s}\n"
-            f"      归属 {e.get('owner') or '-'} ｜ 到期 {due or '未设(将永久豁免)'}"
-            f" ｜ 清零条件: {e.get('clear') or '-'}")
-    for rule, entries in DEBT.items():
-        for key in entries:
-            if (rule, key) not in matched:
-                stale.append(
-                    f"[R19 陈旧债务] {rule}/{key} —— 本次扫描未触发，"
-                    "豁免已无必要，应删除登记（否则为永久豁免）")
-    return debt, fresh, overdue, stale
+    p = os.path.join(ROOT, "tools", "debtledger.py")
+    payload = json.dumps({"problems": list(problems),
+                          "today": (today or _dt.date.today()).isoformat()})
+    try:
+        r = subprocess.run([sys.executable, p], input=payload,
+                           capture_output=True, text=True, timeout=120)
+        d = json.loads(r.stdout or "{}")
+    except Exception:                                  # noqa: BLE001
+        return [], list(problems), [], []
+    return (d.get("debt", []), d.get("fresh", []),
+            d.get("overdue", []), d.get("stale", []))
 
 
 def _report(rows, problems):

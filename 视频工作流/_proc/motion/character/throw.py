@@ -212,65 +212,90 @@ def throw(t, prev_el=None):
     return out
 
 
-def self_check():
-    r = []
-    N = 400
-    mx = 0.0
+def _wrist_center(t):
+    return _shoulder(t) + _wrist_path(t)
+
+
+def _accel_speed():
+    """加速段 20 等分的腕心逐段位移。"""
+    def _wc(t):
+        return _shoulder(t) + _wrist_path(t)
+    return [np.linalg.norm(_wc(F_REL - T_ACC + T_ACC * k / 20.0)
+                           - _wc(F_REL - T_ACC + T_ACC * (k - 1) / 20.0))
+            for k in range(1, 21)]
+
+
+def _elbow_peak(N):
+    """肘在 N 帧采样下的最大单帧位移（米）。"""
+    pv, mx = None, 0.0
+    for k in range(N + 1):
+        tt = k / float(N)
+        sr = _shoulder(tt)
+        wr = sr + _wrist_path(tt)
+        e = _elbow_at(sr, wr, pv)
+        if pv is not None:
+            mx = max(mx, float(np.linalg.norm(e - pv)) * H_M)
+        pv = e
+    return mx
+
+
+def _chk_arm(c):
+    """手臂：骨长守恒、鞭打加速、肘无瞬移、出手速度。"""
+    N, mx = 400, 0.0
     for i in range(N + 1):
         J = throw(i / N)
         sh, el, w = J["sh_r"][:2], J["elb_r"][:2], J["wri_r"][:2]
         mx = max(mx, abs(np.linalg.norm(el - sh) - _AU),
                  abs(np.linalg.norm(w - el) - _AF))
-    r.append(("骨长守恒", mx < 1e-9, "max=%.2e" % mx))
+    c.chk("骨长守恒", mx < 1e-9, "max=%.2e" % mx)
     # 量腕心(鞭打主运动, _wrist_path 加速段 u^2 严格 ease-in), 不量 hand_center:
     # hand_center 含手心相对腕的微偏移, 随肘方向变化, 在加速段 70~80% 有约 10%
     # 回落(实测 0.0507→0.0456), 那是手指姿态微调不是鞭打减速, 混入会把真运动判死。
-    def _wc(t):
-        return _shoulder(t) + _wrist_path(t)
-    sp = [np.linalg.norm(_wc(F_REL - T_ACC + T_ACC * k / 20.0)
-                         - _wc(F_REL - T_ACC + T_ACC * (k - 1) / 20.0))
-          for k in range(1, 21)]
+    sp = _accel_speed()
     mono = all(sp[i + 1] >= sp[i] - 1e-12 for i in range(len(sp) - 1))
-    r.append(("加速段末端最快", mono and sp[-1] > 1.5 * sp[0],
-              "首%.4f 末%.4f" % (sp[0], sp[-1])))
+    c.chk("加速段末端最快", mono and sp[-1] > 1.5 * sp[0],
+          "首%.4f 末%.4f" % (sp[0], sp[-1]))
     # 肘连续性: 加密采样若位移按比例收敛=连续; 稳定不降=瞬移
-    def _peak(N):
-        pv = None; mx = 0.0
-        for k in range(N + 1):
-            tt = k / float(N)
-            sr = _shoulder(tt); wr = sr + _wrist_path(tt)
-            e = _elbow_at(sr, wr, pv)
-            if pv is not None:
-                mx = max(mx, float(np.linalg.norm(e - pv)) * H_M)
-            pv = e
-        return mx
-    p1, p4 = _peak(240), _peak(960)
-    r.append(("肘无瞬移(加密收敛)", p4 < p1 * 0.5,
-              "240帧%.4f→960帧%.4f" % (p1, p4)))
+    p1, p4 = _elbow_peak(240), _elbow_peak(960)
+    c.chk("肘无瞬移(加密收敛)", p4 < p1 * 0.5, "240帧%.4f→960帧%.4f" % (p1, p4))
     v = release_vel()
-    r.append(("出手速度合理", 3.0 < np.linalg.norm(v) < 30.0,
-              "%.2f m/s %.1f°" % (np.linalg.norm(v),
-                                  math.degrees(math.atan2(v[1], v[0])))))
+    c.chk("出手速度合理", 3.0 < np.linalg.norm(v) < 30.0,
+          "%.2f m/s %.1f°" % (np.linalg.norm(v),
+                              math.degrees(math.atan2(v[1], v[0]))))
+
+
+def _chk_ball(c):
+    """球：出手不离手、不穿地、弹道 a=-g/2。"""
     d = np.linalg.norm(hand_center(F_REL) - ball_center(F_REL))
-    r.append(("出手瞬间球在手", d < 1e-6, "dist=%.2e" % d))
+    c.chk("出手瞬间球在手", d < 1e-6, "dist=%.2e" % d)
     T, P = _traj()
-    r.append(("不穿地", P[:, 1].min() >= ball.R_BALL - 1e-6,
-              "min y=%.4f" % P[:, 1].min()))
+    c.chk("不穿地", P[:, 1].min() >= ball.R_BALL - 1e-6,
+          "min y=%.4f" % P[:, 1].min())
     i0, i1 = int(round(0.05 * 240)), min(len(T), int(round(0.60 * 240)))
-    c = np.polyfit(T[i0:i1] - T[i0], P[i0:i1, 1] - ball.R_BALL, 2)
-    err = abs(-2.0 * c[0] - G) / G
-    r.append(("弹道 a=-g/2", err < 0.02, "err=%.4f a=%.4f" % (err, c[0])))
+    cf = np.polyfit(T[i0:i1] - T[i0], P[i0:i1, 1] - ball.R_BALL, 2)
+    err = abs(-2.0 * cf[0] - G) / G
+    c.chk("弹道 a=-g/2", err < 0.02, "err=%.4f a=%.4f" % (err, cf[0]))
+
+
+def _chk_body(c):
+    """躯干：无跳变、支撑脚贴地。"""
+    N = 400
     dm = max(np.linalg.norm(throw((i + 1) / N)["wri_r"][:2]
                             - throw(i / N)["wri_r"][:2]) for i in range(N))
-    r.append(("无跳变", dm * H_M < 0.10, "%.4f m/frame" % (dm * H_M)))
+    c.chk("无跳变", dm * H_M < 0.10, "%.4f m/frame" % (dm * H_M))
     low = max(min(throw(i / N)["toe_l"][1], throw(i / N)["heel_l"][1])
               for i in range(N + 1))
-    r.append(("支撑脚贴地", low * H_M < 0.02, "%.4f m" % (low * H_M)))
-    ok = True
-    for n_, ok_, s in r:
-        print(("PASS " if ok_ else "FAIL ") + n_ + "  " + s)
-        ok = ok and ok_
-    return ok
+    c.chk("支撑脚贴地", low * H_M < 0.02, "%.4f m" % (low * H_M))
+
+
+def self_check():
+    """投掷自检：判据不变，断言交统一执行器。"""
+    from base.assertrun import Checker
+    c = Checker("throw")
+    _chk_arm(c)
+    _chk_ball(c)
+    _chk_body(c)
+    return c.report()
 
 
 @capability("throw", source="动力链顺序(Fleisig et al.1996 Sports Medicine DOI 10.2165/00007256-199621060-00004); 抛体 R=u²sin2θ/g",
