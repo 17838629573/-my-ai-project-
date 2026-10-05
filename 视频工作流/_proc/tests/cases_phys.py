@@ -42,6 +42,80 @@ def _phys_frames(tracks, ground_y, span_m, W=640, HH=360):
     return out
 
 
+def resample_tracks(tracks, sim_dt, fps, duration):
+    """把固定步长仿真轨迹重采样为视频帧序列，使物理时间 == 视频时间
+
+    病根：仿真步数直接当视频帧数，且 fps 与 sim_dt 脱钩，
+         导致视频被慢放 (1/sim_dt)/fps 倍 —— 表现为大面积重复帧（卡顿）。
+    修法：按 t = i/fps 反查连续索引并线性插值，帧数 = duration*fps。
+    """
+    n = max(2, int(round(duration * fps)))
+    out = {}
+    for k, seq in tracks.items():
+        m = len(seq)
+        res = []
+        for i in range(n):
+            x = (i / fps) / sim_dt
+            j = int(x)
+            if j >= m - 1:
+                res.append(seq[-1])
+                continue
+            f = x - j
+            a, b = seq[j], seq[j + 1]
+            row = []
+            for c in range(len(a)):
+                va, vb = a[c], b[c]
+                if isinstance(va, (int, float)) and isinstance(vb, (int, float)) \
+                        and not isinstance(va, bool):
+                    row.append(va + (vb - va) * f)
+                else:
+                    row.append(va)
+            res.append(tuple(row))
+        out[k] = res
+    return out
+
+
+def _phys_frames_auto(tracks, W=640, HH=360, pad=0.12, ground=None):
+    """自适应视野刚体侧视图：按轨迹实际包围盒定标，支持负坐标
+
+    _phys_frames2 假定 y>=0（地面在 0），摆锤锚点在原点上方、y 恒为负，
+    会被映射到画面之外（实测：整段视频纯背景，240 帧全同）。本函数改为
+    自动取包围盒，任何坐标系都能正确出片。
+    """
+    pts = []
+    for k, seq in tracks.items():
+        for row in seq:
+            r = row[2]
+            rr = r if isinstance(r, (int, float)) else max(r)
+            pts += [(row[0], row[1]),
+                    (row[0] - rr, row[1] - rr), (row[0] + rr, row[1] + rr)]
+    xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    w = max(x1 - x0, 1e-6); h = max(y1 - y0, 1e-6)
+    x0 -= pad * w; x1 += pad * w; y0 -= pad * h; y1 += pad * h
+    s = min(W / (x1 - x0), HH / (y1 - y0))
+    ox = (W - (x1 - x0) * s) / 2.0
+    oy = (HH - (y1 - y0) * s) / 2.0
+    out = []
+    n = min(len(v) for v in tracks.values())
+    for i in range(n):
+        im = Image.new("RGB", (W, HH), (238, 238, 234))
+        d = ImageDraw.Draw(im)
+        if ground is not None:
+            gyy = oy + (y1 - ground) * s
+            if 0 <= gyy <= HH:
+                d.line([(0, gyy), (W, gyy)], fill=(120, 100, 80), width=2)
+        for k, seq in tracks.items():
+            x, y, r = seq[i][0], seq[i][1], seq[i][2]
+            rr = max((r if isinstance(r, (int, float)) else max(r)) * s, 2.0)
+            cx, cy = ox + (x - x0) * s, oy + (y1 - y) * s
+            d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
+                      fill=(216, 96, 72), outline=(70, 60, 55), width=2)
+            d.text((cx - 4, cy - 4), k[:1], fill=(40, 40, 40))
+        out.append(im)
+    return out
+
+
 def _save_mp4(frames, prefix, fps=60):
     p = os.path.join(OUT, "%s.mp4" % prefix)
     to_mp4(frames, p, fps)
@@ -155,7 +229,10 @@ def case_C16():
     checks = [("penetration_m", pen), ("jitter_px", step_m * s_px)]
     tk = {"b%d" % k: [(traj[i][k][0], traj[i][k][1], (0.22, 0.22), "box")
                       for i in range(len(traj))] for k in range(len(boxes))}
-    mp4 = _save_mp4(_phys_frames2(tk, 0.0, 1.8), "C16_堆叠方块", fps=20)
+    # 修帧步失配：仿真 721 步若直当 721 帧 @20fps 出片 = 36 秒（慢放 12 倍）。
+    # 改为重采样到 T=3.0 秒 * 24fps = 72 帧，物理时间 == 视频时间。
+    tk = resample_tracks(tk, 1.0 / 240.0, 24, 3.0)
+    mp4 = _save_mp4(_phys_frames_auto(tk, ground=0.0), "C16_堆叠方块", fps=24)
     return checks, {"mp4": mp4, "末段漂移_m": round(float(drift_m), 6),
                     "层序_y": [round(float(b.p[1]), 4) for b in boxes]}
 
@@ -174,7 +251,8 @@ def case_C17():
                              / (1 / 240.0)))) if len(traj) > 1 else 0.0
     checks = [("penetration_m", pen), ("energy_gain", eg)]
     tk = {"ball": [(p[0], p[1], 0.11, "circle") for p in traj]}
-    mp4 = _save_mp4(_phys_frames2(tk, -1.2, 2.4), "C17_斜坡滚球", fps=30)
+    tk = resample_tracks(tk, 1.0 / 240.0, 24, 2.5)   # 仿真 T=2.5s，重采样到 24fps
+    mp4 = _save_mp4(_phys_frames2(tk, -1.2, 2.4), "C17_斜坡滚球", fps=24)
     return checks, {"mp4": mp4, "理论加速度": round(a_theory, 4),
                     "末速_m_s": round(v_end, 4)}
 
@@ -188,10 +266,13 @@ def case_C19():
     me = abs(post - pre) / max(abs(pre), 1e-9)
     L_err = abs(float(np.linalg.norm(bob.p)) - 1.0)
     checks = [("momentum_err", me), ("penetration_m", pen)]
-    n = 240
-    tk = {"bob": [(-0.6 + 0.0 * i, 0.0, 0.12, "circle") for i in range(n)]}
-    # 用真实轨迹：重新跑一遍取点太贵，这里用简谐近似仅作示意
-    mp4 = _save_mp4(_phys_frames2(tk, -1.24, 1.6), "C19_摆锤碰撞")
+    # 修假渲染：原先用常量占位（摆锤恒在 (-0.6, 0)），视频完全静止。
+    # 改为 pendulum_sim(with_traj=True) 取真实轨迹并重采样。
+    bob2, ball2, _p, _q, _e2, traj = R2.pendulum_sim(T=1.6, with_traj=True)
+    tk = {"bob": [(t[0], t[1], 0.12, "circle") for t in traj],
+          "ball": [(t[2], t[3], 0.12, "circle") for t in traj]}
+    tk = resample_tracks(tk, 1.0 / 2400.0, 24, 1.6)
+    mp4 = _save_mp4(_phys_frames_auto(tk), "C19_摆锤碰撞", fps=24)
     return checks, {"mp4": mp4, "碰撞前水平动量": round(float(pre), 6),
                     "碰撞后水平动量": round(float(post), 6),
                     "绳长误差_m": round(L_err, 8)}

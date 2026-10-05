@@ -630,7 +630,8 @@ def ramp_sim(theta_deg=20.0, L=2.0, mu=0.05, T=2.5, dt=1.0 / 240.0):
 
 
 @capability("pendulum", source="距离约束冲量法(=Box2D b2DistanceJoint)；最低点撞击水平方向动量守恒", group="physics")
-def pendulum_sim(L=1.0, th0_deg=60.0, T=3.0, dt=1.0 / 2400.0, m1=2.0, m2=1.0):
+def pendulum_sim(L=1.0, th0_deg=60.0, T=3.0, dt=1.0 / 2400.0, m1=2.0, m2=1.0,
+                 with_traj=False):
     """摆锤从 th0 摆下，最低点撞击静止球。返回 (摆, 球, 碰撞前后水平动量, 最大穿透)"""
     th0 = np.radians(th0_deg)
     # 球置于摆锤最低点正下方，且预留 delta 重叠：
@@ -652,15 +653,21 @@ def pendulum_sim(L=1.0, th0_deg=60.0, T=3.0, dt=1.0 / 2400.0, m1=2.0, m2=1.0):
     w.add(ball)
     w.constraints.append(DistanceConstraint(bob, anchor, L))
     pens = []
+    traj = []
     pre = post = None
     for _ in range(int(round(T / dt)) + 1):
         before = bob.v[0] * m1 + ball.v[0] * m2
         w.step()
         pens.append(w.max_pen)
+        if with_traj:
+            traj.append((float(bob.p[0]), float(bob.p[1]),
+                         float(ball.p[0]), float(ball.p[1])))
         after = bob.v[0] * m1 + ball.v[0] * m2
         # 取绝对值：摆从 +x 侧摆下，撞击把球推向 -x，判符号会永远漏检
         if pre is None and abs(before - after) > 1e-9 and abs(ball.v[0]) > 1e-6:
             pre, post = before, after
+    if with_traj:
+        return bob, ball, pre, post, max(pens), traj
     return bob, ball, pre, post, max(pens)
 
 
