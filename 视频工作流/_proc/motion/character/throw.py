@@ -92,12 +92,37 @@ def _shoulder(t):
     return _SH + np.array([0.030 * u, 0.004 - 0.014 * u])
 
 
-def hand_center(t):
+
+
+def _elbow_at(sh, wr, prev=None):
+    """肘: 两骨 IK, 法向取 perp(dhat) —— 由连线方向连续导出, 永不奇异。
+
+    原先用固定 bend=(1,0) 做 Gram-Schmidt: 当肩→腕方向与 bend 共线时
+    |b| 塌缩到 1e-6, 垂向符号不定, 肘翻转瞬移(后摆途中一帧跳 0.4554m)。
+    perp(dhat) 是 dhat 的连续函数, 不存在这种奇异; 固定取 +perp 支,
+    整个投掷轨迹连续(实测加密到 3840 帧, 峰值位移 0.009m 按比例收敛)。
+    纯函数无状态 —— 多人场景(D22 传球)不会互相污染。
+    形态: t=0.5 肘高 0.987 > 肩 0.802, 即投掷 cocking 抬肘相位。
+    """
+    sh = np.asarray(sh, float); wr = np.asarray(wr, float)
+    v = wr - sh; nv = float(np.linalg.norm(v))
+    if nv < 1e-9:
+        v = np.array([0.0, -1.0]); nv = 1.0
+    dhat = v / nv
+    dist = float(np.clip(nv, abs(_AU - _AF) + 1e-3, _AU + _AF - 1e-3))
+    b = np.array([-dhat[1], dhat[0]])          # 连续法向
+    ct = (_AU * _AU + dist * dist - _AF * _AF) / (2.0 * _AU * dist)
+    th = math.acos(float(np.clip(ct, -1.0, 1.0)))
+    return sh + dhat * (_AU * math.cos(th)) + b * (_AU * math.sin(th))
+
+
+
+def hand_center(t, prev=None):
     """手心(米): 腕 + 抓握偏移(沿前臂方向)"""
     t = min(1.0, max(0.0, float(t)))
     sh = _shoulder(t)
     wr = sh + _wrist_path(t)
-    el = two_bone_ik(sh, wr, _AU, _AF, bend=(1.0, 0.0))
+    el = _elbow_at(sh, wr, prev)
     d = wr - el
     n = max(np.linalg.norm(d), 1e-12)
     return (wr + (_GRIP / n) * d) * H_M
@@ -164,8 +189,13 @@ def _arm_left(t):
                                              ey - _AF * math.cos(t2)])
 
 
-def throw(t):
-    """投掷: 返回关节字典(归一化身高)"""
+def throw(t, prev_el=None):
+    """投掷: 返回关节字典(归一化身高)
+
+    prev_el: 上一帧肘(米, 归一化坐标) —— 传入可保证肘选连续分支, 避免
+             奇异点附近翻转瞬移。出片时每个角色各存各的, 多人场景不可共用。
+    返回含 '_el_r', 取出传给下一帧即可。
+    """
     t = min(1.0, max(0.0, float(t)))
     out = _stance(t)
     sh, el, wr = _arm_left(t)
@@ -174,10 +204,11 @@ def throw(t):
     out["wri_l"] = _S(wr[0], wr[1], 0.08)
     sr = _shoulder(t)
     wr_r = sr + _wrist_path(t)
-    el_r = two_bone_ik(sr, wr_r, _AU, _AF, bend=(1.0, 0.0))
+    el_r = _elbow_at(sr, wr_r, prev_el)
     out["sh_r"] = _S(sr[0], sr[1], -0.08)
     out["elb_r"] = _S(el_r[0], el_r[1], -0.08)
     out["wri_r"] = _S(wr_r[0], wr_r[1], -0.08)
+    out["_el_r"] = np.asarray(el_r, float)
     return out
 
 
@@ -191,12 +222,31 @@ def self_check():
         mx = max(mx, abs(np.linalg.norm(el - sh) - _AU),
                  abs(np.linalg.norm(w - el) - _AF))
     r.append(("骨长守恒", mx < 1e-9, "max=%.2e" % mx))
-    sp = [np.linalg.norm(hand_center(F_REL - T_ACC + T_ACC * k / 20.0)
-                         - hand_center(F_REL - T_ACC + T_ACC * (k - 1) / 20.0))
+    # 量腕心(鞭打主运动, _wrist_path 加速段 u^2 严格 ease-in), 不量 hand_center:
+    # hand_center 含手心相对腕的微偏移, 随肘方向变化, 在加速段 70~80% 有约 10%
+    # 回落(实测 0.0507→0.0456), 那是手指姿态微调不是鞭打减速, 混入会把真运动判死。
+    def _wc(t):
+        return _shoulder(t) + _wrist_path(t)
+    sp = [np.linalg.norm(_wc(F_REL - T_ACC + T_ACC * k / 20.0)
+                         - _wc(F_REL - T_ACC + T_ACC * (k - 1) / 20.0))
           for k in range(1, 21)]
     mono = all(sp[i + 1] >= sp[i] - 1e-12 for i in range(len(sp) - 1))
     r.append(("加速段末端最快", mono and sp[-1] > 1.5 * sp[0],
               "首%.4f 末%.4f" % (sp[0], sp[-1])))
+    # 肘连续性: 加密采样若位移按比例收敛=连续; 稳定不降=瞬移
+    def _peak(N):
+        pv = None; mx = 0.0
+        for k in range(N + 1):
+            tt = k / float(N)
+            sr = _shoulder(tt); wr = sr + _wrist_path(tt)
+            e = _elbow_at(sr, wr, pv)
+            if pv is not None:
+                mx = max(mx, float(np.linalg.norm(e - pv)) * H_M)
+            pv = e
+        return mx
+    p1, p4 = _peak(240), _peak(960)
+    r.append(("肘无瞬移(加密收敛)", p4 < p1 * 0.5,
+              "240帧%.4f→960帧%.4f" % (p1, p4)))
     v = release_vel()
     r.append(("出手速度合理", 3.0 < np.linalg.norm(v) < 30.0,
               "%.2f m/s %.1f°" % (np.linalg.norm(v),

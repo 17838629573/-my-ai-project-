@@ -18,7 +18,7 @@ def _leg_chain(x0, y0, th_hip, th_knee, L1, L2):
     return knee, ank
 
 
-def two_bone_ik(root, target, L1, L2, bend=(1.0, 0.0)):
+def two_bone_ik(root, target, L1, L2, bend=(1.0, 0.0), prev=None):
     """两骨 IK 解析解（余弦定理）—— 走路脚锁定的核心。
 
         cosθ = (L1² + d² − L2²) / (2·L1·d)
@@ -47,7 +47,16 @@ def two_bone_ik(root, target, L1, L2, bend=(1.0, 0.0)):
 
     ct = (L1 * L1 + dist * dist - L2 * L2) / (2.0 * L1 * dist)
     th = np.arccos(float(np.clip(ct, -1.0, 1.0)))
-    return root + dhat * (L1 * np.cos(th)) + b * (L1 * np.sin(th))
+    off = L1 * np.sin(th)
+    e1 = root + dhat * (L1 * np.cos(th)) + b * off
+    if prev is None:
+        return e1
+    # 肘翻转保护（Ozz-Animation: 用上一帧解做参考选分支）
+    # 奇异点：dhat 与 bend 共线时 Gram-Schmidt 的 b 塌缩，符号不定 → 肘瞬移
+    e2 = root + dhat * (L1 * np.cos(th)) - b * off
+    d1 = float(np.linalg.norm(e1 - np.asarray(prev, float)))
+    d2 = float(np.linalg.norm(e2 - np.asarray(prev, float)))
+    return e1 if d1 <= d2 else e2
 
 
 # 外踝离地高度实测关键点（%GC → 米）
