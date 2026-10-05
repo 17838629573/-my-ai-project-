@@ -1,3 +1,8 @@
+# 契约: proc/tools/consistency
+#   一句话: 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
+#   完整契约见 tools/__init__.py
+#   依据: 依据 cross-reference integrity：交叉引用的实体必须互相对得上。
+探测两种静默失败：多 ID 指向同一函数（F35 事故）、注册了但用例没接（climb 事故）。
 # -*- coding: utf-8 -*-
 """R14 三表一致性 —— 能力注册表 / 用例执行表 / 桥接器 交叉校验。
 
@@ -108,6 +113,81 @@ def import_list():
     return names
 
 
+def called_names():
+    """tests/ 下实际被调用的函数名集合（含 obj.method 的方法名）。
+
+    为什么要这一层：能力名与函数名经常不同名。
+    'high5' 注册在 crowd.py，而用例调用的是 CR.high5_arm / CR.high5_pose，
+    按"导入的模块名"匹配会把它判成未接线 —— 可 D21 击掌早就 PASS 了。
+    判定口径必须从"导入即接线"升级为"被调用即接线"：
+    导进来却没人调用，一样是白写。
+    """
+    tdir = os.path.join(ROOT, "tests")
+    names = set()
+    for fn in sorted(os.listdir(tdir)):
+        if not fn.endswith(".py"):
+            continue
+        try:
+            tree = _parse(os.path.join(tdir, fn))
+        except SyntaxError:
+            continue
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Call):
+                continue
+            f = n.func
+            if isinstance(f, ast.Name):
+                names.add(f.id)
+            elif isinstance(f, ast.Attribute):
+                names.add(f.attr)
+    return names
+
+
+def cap_impl_names():
+    """{能力名: 该能力可能被调用到的名字集合}。
+
+    三种证据都算接线，缺一种就误判:
+      1. 被 @capability 装饰的函数名本身   （gaze_shift 这类直接实现）
+      2. 该函数 return 的名字             （high5 是工厂: _cap_high5() 返回 high5_pose，
+                                          用例调的是 high5_pose，只认 1 会把已 PASS 的
+                                          D21 击掌误报成未接线）
+      3. 能力名字符串本身                 （同名的常规情况）
+    """
+    out = {}
+    for dirpath, _dn, files in os.walk(ROOT):
+        if "__pycache__" in dirpath or "_bak" in dirpath:
+            continue
+        for fn in files:
+            if not fn.endswith(".py"):
+                continue
+            try:
+                tree = _parse(os.path.join(dirpath, fn))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.FunctionDef):
+                    continue
+                for d in node.decorator_list:
+                    call = d if isinstance(d, ast.Call) else None
+                    if call is None:
+                        continue
+                    fname = (getattr(call.func, "id", None)
+                             or getattr(call.func, "attr", None))
+                    if fname != "capability" or not call.args:
+                        continue
+                    a = call.args[0]
+                    if not isinstance(a, ast.Constant):
+                        continue
+                    nm = str(a.value)
+                    names = {nm, node.name}
+                    for sub in ast.walk(node):
+                        if isinstance(sub, ast.Return) and isinstance(sub.value, ast.Name):
+                            names.add(sub.value.id)
+                        elif isinstance(sub, ast.Return) and isinstance(sub.value, ast.Attribute):
+                            names.add(sub.value.attr)
+                    out.setdefault(nm, set()).update(names)
+    return out
+
+
 def cap_registered():
     """AST 扫描 @capability 装饰器登记的能力名（不 import，避免导入不全）。"""
     names = set()
@@ -156,7 +236,7 @@ def run():
     """返回问题列表。"""
     ex = exec_table()
     cf = case_funcs()
-    imp = import_list()
+    imp = import_list() | called_names()
     cap = cap_registered()
     kinds = bridge_kinds()
     pose = {n for n, k in kinds.items() if k == "POSE"}
@@ -177,11 +257,15 @@ def run():
         if fn not in cf:
             issues.append("[R14 用例无实现] %s -> %s 在 run_all 里找不到该函数" % (cid, fn))
 
-    # 3) 已注册能力但 run_all 没导入 —— climb 事故
-    unimported = sorted(c for c in cap if c not in imp and c not in pose)
+    # 3) 已注册能力但用例里既没导入也没调用 —— climb 事故
+    impl = cap_impl_names()
+    unimported = sorted(c for c in cap
+                        if c not in pose
+                        and not (imp & impl.get(c, {c})))
     for c in unimported:
-        issues.append("[R14 注册未接线] 能力 %r 已注册但 run_all 未导入 —— "
-                      "已实现的能力会被门禁误报成 STUB" % c)
+        issues.append("[R14 注册未接线] 能力 %r 已注册，但 tests/ 下无人导入或调用 "
+                      "(已查别名 %s) —— 已实现的能力会被门禁误报成 STUB"
+                      % (c, "/".join(sorted(impl.get(c, {c})))))
 
     # 4) 注册了但桥接器判定不可驱动
     if pose:

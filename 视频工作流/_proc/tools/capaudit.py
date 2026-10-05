@@ -1,3 +1,8 @@
+# 契约: proc/tools/capaudit
+#   一句话: 能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
+#   完整契约见 tools/__init__.py
+#   依据: 依据 ADAPT blend node 分层与 UE additive/override 之分：
+能力分 POSE/ADDITIVE/PHYS/AUX 四类，只有 POSE 能产出 21 关节供时间线合成。
 # -*- coding: utf-8 -*-
 """能力可用性审计：CAP 里注册的能力，能否被 beat.Timeline 真正调用。
 

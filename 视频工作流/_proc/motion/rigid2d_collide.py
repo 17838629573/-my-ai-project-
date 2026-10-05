@@ -26,6 +26,17 @@ from .rigid2d_core import (  # noqa: F401
 )
 
 # ---------------------------------------------------------------- 碰撞检测
+def _Contact(*a, **k):
+    """延迟取 Contact：Contact 定义在 solve 层，而 solve 依赖本模块的碰撞检测。
+
+    顶层直接 `from .rigid2d_solve import Contact` 会形成
+    collide -> solve -> collide 的导入环（solve 要用本模块的 contacts 装配）。
+    按 Python 惯用的打破环手法：把 import 下沉到调用点。
+    """
+    from .rigid2d_solve import Contact
+    return Contact(*a, **k)
+
+
 def _clip_face(poly, side, axis):
     """Sutherland-Hodgman 单平面裁剪（出处[3]）"""
     out = []
@@ -209,7 +220,7 @@ def _round_pair(A, B):
         pen = (A.r + B.r) - dist
         if pen > 0:
             n = d / dist if dist > 1e-9 else np.array([0.0, 1.0])
-            out.append(Contact(A, B, A.p + n * A.r, n, pen))
+            out.append(_Contact(A, B, A.p + n * A.r, n, pen))
         return out
     for c, o in ((A, B), (B, A)):
         if c.shape != "circle":
@@ -238,9 +249,9 @@ def _round_pair(A, B):
                 n = -n
             # 法线统一由 A 指向 B
             if c is A:
-                out.append(Contact(A, B, q, n, pen))
+                out.append(_Contact(A, B, q, n, pen))
             else:
-                out.append(Contact(A, B, q, -n, pen))
+                out.append(_Contact(A, B, q, -n, pen))
     return out
 
 

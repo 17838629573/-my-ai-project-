@@ -34,9 +34,34 @@ ALLOW = {
     "motion": {"shape", "color", "scene"},
     "showreel": {"shape", "color", "scene", "motion"},
     "tests": {"shape", "color", "scene", "motion", "showreel"},
-    "(root)": {"shape", "color", "scene", "motion", "showreel", "tests"},
+    # tools 是检查者，必须能读到被检查的每一层，故置于最上
+    "tools": {"shape", "color", "scene", "motion", "showreel", "tests"},
+    "(root)": {"shape", "color", "scene", "motion", "showreel", "tests", "tools"},
 }
 PKGS = list(ALLOW)
+
+# R16 分层表完整性：实际存在的顶层包必须登记。
+# 出处: import-linter "exhaustive = true — if a module is added to the code base
+#       in the same package as your layers, the contract will fail"
+# 本条由真实事故催生: 新建 tools/ 目录后未登记进 ALLOW，
+# 导致 tools/* -> motion 被判逆向依赖，12 条假阳性把真问题(超纲模块)埋掉。
+EXHAUSTIVE_IGNORES = {"_bak", "__pycache__", "_archive_旧链路"}
+
+# 已知债务清单：显式登记、有归属、只减不增。
+# 出处: import-linter "ignore_imports — keep that list short and treat each
+#       entry as debt with an owner"。与静默忽略的区别: 清单外一律照报。
+DEBT = {
+    "R1": {
+        # (源包, 目标包) -> 归属/原因
+    },
+    "R3": {
+        # 函数名 -> 归属/原因
+        "self_check": "断言数据表化改造前，自检函数天然偏长；统一执行器落地后应清零",
+    },
+    "R2": {
+        "tests/run_all.py": "待拆出 A 组用例到 cases_base.py",
+    },
+}
 
 LIMIT_MIN, LIMIT_MAX = 50, 500      # R2
 LIMIT_FUNC = 50                      # R3
@@ -180,11 +205,39 @@ def _check_internals(tag, src, n):
             + _check_complexity(tag, src))
 
 
-def _check_pkg_counts(counts):
-    """包粒度断言：条目数落在 3~20，既防空壳包也防上帝包。"""
-    return [f"[R4 包条目数] {p} {c} 不在 {PKG_MIN}~{PKG_MAX}"
-            for p, c in counts.items()
-            if c and not (PKG_MIN <= c <= PKG_MAX)]
+def _check_pkg_counts(counts, rdep=None):
+    rdep = rdep or {}
+    """包粒度断言：上界防上帝包，下界只查非基础层。
+
+    mrognlie 的 3~20 下界本意是防"只有一个文件的假包"。
+    但基础层(ALLOW 为空集的叶子层, 如 shape/color)条目天然少，
+    对它们套下界会稳定产出假阳性——故只对会被他人依赖的业务层套下界。
+    """
+    out = []
+    for p, c in sorted(counts.items()):
+        if not c:
+            continue
+        if c > PKG_MAX:
+            out.append(f"[R4 上帝包] {p} {c}>{PKG_MAX}")
+        elif c < PKG_MIN and rdep.get(p, 0) < PKG_MIN:
+            # 下界只查"没人依赖的孤包": 被多个上层依赖的原子层（shape/color）
+            # 条目天然少，对它们套下界会稳定产出假阳性。
+            out.append(f"[R4 空壳包] {p} {c}<{PKG_MIN} 且仅 {rdep.get(p,0)} 个包依赖它")
+    return out
+
+
+def _check_layer_exhaustive(counts):
+    """R16 分层表完整性：实际存在的顶层包必须登记进 ALLOW。
+
+    出处: import-linter exhaustive = true。
+    这条是"防误报的工具"——分层表一旦漏登记新目录，
+    R1 会对该目录所有文件报逆向依赖，噪音淹没真问题。
+    与其事后修噪音，不如让漏登记本身立刻报错。
+    """
+    return [f"[R16 分层表漏登记] 顶层包 '{p}' 存在但未写入 ALLOW "
+            f"({c} 个文件) —— 不登记会让 R1 对它全量误报"
+            for p, c in sorted(counts.items())
+            if c and p not in ALLOW and p not in EXHAUSTIVE_IGNORES]
 
 
 def _check_importable():
@@ -335,15 +388,45 @@ def _check_cross_consistency():
             if l.strip().startswith("[R14")]
 
 
+def _split_debt(problems):
+    """把已知债务与新增问题分开。
+
+    出处: import-linter ignore_imports — "treat each entry as debt with an owner"。
+    债务不静默消失：单独列出、带归属、参与基线只减不增的比对。
+    """
+    debt, fresh = [], []
+    for s in problems:
+        hit = False
+        for rule, entries in DEBT.items():
+            tag = f"[{rule} "
+            if s.startswith(tag):
+                for key in entries:
+                    if key in s:
+                        debt.append(f"  已知债务 {s}  —— {entries[key]}")
+                        hit = True
+                        break
+            if hit:
+                break
+        if not hit:
+            fresh.append(s)
+    return debt, fresh
+
+
 def _report(rows, problems):
     """一次打印全部问题，多失败一起报，不停在第一个。"""
     print(f"{'包':<8}{'文件':<18}{'行数':>6}  {'尺寸':<5}契约  直接依赖")
     for r in sorted(rows):
         print(f"{r[0]:<8}{r[1]:<18}{r[2]:>6}  {r[3]:<5}{r[4]}     {r[5]}")
     print()
-    for s in problems or ["全部通过"]:
+    debt, fresh = _split_debt(problems)
+    for s in fresh or ["  无新增问题"]:
         print(s)
-    print(f"\n合计 {len(rows)} 个小模块，{len(problems)} 个问题")
+    if debt:
+        print(f"\n已知债务 {len(debt)} 项（有归属，应逐项清零）:")
+        for s in debt:
+            print(s)
+    print(f"\n合计 {len(rows)} 个小模块，"
+          f"新增 {len(fresh)} 个问题，已知债务 {len(debt)} 项")
 
 
 def main():
@@ -357,11 +440,21 @@ def main():
         counts[pkg] = counts.get(pkg, 0) + 1
         rows.append(row)
         problems += out
-    problems += (_check_pkg_counts(counts) + _check_importable()
+    # 入度: 有多少个其他包依赖它（判断原子层 vs 孤包）
+    rdep = {}
+    for _f, deps in graph.items():
+        src = node_of(_f).split(".")[0]
+        for d in deps:
+            tgt = d.split(".")[0]
+            if tgt != src:
+                rdep.setdefault(tgt, set()).add(src)
+    rdep = {k: len(v) for k, v in rdep.items()}
+    problems += (_check_pkg_counts(counts, rdep) + _check_layer_exhaustive(counts)
+                 + _check_importable()
                  + _check_provenance()
                  + _check_judge_power() + _check_cross_consistency())
     _report(rows, problems)
-    return 1 if problems else 0
+    return 1 if _split_debt(problems)[0] or problems else 0
 
 
 if __name__ == "__main__":

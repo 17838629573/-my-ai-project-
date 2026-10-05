@@ -38,6 +38,9 @@ CRIT = {
     "penetration_m":    (0.01, "<", "SIGGRAPH Asia2025 Penetration Estimation(GJK+EPA); Box2D linear slop=0.01"),
     # SMPTE 引述：loop/切换点 jitter 应 <0.1px
     "jitter_px":        (0.1, "<", "SMPTE 视频质量评估：Jitter Score <0.1px（高分辨率显示）"),
+    # 骨段-球穿模：球心到骨段的最短距离 < 半径即穿模，同一 0.01m slop
+    "seg_penetration_m": (0.01, "<",
+        "骨段(胶囊)与球最短距离 < 半径即穿模；slop 同 Box2D linear slop=0.01"),
     # 帧间位移不得大于本帧应有位移的若干倍——抓时间跳变
     "frame_jump_ratio": (3.0, "<", "帧间位移/段内中位位移，比值过大即时间跳变"),
     # 长程漂移：WorldCycle（港科大&腾讯视频）RCS = 重复/级联执行时相位对齐帧漂移，
