@@ -292,6 +292,49 @@ def _check_provenance():
     return out
 
 
+def _check_judge_power():
+    """R13 判据效力：给判据注入已知坏输入，仍判 PASS 说明判据是瞎的。
+
+    出处: Mutation Testing (PIT / mutmut)。行覆盖率 100% 也可能一条有效断言
+    都没有——注入 mutant 后测试仍全绿即为 SURVIVED，那正是测试盲区。
+    本项目事故：F35 复用 case_A1、B10 支撑脚反解导致判据恒 0，
+    两者都能被"注入坏值仍 PASS"直接抓到。
+    """
+    import subprocess
+    p = os.path.join(ROOT, "tools", "mutate.py")
+    if not os.path.exists(p):
+        return []
+    try:
+        r = subprocess.run([sys.executable, p], capture_output=True,
+                           text=True, timeout=300)
+    except Exception:                                  # noqa: BLE001
+        return []
+    out = []
+    for line in (r.stdout or "").splitlines():
+        if line.strip().startswith("[存活]"):
+            out.append("[R13 判据无牙齿] " + line.strip()[5:].strip())
+    return out
+
+
+def _check_cross_consistency():
+    """R14 三表一致性：能力注册表 / 用例执行表 / 桥接器 互为闭包。
+
+    出处: cross-reference integrity。单一视图自洽不等于系统自洽。
+    本项目事故：climb 写完却被门禁报 STUB；EXEC 里两个 ID 指向同一函数。
+    """
+    import subprocess
+    p = os.path.join(ROOT, "tools", "consistency.py")
+    if not os.path.exists(p):
+        return []
+    try:
+        r = subprocess.run([sys.executable, p], capture_output=True,
+                           text=True, timeout=300)
+    except Exception:                                  # noqa: BLE001
+        return []
+    return [l.strip() for l in (r.stdout or "").splitlines()
+            if l.strip().startswith("[R14")]
+
+
 def _report(rows, problems):
     """一次打印全部问题，多失败一起报，不停在第一个。"""
     print(f"{'包':<8}{'文件':<18}{'行数':>6}  {'尺寸':<5}契约  直接依赖")
@@ -315,7 +358,8 @@ def main():
         rows.append(row)
         problems += out
     problems += (_check_pkg_counts(counts) + _check_importable()
-                 + _check_provenance())
+                 + _check_provenance()
+                 + _check_judge_power() + _check_cross_consistency())
     _report(rows, problems)
     return 1 if problems else 0
 

@@ -28,3 +28,23 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 __all__ = ["camera", "run", "stage", "beat", "wind"]
+
+
+# ---- 能力表归一（capbridge）----
+# 不这样做会怎样：CAP 名义是「姿态函数」，实际混了物理仿真/增量/求解器/群体函数，
+# 时间线拿到非姿态返回值当关节字典遍历，要么崩要么把标量混进骨架。
+def init_capabilities(verbose=False):
+    from . import beat as _b, capbridge as _cb
+    import importlib
+    for m in ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
+              "carry", "throw", "catch", "kick", "climb", "pass_ball"):
+        try:
+            importlib.import_module(".character." + m, __name__)
+        except Exception:
+            pass
+    for m in ("crowd", "rigid", "rigid2d"):
+        try:
+            importlib.import_module("." + m, __name__)
+        except Exception:
+            pass
+    return _cb.normalize(_b.CAP, _b.CAP_SRC, _b.CAP_GROUP, verbose=verbose)

@@ -40,7 +40,7 @@
 ```
 活跃文件  49 个 / 10,264 行   ← 真正参与运行
 孤立文件  47 个               ← 其中根目录 36 个 py（8,029 行）为旧链路遗留
-能力表    17 项
+能力表    注册 30（可直接驱动时间线 10）
 测试      PASS 21 / FAIL 0 / STUB 14 / ERROR 0（共 35 项）
 仓库体积  7.4 MB（已剔除全部视频产物）
 ```
@@ -94,13 +94,26 @@ _proc/                     大模块  __init__.py 只登记契约
 
 ---
 
-## 七、已实现能力（17 项）
+## 七、已实现能力（注册 30，按可驱动性分四类）
 
-```
-walk  run  brake  jump  turn  crouch  wave  gaze_shift
-finger_tap  page_flip  kick  throw  catch  reach_grab
-carry_prop  prop_release  box_release  carry_box
-```
+**重要：注册 ≠ 能被时间线调用。** 经 `tools/capaudit.py` 实测，30 个注册能力里
+只有 10 个能直接驱动骨架。以下按真实类别标注，不虚报。
+
+| 类别 | 数量 | 含义 | 成员 |
+|---|---|---|---|
+| **POSE** | 10 | 姿态函数 `(u,params)->{关节}`，可直接串时间线 | walk run jump kick throw catch crouch reach_grab climb carry_box |
+| **ADDITIVE** | 4 | 增量 `{"J":delta}`，须叠加到基础姿态，**不可**当绝对姿态混合 | wave gaze_shift finger_tap page_flip |
+| **PHYS** | 5 | 物理仿真，返回轨迹/标量，与角色动画不同层 | bounce rigid_body ramp stack pendulum |
+| **AUX** | 11 | 求解器/群体函数/道具轨迹/状态名，不是姿态 | turn brake ball high5 contact crowd_collide multi_actor carry_prop prop_release box_release pass_ball |
+
+分流由 `motion/capbridge.py` 完成（`init_capabilities()`）：工厂解包、签名适配、
+含 `J` 的复合结构取关节、标量求解器强制归 AUX。
+依据：ADAPT 的 blend node 分层、UE Layered Blend per Bone 的 additive/override 之分、
+Box2D Lite 的物理层与动画层分离。
+
+**注意**：`turn`（转身）与 `wave`（挥手）都不在 POSE 里——
+`turn` 是角度求解器（出片走 `turn_torso`+`gait` 组合路径），`wave` 是增量。
+`cafe.py` 能出 12 秒片是因为它绕过 `beat.Timeline` 手写 `pose_at`。
 
 每项都带出处（写在 `@capability(name, source, group=...)` 的 `source` 参数里），
 出处已登记的能力复用时不重搜；新能力或 STUB 转实现时必须先搜。
