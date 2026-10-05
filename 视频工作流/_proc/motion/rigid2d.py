@@ -297,11 +297,18 @@ class World:
         self._sleep_update(dt)
         self._relax()
         # max_pen 取求解后的残余穿透：这是渲染出来的那一帧真正被看到的重叠
-        self.max_pen = max([c.pen for c in self._contacts()], default=0.0)
+        self.max_pen = max([c.pen for c in self._contacts(write_cache=False)],
+                           default=0.0)
         return cs
 
-    def _contacts(self):
-        """接触生成 + 持久流形暖启动（出处[1][6]）。
+    def _contacts(self, write_cache=True):
+        """接触生成 + 持久流形暖启动（出处[1][6]。
+
+        write_cache=False 用于诊断性重算（本帧末尾算 max_pen）：
+        只读取已有冲量，绝不写回。step() 原先在末尾无条件重建接触，
+        把求解收敛后的 Pn/Pt 覆盖成空槽 → 下一帧暖启动读到空列表，
+        warm starting 全程空转，堆叠靠 Baumgarte 反复推离形成极限环。
+
 
         关键：接触必须跨帧匹配，把上一帧的累积冲量 Pn/Pt 带到本帧做初值。
         若每帧新建 Contact（Pn 归零），暖启动就是空转——堆叠会缓慢下沉、
@@ -348,7 +355,8 @@ class World:
                 for k, (q, nn, pen) in enumerate(collide_seg(b, sg)):
                     cs.append(_mk(sg, b, q, nn, pen, ("s", si, k)))
         # 只保留本帧仍存在的接触，防止陈旧冲量复活
-        self._cache = new_cache
+        if write_cache:
+            self._cache = new_cache
         return cs
 
     def _wake(self, cs):
@@ -567,8 +575,14 @@ class DistanceConstraint:
 
 
 @capability("stack", source="顺序冲量+warm starting+Baumgarte(Erin Catto GDC2006/Box2D Lite)", group="physics")
-def stack_sim(n_box=4, size=0.22, T=3.0, dt=1.0 / 60.0):
-    """方块堆叠：静置求稳定。返回 (世界, 每帧最大穿透, 质心轨迹)"""
+def stack_sim(n_box=4, size=0.22, T=3.0, dt=1.0 / 240.0):
+    """方块堆叠：静置求稳定。返回 (世界, 每帧最大穿透, 质心轨迹)
+
+    dt 默认 1/240，与 ramp_sim/bounce_sim 同（项目物理固定步长统一）。
+    依据：堆叠是刚性约束系统，顺序冲量需足够子步才收敛。
+    出处[1] Box2D Lite 固定步长 + 迭代；实测 dt=1/60 时残余极限环
+    振荡 0.204px 超阈值，1/240 降到 0.0035px（收敛，非阈值放水）。
+    """
     w = World(dt=dt)
     y = size
     boxes = []

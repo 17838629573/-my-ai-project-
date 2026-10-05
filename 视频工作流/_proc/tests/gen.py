@@ -92,9 +92,13 @@ def render_case(name, pose_fn, n, out_prefix, yaw=90.0, Zc=5.0,
         Jp = R.draw_actor(cv, cam, J, Xc=Xc, Zc=Zc, yaw=yaw,
                           body_h=BODY_H, template="humanoid",
                           hand_lod=hand_lod, palette=palette)
+        # 剪影判据只针对人物：extra 画的球/道具是附加元素，
+        # 若先画再取掩膜，飞出人体的球会被算进人物剪影，
+        # 在头顶与球之间留出空白行 → silhouette_gap_px 虚高(B10 曾报 23px)。
+        # GT 掩膜同样只含人物胶囊，故也必须在 extra 之前取。
+        m = _render_mask(bg_arr, np.asarray(cv.img).astype(np.int16))
         if extra is not None:
             extra(t, cv, cam)
-        m = _render_mask(bg_arr, np.asarray(cv.img).astype(np.int16))
         joints, caps, _ = L.build_body("humanoid", hand_lod, BODY_H)
         from _proc.shape import hand as _H
         J2 = _H.attach(dict(J), hand_lod)
