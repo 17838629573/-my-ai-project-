@@ -48,15 +48,22 @@ T_THROW = TH.T_TOTAL     # 1.60 投掷动作时长
 T_CATCH = CT.T_TOTAL     # 1.20 接球动作时长
 F_REL = TH.F_REL         # 0.50 投掷释放点（归一化）
 T_MOVE = CT.T_MOVE       # 0.62 伸手到拦截点所需时间
+# 飞行时间由球速决定（因果：先定球速，再算飞行时间），而非由伸手时间反推
+V_PASS = 5.3             # 胸前传球球速 m/s（Shimizu et al. 轮椅篮球实测
+                         #   有经验组 5.3+-0.5 m/s）
 
-# 飞行时间取 T_MOVE：球出手瞬间接球者开始伸手，球到手到（tau 耦合，
-# Peper 1994）；同时满足 Belousov 2016 预测策略所需的最小任务时长。
-T_FLY = T_MOVE
+# 飞行时间 = 水平位移 / 球速：距离变，飞行时间自动变，球速恒定 5.3 m/s
+_XA0 = XC_A + TH.hand_center(F_REL)[0]
+_XB0 = XC_B + CT.intercept_point()[0]
+T_FLY = abs(_XB0 - _XA0) / V_PASS
+# 接球者须在球到达前完成伸手（预判启动），而非球出手才开始
+assert T_MOVE <= T_FLY, "伸手慢于球到，来不及接"
 T_BUF = 0.30             # 触球后缓冲（篮球教学：顺势屈肘后引）
 
 T_REL_A = F_REL * T_THROW              # 0.80  A 出手
-T_B_CATCH0 = T_REL_A                   # 0.80  B 开始伸手
-T_ARRIVE1 = T_REL_A + T_FLY            # 1.42  球到 B
+T_ARRIVE1 = T_REL_A + T_FLY            # 球到 B
+# B 提前 T_MOVE 启动，使「手到位」与「球到达」同一时刻（对齐因果）
+T_B_CATCH0 = T_ARRIVE1 - T_MOVE
 T_B_CATCH1 = T_B_CATCH0 + T_CATCH      # 2.00  B 接球动作结束
 T_B_THROW0 = T_B_CATCH1 + T_BUF        # 2.30  B 开始投回
 T_REL_B = T_B_THROW0 + F_REL * T_THROW  # 3.10 B 出手

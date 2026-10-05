@@ -48,9 +48,50 @@ TURN_CROUCH = 0.012       # 转身中屈膝量（重心微降）
 TURN_TORSO_LAG = 0.22     # 躯干转向滞后于骨盆的比例
 TURN_HEAD_LAG = 0.40      # 头部转向滞后比例（头最后跟上）
 
+# --- 转身时间曲线：不对称（旧实现 smoothstep 完全对称，已废）------------
+# 旧 turn_yaw 用 u²(3-2u)：前 50% 时间恰好转 50% 角度，即"转到侧面"和
+# "从侧面转到后面"耗时相等。这与两条已知事实冲突：
+#  1) Disney《The Illusion of Life》(Thomas & Johnston, 1981)：主动作前有
+#     Anticipation（反向预备 2-3 帧 @30fps ≈ 66-100ms），末尾有 Overshoot
+#     （超出目标 10-15%，3-5 帧内 settle）；并注明缓慢/小幅动作不需要 antic。
+#  2) 505 变向测试（IJERPH 18(11):5519, 2021）：180° 转向中减速阶段的平均
+#     速度变化率比加速阶段高 70%-75%，且发生在更短时间内 ——
+#     即"启动要克服惯性（慢）、末端要精确对准（收得急）"，峰值角速度偏前。
+# 结果：转到侧面（50% 角度）只花约 43% 时间，后 50% 角度花约 57%，不相等。
+TURN_ANTIC = 0.12         # 反向预备占总时长比例（Disney: 2-3帧@30fps≈66-100ms）
+TURN_SETTLE = 0.20        # 过冲回弹占总时长比例（Disney: 3-5帧稳定）
+TURN_ANTIC_DEG = 8.0      # 反向预备角度（°，90°及以上转身的满值）
+TURN_OVERSHOOT = 0.12     # 过冲超出目标的比例（业界 0.10~0.15）
+TURN_PEAK_AT = 0.45       # 主转段内走完 50% 角度所用时间比例（<0.5 = 峰值偏前）
+
 
 def _clamp01(u):
     return 0.0 if u < 0.0 else (1.0 if u > 1.0 else float(u))
+
+
+def _hermite(t, r0, m0, r1, m1):
+    """三次 Hermite 插值，t∈[0,1]，m0/m1 为端点切率。"""
+    t2 = t * t
+    t3 = t2 * t
+    return ((2.0 * t3 - 3.0 * t2 + 1.0) * r0 + (t3 - 2.0 * t2 + t) * m0
+            + (-2.0 * t3 + 3.0 * t2) * r1 + (t3 - t2) * m1)
+
+
+def turn_profile(s):
+    """主转段内角度比例 r(s)：s∈[0,1] → r∈[0,1]，非对称。
+
+    分两段 Hermite，在 s=TURN_PEAK_AT 处 r=0.5 且切率连续（C1）：
+      段 A [0,P]    起点切率 0（启动慢）→ 末切率 M_A；
+      段 B [P,1]    初切率 M_B = M_A·(1-P)/P（保证 ds 尺度下连续）→ 末切率 0（收得急）。
+    因 M_B > M_A，峰值角速度落在 s=P 附近，即 PEAK_AT<0.5 → 前半程更快。
+    """
+    s = _clamp01(s)
+    P = TURN_PEAK_AT
+    M_A = 0.9
+    if s <= P:
+        return _hermite(s / P, 0.0, 0.0, 0.5, M_A)
+    M_B = M_A * (1.0 - P) / P
+    return _hermite((s - P) / (1.0 - P), 0.5, M_B, 1.0, 0.0)
 
 
 def turn_speed(delta_deg):
@@ -70,10 +111,41 @@ def turn_duration(delta_deg):
 
 
 def turn_yaw(yaw0, delta_deg, u):
-    """进度 u∈[0,1] → 当前 yaw。smoothstep 缓动，首尾角速度为 0。"""
+    """进度 u∈[0,1] → 当前 yaw。三段不对称时间曲线。
+
+    [0, ANTIC)          反向预备：yaw 先朝反方向微转（Disney anticipation）
+    [ANTIC, 1-SETTLE)   主转：从 -antic 转到 delta·(1+overshoot)，内部非对称
+    [1-SETTLE, 1]       回弹：从过冲量 settle 回 delta
+
+    小幅转身（<90°）按比例削弱 antic 与 overshoot —— Disney 明确指出
+    缓慢或小幅动作不需要预备姿势。
+    端点严格：turn_yaw(·,·,0)=yaw0，turn_yaw(·,·,1)=yaw0+delta。
+    """
     u = _clamp01(u)
-    k = u * u * (3.0 - 2.0 * u)
-    return float(yaw0) + float(delta_deg) * k
+    a = float(delta_deg)
+    mag = abs(a)
+    if mag < 1e-9:
+        return float(yaw0)
+    sgn = 1.0 if a > 0.0 else -1.0
+    shrink = min(1.0, mag / 90.0)          # 小角度削弱
+    antic = TURN_ANTIC_DEG * shrink
+    over = TURN_OVERSHOOT * shrink
+    y0 = float(yaw0)
+
+    if u < TURN_ANTIC:                      # 反向预备
+        k = _hermite(u / TURN_ANTIC, 0.0, 0.0, 1.0, 0.0)
+        return y0 - sgn * antic * k
+
+    if u >= 1.0 - TURN_SETTLE:              # 过冲回弹
+        v = (u - (1.0 - TURN_SETTLE)) / TURN_SETTLE
+        k = _hermite(v, 1.0, 0.0, 0.0, 0.0)   # k: 1 → 0
+        return y0 + sgn * mag * (1.0 + over * k)
+
+    s = (u - TURN_ANTIC) / (1.0 - TURN_ANTIC - TURN_SETTLE)
+    r = turn_profile(s)
+    start = -antic
+    end = mag * (1.0 + over)
+    return y0 + sgn * (start + (end - start) * r)
 
 
 def turn_stance(u):
@@ -143,12 +215,29 @@ def self_check():
     # yaw 连续且端点准确
     assert abs(turn_yaw(180.0, 180.0, 0.0) - 180.0) < 1e-9, "起点应等于 yaw0"
     assert abs(turn_yaw(180.0, 180.0, 1.0) - 360.0) < 1e-9, "终点应等于 yaw0+delta"
-    ys = [turn_yaw(180.0, 180.0, i / 200.0) for i in range(201)]
-    dif = [abs(ys[i + 1] - ys[i]) for i in range(200)]
-    assert max(dif) < 180.0 * 3.0 / 200.0, f"单帧 yaw 跳变过大 {max(dif):.3f}"
-    # 首尾角速度为 0（smoothstep）
-    assert abs(ys[1] - ys[0]) < abs(ys[100] - ys[99]), "起步应慢于中段"
-    assert abs(ys[-1] - ys[-2]) < abs(ys[100] - ys[99]), "收尾应慢于中段"
+    N = 400
+    ys = [turn_yaw(0.0, 180.0, i / float(N)) for i in range(N + 1)]
+    dif = [abs(ys[i + 1] - ys[i]) for i in range(N)]
+    # 总行程含反向预备与过冲，阈值按总行程放宽（不是放水：仍要求 3 倍均速以内）
+    total = 180.0 * (1.0 + TURN_OVERSHOOT) + TURN_ANTIC_DEG
+    assert max(dif) < total * 3.0 / float(N), f"单帧 yaw 跳变过大 {max(dif):.3f}"
+    # 反向预备（Disney anticipation）：起步先朝反方向微转
+    assert ys[1] < ys[0], f"起步应有反向预备，实际 {ys[1]:.4f} vs {ys[0]}"
+    # 过冲 + settle（Disney overshoot）：中途超目标再回落，末值精确
+    assert max(ys) > 180.0 + 1e-6, f"应有过冲，峰值 {max(ys):.3f}"
+    assert abs(ys[-1] - 180.0) < 1e-9, "settle 后必须精确回到目标"
+    # 不对称：到"侧面"(50%角度)的时间 ≠ 0.5，且偏前
+    # （505 变向 IJERPH 18(11):5519：启动慢、末端收得急）
+    u50 = None
+    for i in range(N + 1):
+        if ys[i] >= 90.0:
+            u50 = i / float(N)
+            break
+    assert u50 is not None, "未到达侧面"
+    assert abs(u50 - 0.5) > 0.03, f"前后半程应不等时，实测 u50={u50:.3f}"
+    assert u50 < 0.5, f"峰值应偏前（前半程更快），实测 u50={u50:.3f}"
+    # 收尾慢于中段（settle）
+    assert abs(ys[-1] - ys[-2]) < abs(ys[N // 2] - ys[N // 2 - 1]), "收尾应慢于中段"
     # 换步：支撑侧不抬起
     for i in range(101):
         ll, lr, _c = turn_stance(i / 100.0)

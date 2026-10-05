@@ -87,7 +87,7 @@ def main():
     print(f"基点 commit {base_sha[:8]}")
 
     # 1) blobs —— 分批续传(规避单批大量请求触发沙箱限制)
-    CACHE = Path("/tmp/gh_blobs.json")
+    CACHE = Path("/data/workspace/.gh_blobs.json")
     blobs = json.loads(CACHE.read_text()) if CACHE.exists() else {}
     todo = [(r, p) for r, p in files if r not in blobs]
     print(f"待传 {len(todo)} / 共 {len(files)}（已缓存 {len(blobs)}）")
