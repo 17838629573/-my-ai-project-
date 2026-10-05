@@ -119,80 +119,118 @@ def _adapt(fn):
     return wrapped
 
 
+def _shunt(cap, name, fn, grp, out):
+    """物理组 / 强制 AUX 直接分流，不进姿态表。返回 True 表示已处理。
+
+    依据：Box2D Lite 物理层与动画层分离——物理仿真不参与姿态混合。
+    """
+    if grp == "physics":
+        PHYS[name] = fn
+        AUX.pop(name, None)
+        out["PHYS"].append(name)
+        del cap[name]
+        return True
+    if name in AUX_FORCE:
+        AUX[name] = fn
+        out["AUX"].append((name, "非姿态（求解器/道具轨迹/群体）"))
+        del cap[name]
+        return True
+    return False
+
+
+def _is_J_all(d):
+    """关节字典判据：非空且所有值都是长度 2/3 的序列（不抽样，全量判）。"""
+    return bool(d) and all(hasattr(v, "__len__") and not isinstance(v, (str, bytes))
+                           and len(v) in (2, 3) for v in d.values())
+
+
+def _unwrap(fn, name):
+    """零参数工厂解包成真实实现；失败登记 UNWRAP_ERRS，不静默吞掉。"""
+    real = fn
+    try:
+        if len(inspect.signature(fn).parameters) == 0:
+            r = fn()
+            if callable(r):
+                real = r
+    except Exception as _e:
+        UNWRAP_ERRS.append((name, repr(_e)))
+    return real
+
+
+def _probe(real):
+    """按签名构造 (u, params) 适配器并试调一次，返回 (probe, 返回值)。"""
+    try:
+        nm = [p.name for p in inspect.signature(real).parameters.values()]
+    except Exception:
+        nm = []
+    strict = (len(nm) >= 2 and nm[0] == "u")
+    probe = real if strict else _adapt(real)
+    j = probe(0.5, {"dur": 1.0, "body_h": 1.70, "speed": 0.67, "mileage": 0.0})
+    return probe, j
+
+
+def _place(cap, name, fn, probe, j, out):
+    """按试调返回值归位：绝对姿态 / 增量叠加 / 非姿态。
+
+    依据：UE Layered Blend per Bone——additive 增量被当成绝对姿态混合会扭曲骨架。
+    """
+    if isinstance(j, dict) and isinstance(j.get("J"), dict) and _is_J_all(j["J"]):
+        if name in ABS_WITH_J:
+            cap[name] = _take_J(probe)
+            POSE[name] = cap[name]
+            out["POSE"].append(name)
+            return
+        ADDITIVE[name] = probe
+        out["ADDITIVE"].append(name)
+        del cap[name]
+        return
+    if isinstance(j, dict) and _is_J_all(j):
+        POSE[name] = probe
+        cap[name] = probe
+        out["POSE"].append(name)
+        return
+    AUX[name] = fn
+    out["AUX"].append((name, "返回 %s 不是关节字典" % type(j).__name__))
+    del cap[name]
+
+
+def _report(out):
+    """分类结果打印（唯一出口，口径改动只改这里）。"""
+    print("能力分类（capbridge.normalize）")
+    print("  POSE     %2d  可直接驱动时间线: %s" % (len(out["POSE"]), ", ".join(out["POSE"])))
+    print("  ADDITIVE %2d  增量叠加: %s" % (len(out["ADDITIVE"]), ", ".join(out["ADDITIVE"])))
+    print("  PHYS     %2d  物理仿真: %s" % (len(out["PHYS"]), ", ".join(out["PHYS"])))
+    print("  AUX      %2d  非姿态（求解器/群体/状态名）" % len(out["AUX"]))
+    for n, w in out["AUX"]:
+        print("      %-14s %s" % (n, w))
+
+
 def normalize(cap, cap_src, cap_group, verbose=True):
-    """就地归一化：按类别分流，能适配成 POSE 的适配后归入 POSE。返回分类字典。"""
+    """就地归一化：四类分流，能适配成 POSE 的适配后归入 POSE。返回分类字典。"""
     out = {"POSE": [], "ADDITIVE": [], "PHYS": [], "AUX": []}
     for name in sorted(list(cap)):
         fn = cap[name]
-        grp = cap_group.get(name, "other")
-        # 1) 物理组：直接分流，不进姿态表
-        if grp == "physics":
-            PHYS[name] = fn
-            AUX.pop(name, None)
-            out["PHYS"].append(name)
-            del cap[name]
+        if _shunt(cap, name, fn, cap_group.get(name, "other"), out):
             continue
-        if name in AUX_FORCE:
-            AUX[name] = fn; out["AUX"].append((name, "非姿态（求解器/道具轨迹/群体）"))
-            del cap[name]; continue
         kind, why = _kind(fn)
         if kind == "AUX":
             AUX[name] = fn
             out["AUX"].append((name, why))
             del cap[name]
             continue
-        # 2) 姿态类：零参数工厂先解包成真实实现，再统一适配
-        real = fn
+        real = _unwrap(fn, name)
         try:
-            if len(inspect.signature(fn).parameters) == 0:
-                r = fn()
-                if callable(r):
-                    real = r
-        except Exception as _e:
-            # 不静默：工厂解包失败会让能力被错误归类，登记后可见
-            UNWRAP_ERRS.append((k, repr(_e)))
-        try:
-            nps = len(inspect.signature(real).parameters)
-        except Exception:
-            nps = 0
-        nm = [p.name for p in inspect.signature(real).parameters.values()] if nps else []
-        strict = (nps >= 2 and nm[0] == "u")
-        probe = real if strict else _adapt(real)
-        try:
-            j = probe(0.5, {"dur": 1.0, "body_h": 1.70, "speed": 0.67, "mileage": 0.0})
+            probe, j = _probe(real)
         except Exception as e:
             AUX[name] = fn
             out["AUX"].append((name, "试调失败 %s" % type(e).__name__))
             del cap[name]
             continue
-        if isinstance(j, dict) and "J" in j and isinstance(j["J"], dict) and _is_J(j["J"]):
-            if name in ABS_WITH_J:          # 复合结构里 J 是绝对姿态
-                cap[name] = _take_J(probe); POSE[name] = cap[name]
-                out["POSE"].append(name); continue
-            ADDITIVE[name] = probe
-            out["ADDITIVE"].append(name)
-            del cap[name]
-            continue
-        if isinstance(j, dict) and j and all(
-                hasattr(v, "__len__") and not isinstance(v, (str, bytes))
-                and len(v) in (2, 3) for v in j.values()):
-            POSE[name] = probe
-            cap[name] = probe
-            out["POSE"].append(name)
-            continue
-        AUX[name] = fn
-        out["AUX"].append((name, "返回 %s 不是关节字典" % type(j).__name__))
-        del cap[name]
-
+        _place(cap, name, fn, probe, j, out)
     if verbose:
-        print("能力分类（capbridge.normalize）")
-        print("  POSE     %2d  可直接驱动时间线: %s" % (len(out["POSE"]), ", ".join(out["POSE"])))
-        print("  ADDITIVE %2d  增量叠加: %s" % (len(out["ADDITIVE"]), ", ".join(out["ADDITIVE"])))
-        print("  PHYS     %2d  物理仿真: %s" % (len(out["PHYS"]), ", ".join(out["PHYS"])))
-        print("  AUX      %2d  非姿态（求解器/群体/状态名）" % len(out["AUX"]))
-        for n, w in out["AUX"]:
-            print("      %-14s %s" % (n, w))
+        _report(out)
     return out
+
 
 
 def add_pose(base, delta, weight=1.0):

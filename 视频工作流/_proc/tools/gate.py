@@ -39,6 +39,8 @@ TOOLS = [
     ("豁免复现", "tools/repro.py", False),
     ("能力审计", "tools/capaudit.py", False),
     ("代码异味", "tools/smell.py", False),
+    ("圈复杂度", "tools/complexity.py", False),
+    ("分层契约", "tools/layers.py", False),
 ]
 
 _DEF_RE = re.compile(r"^\s*def\s+([A-Za-z_]\w*)", re.M)

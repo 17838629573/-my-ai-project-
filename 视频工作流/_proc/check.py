@@ -26,6 +26,8 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
+import tools.debtledger as _dl
 
 # 允许的依赖方向：只有上层可依赖下层（R1）
 ALLOW = {
@@ -421,55 +423,16 @@ def _check_cross_consistency():
             if l.strip().startswith("[R14")]
 
 
-def _split_debt(problems, today=None):
-    """R19 债务体检：把已知债务与新增问题分开。
-
-    实现下沉: 台账本体（DEBT 登记册 + 匹配/到期/陈旧判定）在
-    tools/debtledger.py，此处只做一次子进程调用并反序列化。
-    出处与三条依据见该模块 docstring，此处不重复。
-
-    失败兜底: 子进程异常时全部问题按"新增真问题"返回——
-    按判定铁律一，无法复现豁免即按真问题处理，绝不静默豁免。
-
-    返回 (debt, fresh, overdue, stale)
-    """
-    p = os.path.join(ROOT, "tools", "debtledger.py")
-    payload = json.dumps({"problems": list(problems),
-                          "today": (today or _dt.date.today()).isoformat()})
-    try:
-        r = subprocess.run([sys.executable, p], input=payload,
-                           capture_output=True, text=True, timeout=120)
-        d = json.loads(r.stdout or "{}")
-    except Exception:                                  # noqa: BLE001
-        return [], list(problems), [], []
-    return (d.get("debt", []), d.get("fresh", []),
-            d.get("overdue", []), d.get("stale", []))
-
-
 def _report(rows, problems):
     """一次打印全部问题，多失败一起报，不停在第一个。"""
     print(f"{'包':<8}{'文件':<18}{'行数':>6}  {'尺寸':<5}契约  直接依赖")
     for r in sorted(rows):
         print(f"{r[0]:<8}{r[1]:<18}{r[2]:>6}  {r[3]:<5}{r[4]}     {r[5]}")
     print()
-    debt, fresh, overdue, stale = _split_debt(problems)
-    for s in fresh or ["  无新增问题"]:
-        print(s)
-    if debt:
-        print(f"\n已知债务 {len(debt)} 项（有归属，应逐项清零）:")
-        for s in debt:
-            print(s)
-    if overdue:
-        print(f"\n债务到期未清零 {len(overdue)} 项（已升级为真问题）:")
-        for s in overdue:
-            print("  " + s)
-    if stale:
-        print(f"\n陈旧/非法豁免 {len(stale)} 项（应删除登记）:")
-        for s in stale:
-            print("  " + s)
+    c = _dl.report_debt(problems)
     print(f"\n合计 {len(rows)} 个小模块，"
-          f"新增 {len(fresh)} 个问题，已知债务 {len(debt)} 项，"
-          f"到期 {len(overdue)} 项，陈旧 {len(stale)} 项")
+          f"新增 {c['fresh']} 个问题，已知债务 {c['debt']} 项，"
+          f"到期 {c['overdue']} 项，陈旧 {c['stale']} 项")
 
 
 def main():
@@ -499,7 +462,7 @@ def main():
                  + _check_judge_power() + _check_cross_consistency())
     _report(rows, problems)
     # 未到期的已知债务不算失败（否则债务等于没豁免）；到期/陈旧/新增问题才算
-    _d, fresh, overdue, stale = _split_debt(problems)
+    _d, fresh, overdue, stale = _dl.split_debt(problems)
     return 1 if fresh or overdue or stale else 0
 
 

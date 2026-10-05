@@ -75,20 +75,23 @@ def _scan_try_and_defaults(tree, rel):
     return out
 
 
-def _scan_undefined_names(tree, rel):
-    """S04 复制粘贴/漏改：引用了全文件范围内从未被绑定的名字。
+def _has_star_import(tree):
+    """文件是否含 `from x import *`。
 
-    【已修误报】判定必须放在"文件级绑定集合"上，不能按函数作用域：
-    闭包与函数中段定义的常量会被误判成未绑定，曾一次报 417 条。
-    另：有 `from x import *` 时静态不可判定，本规则整体跳过（不是降级）。
+    有星号导入时静态不可判定（绑定名取决于被导入模块），调用方应整体跳过本规则。
     """
-    out = []
-    star = False
     for n in ast.walk(tree):
         if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names):
-            star = True
-    if star:
-        return out
+            return True
+    return False
+
+
+def _collect_bound(tree):
+    """收集「文件级绑定集合」：Name.Store / 形参 / 定义名 / except as / import 别名。
+
+    【拆自动机】原 _scan_undefined_names CCN=28，绝大部分复杂度来自这里的 elif 分支堆叠。
+    抽出后主函数只剩调度，绑定收集逻辑仍集中一处便于维护。
+    """
     bound = set()
     for n in ast.walk(tree):
         if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
@@ -106,6 +109,20 @@ def _scan_undefined_names(tree, rel):
             bound.add((n.asname or n.name).split(".")[0])
         elif isinstance(n, (ast.Global, ast.Nonlocal)):
             bound.update(n.names)
+    return bound
+
+
+def _scan_undefined_names(tree, rel):
+    """S04 复制粘贴/漏改：引用了全文件范围内从未被绑定的名字。
+
+    【已修误报】判定必须放在"文件级绑定集合"上，不能按函数作用域：
+    闭包与函数中段定义的常量会被误判成未绑定，曾一次报 417 条。
+    另：有 `from x import *` 时静态不可判定，本规则整体跳过（不是降级）。
+    """
+    if _has_star_import(tree):
+        return []
+    bound = _collect_bound(tree)
+    out = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):
             continue

@@ -48,25 +48,16 @@ TAG_COL = {
 
 
 # ---------------------------------------------------------------- 背景
-def build_bg(seed=7):
-    """雨夜街道底板：天空渐变、建筑剪影、霓虹招牌、湿沥青与倒影。
-
-    只建一次；逐帧只做倒影与霓虹脉动（其余图层叠在上面）。
-    """
-    rng = np.random.default_rng(seed)
-    img = Image.new("RGB", (W, HH))
-    dr = ImageDraw.Draw(img)
-    vh = int(0.60 * HH)
-
-    # ---- 天空：上深下亮，底部被霓虹染紫 ----
+def _bg_sky(dr, vh):
+    """天空：上深下亮，底部被霓虹染紫。不消耗 rng。"""
     for y in range(vh):
         a = y / float(vh)
-        r = int(12 + 52 * a)
-        g = int(9 + 14 * a)
-        b = int(34 + 86 * a)
-        dr.line([(0, y), (W, y)], fill=(r, g, b))
+        dr.line([(0, y), (W, y)],
+                fill=(int(12 + 52 * a), int(9 + 14 * a), int(34 + 86 * a)))
 
-    # ---- 远景建筑剪影 + 窗灯 ----
+
+def _bg_buildings(dr, vh, rng):
+    """远景建筑剪影 + 窗灯。消耗 rng：bw/bh/窗灯/间距。"""
     x = 0
     while x < W:
         bw = int(rng.integers(90, 230))
@@ -81,7 +72,12 @@ def build_bg(seed=7):
                     dr.rectangle([wx, wy, wx + 9, wy + 12], fill=c)
         x += bw + int(rng.integers(6, 26))
 
-    # ---- 霓虹招牌（竖向灯条 + 横向灯箱）----
+
+def _bg_signs(dr, rng):
+    """霓虹招牌（竖向灯条 + 横向灯箱）。返回竖向灯条列表供倒影层复用。
+
+    横向灯箱贴墙、地面照不到，故不做倒影。
+    """
     signs = []
     for _ in range(9):
         sx = int(rng.integers(40, W - 140))
@@ -99,8 +95,11 @@ def build_bg(seed=7):
         c = NEON[int(rng.integers(0, len(NEON)))]
         dr.rectangle([sx, sy, sx + sw, sy + sh], fill=c)
         signs.append((sx, sy, sw, sh, c))
+    return signs
 
-    # ---- 湿沥青地面 ----
+
+def _bg_ground(dr, vh, rng):
+    """湿沥青地面 + 横向反光湿痕。消耗 rng：40 条湿痕。"""
     for y in range(vh, HH):
         d = (y - vh) / float(HH - vh)
         dr.line([(0, y), (W, y)],
@@ -112,20 +111,41 @@ def build_bg(seed=7):
         xx = int(rng.integers(0, W - ww))
         dr.line([(xx, yy), (xx + ww, yy)], fill=(46, 52, 74), width=1)
 
-    # ---- 霓虹在湿地面的倒影：垂直翻转 + 压暗 + 模糊 ----
+
+def _bg_reflect(img, vh, signs):
+    """霓虹在湿地面倒影：以地平线翻转 → 高斯模糊 → 0.34 叠加。不消耗 rng。"""
     refl = Image.new("RGB", (W, HH - vh), (0, 0, 0))
     rd = ImageDraw.Draw(refl)
     for (sx, sy, sw, sh, c) in signs:
-        # 以地平线为轴翻转
-        ry = (vh - sy) - sh
+        ry = (vh - sy) - sh          # 以地平线为轴翻转
         if -sh < ry < HH - vh:
             rd.rectangle([sx, ry, sx + sw, ry + sh], fill=c)
     refl = refl.filter(ImageFilter.GaussianBlur(9))
     ra = np.asarray(refl).astype(np.float32) * 0.34
     base = np.asarray(img).astype(np.float32)
     base[vh:, :, :] = np.clip(base[vh:, :, :] + ra, 0, 255)
-    img = Image.fromarray(base.astype(np.uint8))
-    return img
+    return Image.fromarray(base.astype(np.uint8))
+
+
+def build_bg(seed=7):
+    """雨夜街道底板：天空渐变、建筑剪影、霓虹招牌、湿沥青与倒影。
+
+    只建一次；逐帧只做倒影与霓虹脉动（其余图层叠在上面）。
+
+    拆分约束：五个子步骤按 rng 消耗顺序固定串联——
+    天空(不耗 rng) → 建筑 → 招牌 → 地面湿痕 → 倒影(不耗 rng)。
+    调换顺序即改变出图，故该顺序是契约的一部分，改动须重跑出图 md5 比对。
+    """
+    rng = np.random.default_rng(seed)
+    img = Image.new("RGB", (W, HH))
+    dr = ImageDraw.Draw(img)
+    vh = int(0.60 * HH)
+    _bg_sky(dr, vh)
+    _bg_buildings(dr, vh, rng)
+    signs = _bg_signs(dr, rng)
+    _bg_ground(dr, vh, rng)
+    return _bg_reflect(img, vh, signs)
+
 
 
 # ---------------------------------------------------------------- 雨

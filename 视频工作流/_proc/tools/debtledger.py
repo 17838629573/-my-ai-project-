@@ -140,6 +140,33 @@ def split_debt(problems, today=None):
     return debt, fresh, overdue, stale
 
 
+def report_debt(problems, today=None):
+    """打印债务四桶并返回计数 —— check.py::_report 债务段的唯一出口。
+
+    为什么下沉: 该段原置于 check.py 内时使其达 508 行，超过 R2 上限 500；
+    下沉后 check.py 只需一行委托，且台账可被单独测试。
+    """
+    debt, fresh, overdue, stale = split_debt(problems, today)
+    for s in fresh:
+        print(s)
+    if not fresh:
+        print("  无新增问题")
+    if debt:
+        print(f"\n已知债务 {len(debt)} 项（有归属，应逐项清零）:")
+        for s in debt:
+            print("  " + s)
+    if overdue:
+        print(f"\n债务到期未清零 {len(overdue)} 项（已升级为真问题）:")
+        for s in overdue:
+            print("  " + s)
+    if stale:
+        print(f"\n陈旧/非法豁免 {len(stale)} 项（应删除登记）:")
+        for s in stale:
+            print("  " + s)
+    return {"fresh": len(fresh), "debt": len(debt),
+            "overdue": len(overdue), "stale": len(stale)}
+
+
 def self_check():
     """自检: 三条路径必须都成立——未到期豁免/到期升级/陈旧报出。
 
