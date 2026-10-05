@@ -18,6 +18,7 @@
 用法: python check.py
 """
 import ast
+import datetime as _dt
 import json
 import os
 import re
@@ -55,11 +56,18 @@ DEBT = {
         # (源包, 目标包) -> 归属/原因
     },
     "R3": {
-        # 函数名 -> 归属/原因
-        "self_check": "断言数据表化改造前，自检函数天然偏长；统一执行器落地后应清零",
+        # 函数名 -> 归属 dict
+        # 注: tests/run_all.py 的 R2 债务已清零（拆到 153 行），登记随之删除，
+        #     否则会被 R19 判为陈旧豁免。
+        "self_check": {
+            "why": "断言数据表化改造前，自检函数天然偏长",
+            "clear": "统一执行器（断言数据表 + 统一执行器）落地后清零",
+            "owner": "motion 包 / 各模块 self_check",
+            "due": "2026-12-05",
+        },
     },
     "R2": {
-        "tests/run_all.py": "待拆出 A 组用例到 cases_base.py",
+        # 已清零，保留空位以便 R19 校验结构完整性
     },
 }
 
@@ -393,28 +401,75 @@ def _check_cross_consistency():
             if l.strip().startswith("[R14")]
 
 
-def _split_debt(problems):
-    """把已知债务与新增问题分开。
+def _debt_entry(rule, key):
+    """兼容两种写法：旧的字符串（无到期日）与新的归属 dict。"""
+    e = DEBT.get(rule, {}).get(key)
+    if e is None:
+        return None
+    if isinstance(e, str):
+        return {"why": e, "clear": "", "owner": "", "due": ""}
+    return e
 
-    出处: import-linter ignore_imports — "treat each entry as debt with an owner"。
-    债务不静默消失：单独列出、带归属、参与基线只减不增的比对。
+
+def _split_debt(problems, today=None):
+    """把已知债务与新增问题分开，并做 R19 债务体检。
+
+    出处（两条，不是凭记忆凑）:
+    - import-linter ignore_imports — "treat each entry as debt with an owner"。
+      债务不静默消失：单独列出、带归属、参与基线比对。
+    - ESLint linterOptions.reportUnusedDisableDirectives — 抑制指令"因代码已改好
+      而不再需要"时应被报出，否则旧的 disable 会掩盖未来真实的错误。
+      对应本函数: 登记了但本次扫描未触发的债务 = 陈旧豁免，必须报出并删除登记。
+    - todo-or-die / todo_or_else（davidpdrsn 的 Rust 版、searls 的 Ruby 版、
+      jwelch92 的 Python flake8 插件 DIE001）: TODO 带到期日，过期即失败。
+      对应本函数: 超过 due 的债务自动升级为真问题，杜绝"永久豁免"。
+
+    返回 (debt, fresh, overdue, stale)
     """
-    debt, fresh = [], []
+    today = today or _dt.date.today()
+    debt, fresh, overdue, stale = [], [], [], []
+    matched = set()
     for s in problems:
-        hit = False
+        hit = None
         for rule, entries in DEBT.items():
             tag = f"[{rule} "
             if s.startswith(tag):
                 for key in entries:
                     if key in s:
-                        debt.append(f"  已知债务 {s}  —— {entries[key]}")
-                        hit = True
+                        hit = (rule, key)
                         break
             if hit:
                 break
         if not hit:
             fresh.append(s)
-    return debt, fresh
+            continue
+        rule, key = hit
+        matched.add((rule, key))
+        e = _debt_entry(rule, key)
+        due = (e.get("due") or "").strip()
+        if due:
+            try:
+                d = _dt.date.fromisoformat(due)
+            except ValueError:
+                fresh.append(s)
+                stale.append(f"[R19 债务日期非法] {rule}/{key} due={due!r}"
+                             " —— 无法判定到期，按真问题处理")
+                continue
+            if today > d:
+                overdue.append(s)
+                fresh.append(s)      # 到期升级成真问题，不再豁免
+                continue
+        debt.append(
+            f"  已知债务 {s}\n"
+            f"      归属 {e.get('owner') or '-'} ｜ 到期 {due or '未设(将永久豁免)'}"
+            f" ｜ 清零条件: {e.get('clear') or '-'}")
+    for rule, entries in DEBT.items():
+        for key in entries:
+            if (rule, key) not in matched:
+                stale.append(
+                    f"[R19 陈旧债务] {rule}/{key} —— 本次扫描未触发，"
+                    "豁免已无必要，应删除登记（否则为永久豁免）")
+    return debt, fresh, overdue, stale
 
 
 def _report(rows, problems):
@@ -423,15 +478,24 @@ def _report(rows, problems):
     for r in sorted(rows):
         print(f"{r[0]:<8}{r[1]:<18}{r[2]:>6}  {r[3]:<5}{r[4]}     {r[5]}")
     print()
-    debt, fresh = _split_debt(problems)
+    debt, fresh, overdue, stale = _split_debt(problems)
     for s in fresh or ["  无新增问题"]:
         print(s)
     if debt:
         print(f"\n已知债务 {len(debt)} 项（有归属，应逐项清零）:")
         for s in debt:
             print(s)
+    if overdue:
+        print(f"\n债务到期未清零 {len(overdue)} 项（已升级为真问题）:")
+        for s in overdue:
+            print("  " + s)
+    if stale:
+        print(f"\n陈旧/非法豁免 {len(stale)} 项（应删除登记）:")
+        for s in stale:
+            print("  " + s)
     print(f"\n合计 {len(rows)} 个小模块，"
-          f"新增 {len(fresh)} 个问题，已知债务 {len(debt)} 项")
+          f"新增 {len(fresh)} 个问题，已知债务 {len(debt)} 项，"
+          f"到期 {len(overdue)} 项，陈旧 {len(stale)} 项")
 
 
 def main():
@@ -460,7 +524,9 @@ def main():
                  + _check_provenance()
                  + _check_judge_power() + _check_cross_consistency())
     _report(rows, problems)
-    return 1 if _split_debt(problems)[0] or problems else 0
+    # 未到期的已知债务不算失败（否则债务等于没豁免）；到期/陈旧/新增问题才算
+    _d, fresh, overdue, stale = _split_debt(problems)
+    return 1 if fresh or overdue or stale else 0
 
 
 if __name__ == "__main__":

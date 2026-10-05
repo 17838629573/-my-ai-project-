@@ -2,6 +2,22 @@
 #   完整契约见 tests/__init__.py
 #   依据: 单一职责（驱动与用例分离）；R2 模块行数 50~500。
 # -*- coding: utf-8 -*-
+import os as _os
+import sys as _sys
+
+# 路径自举：锚定 __file__ 的绝对路径，保证从任意 cwd 直接跑都能导入。
+# 由来（真实回归）：拆成包后用相对导入 from .common import *，直接跑时
+# __package__ 为空 → ImportError，README 第四条命令失效。
+# 判据：README 承诺"干净环境无需设 PYTHONPATH"，故必须能直接跑。
+if __package__ in (None, ""):
+    _HERE = _os.path.dirname(_os.path.abspath(__file__))   # .../视频工作流/_proc/tests
+    _PROC = _os.path.dirname(_HERE)                        # .../视频工作流/_proc
+    _ROOT = _os.path.dirname(_PROC)                        # .../视频工作流
+    for _p in (_ROOT, _PROC):
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+    __package__ = "tests"
+
 from .common import *          # noqa: F401,F403
 from .cases_base import *      # noqa: F401,F403  A1..A7 / B8 / B9
 from .cases_base import _grip_hand      # 下划线名须显式导出
