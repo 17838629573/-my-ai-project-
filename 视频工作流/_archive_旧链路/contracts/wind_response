@@ -1,0 +1,6 @@
+[S] wind_response @ATOM/aero d1 in=5
+api: family_freq(family,L,u), family_amp(family,L,u), wind_response(family,L,u,regime), clamp_render_freq(f_hz,fps), tree_layers(H_m,u,crown_ratio), self_check()
+const: FAMILY_CALIB[6], U_SAT=18.0, RENDER_FPS=60.0, MIN_FRAMES_PER_CYCLE=4.0, F_MAX_RENDER
+up: _common
+down: build_phase_gen,build_phase_setup,build_phase_time,cloth_wire,wind_sway
+rule: T91 T92 T93 T94

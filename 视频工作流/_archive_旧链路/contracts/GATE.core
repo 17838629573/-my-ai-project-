@@ -1,0 +1,6 @@
+[M] GATE/core  S=2: enforce,enforce_cmds
+api: enforce.parse_deps() | enforce.module_exists(name) | enforce.find_cycle(deps) | enforce.local_imports(py_path) | enforce_cmds.cmd_status() | enforce_cmds.cmd_validate() | enforce_cmds.cmd_check_contract(name) | enforce_cmds.cmd_check_deps()
+rule: T1 T12
+uses: ATOM/img,SHOT/sheet
+usedby: OPS/demo
+inner=2  selftest=2/2

@@ -1,0 +1,4 @@
+[S] systems_view @SHOT/sys d3 in=1
+api: update_composite(ctx,i,t), update_subtitle(ctx,i,t)
+up: framerate,physics,physics_rules,skeleton_runtime,subtitle
+down: systems

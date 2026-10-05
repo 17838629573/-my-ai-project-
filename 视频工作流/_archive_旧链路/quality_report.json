@@ -1,0 +1,151 @@
+{
+  "video": "/data/workspace/视频工作流_dump/视频工作流/玄奘西行_城墙成片.mp4",
+  "layers": {
+    "L0_assets": {
+      "geometry": {
+        "horizon_ok": true,
+        "horizon_verdict": "三方一致",
+        "perspective_ok": true,
+        "perspective_verdict": "公式最大误差 0.00%"
+      },
+      "ok": true,
+      "failed": []
+    },
+    "L1_pixel": {
+      "freeze": {
+        "events": 3,
+        "frames": 6
+      },
+      "flicker": {
+        "pulse_count": 0,
+        "fail": false,
+        "threshold": {
+          "delta": 0.1,
+          "window_s": 1.0,
+          "fail_n": 3
+        }
+      },
+      "flow": {
+        "summary": {
+          "flow_consistency_std": 0.46171204266803606,
+          "motion_smoothness_std": 0.264741141652619,
+          "mean_occlusion_ratio": 0.0034918190505707943,
+          "max_occlusion_ratio": 0.06735532407407407,
+          "frames_analyzed": 240
+        }
+      },
+      "ssim": {
+        "min": 0.7301,
+        "mean": 0.9368,
+        "jump_frames": [
+          1,
+          2,
+          12,
+          24,
+          36,
+          60,
+          72,
+          96,
+          120,
+          192,
+          205,
+          228
+        ]
+      }
+    },
+    "L2_physics": {
+      "checked": {
+        "gait_lock": {
+          "ok": true,
+          "speed_given": 0.95,
+          "speed_from_gait": 0.95,
+          "abs_err": 0.0,
+          "rel_err": 0.0
+        },
+        "gait_footlock": {
+          "frames": 240,
+          "locked_frames": 159,
+          "state_flips": 5,
+          "ok": false,
+          "note": "支撑期应锁定、摆动期应释放；flips 过多说明判据未联动"
+        },
+        "foot_sliding": {
+          "per_foot": {
+            "left": {
+              "stance_frames": 142,
+              "max_drift": 0.0
+            },
+            "right": {
+              "stance_frames": 145,
+              "max_drift": 0.0
+            }
+          },
+          "max_drift": 0.0,
+          "ok": true,
+          "note": "支撑期脚世界坐标应恒定；漂移>0 即 foot sliding"
+        },
+        "balance": {
+          "error": "TypeError: string indices must be integers"
+        },
+        "slip": {
+          "error": "AttributeError: 'dict' object has no attribute 'slip_cone'"
+        }
+      },
+      "verdict": "FAIL",
+      "source": "phys_probe（求解器真值，非视频反推）",
+      "failed": [
+        "gait_footlock"
+      ],
+      "pass_rate": 0.8
+    },
+    "L3_scene": {
+      "n_checked": 240,
+      "horizon_y": 482.0,
+      "sky_exclude_boxes": 3,
+      "sky_violation": {
+        "frames_above_horizon": 17,
+        "min_foot_y": 948.0,
+        "max_foot_y": 311.0,
+        "horizon_y": 482.0,
+        "ok": false,
+        "superseded_by": "sky_reported"
+      },
+      "layer": {
+        "dL": -73.363,
+        "dBhatta": 0.563,
+        "dContrast": 0.378,
+        "dSat": 47.639,
+        "dSharp": -0.14,
+        "dRB": -28.689,
+        "failed": [
+          "dL",
+          "dBhatta",
+          "dSat",
+          "dRB"
+        ],
+        "ok": false,
+        "thresholds": {
+          "dL": 15.0,
+          "dBhatta": 0.35,
+          "dContrast": 0.4,
+          "dSat": 25.0,
+          "dSharp": 0.6,
+          "dRB": 12.0
+        }
+      },
+      "verdict": "FAIL",
+      "reason": "天空约束 OK（来源=渲染上报）；图层 ['dL', 'dBhatta', 'dSat', 'dRB'] 不匹配（dL=-73.4 dSat=47.6 dRB=-28.7）",
+      "sky_reported": {
+        "frames_above_horizon": 0,
+        "min_y": 878.8,
+        "max_y": 779.9,
+        "ok": true
+      }
+    }
+  },
+  "failed_layers": [
+    "L1_ssim",
+    "L3_scene"
+  ],
+  "verdict": "FAIL"
+}

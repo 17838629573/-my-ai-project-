@@ -1,0 +1,6 @@
+[S] film_assemble @SHOT/assemble d4 in=2
+api: sub_shift(img,dx,dy), scroll_bg(bg,dx,W,H), prep_native(key,W,H), prep_scaled(key,char_h), nose_offset_x(st,W,char_w,look), resolve_shot(st,H,W,look), plan_resolve(shots,W,H) …
+const: BASE, BG_DIR, NOSEROOM[8], META[9]
+up: character_sheet,chroma,film_assemble_render,photo_rules,subtitle
+down: film_assemble_render,render_v4
+rule: T26 T28

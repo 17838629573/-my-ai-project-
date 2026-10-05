@@ -1,0 +1,6 @@
+[TOP] render_v4_main @SHOT/_top d6 in=1
+api: self_check(), main()
+up: character_sheet,render_v4
+down: render_v4
+rule: T19:不复用旧产物
+warn: 已知 bug（待修，勿绕过） ｜ → 运行即 NameError。与 _chk_base 漏 import solve（56 项自检从未真跑通）同型。

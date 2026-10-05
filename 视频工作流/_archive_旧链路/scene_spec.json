@@ -1,0 +1,286 @@
+{
+  "名称": "秋日黄昏·城墙僧行",
+  "style": "秋日黄昏 暖金侧逆光 电影写实 浅景深",
+  "wind": {
+    "U": 5.5,
+    "level": 4,
+    "dir_deg": 0
+  },
+  "scale": {
+    "canvas": {
+      "w_px": 540,
+      "h_px": 960
+    },
+    "reference": {
+      "name": "僧人",
+      "real_m": 1.7,
+      "px": 200
+    },
+    "baseline_y": 880,
+    "objects": [
+      {
+        "name": "僧人",
+        "real_m": 1.7,
+        "on_ground": true,
+        "aspect": 0.28
+      },
+      {
+        "name": "柳树",
+        "real_m": 6.0,
+        "on_ground": true,
+        "aspect": 0.8,
+        "anchor_xy": [
+          70,
+          880
+        ],
+        "冠幅m": 4.5
+      },
+      {
+        "name": "幡杆",
+        "real_m": 2.5,
+        "on_ground": true,
+        "aspect": 0.06
+      },
+      {
+        "name": "幡身",
+        "real_m": 0.9,
+        "on_ground": false,
+        "aspect": 3.0,
+        "anchor_y_px": 880
+      },
+      {
+        "name": "垂带",
+        "real_m": 0.25,
+        "on_ground": false,
+        "aspect": 0.35,
+        "anchor_y_px": 880
+      }
+    ]
+  },
+  "物体": [
+    {
+      "物体": "城头旗",
+      "spec": {
+        "family": "chain",
+        "source": "wind",
+        "geometry": {
+          "L": 0.9,
+          "W": 0.3,
+          "t": 0.0002
+        },
+        "material": {
+          "sigma": 0.062,
+          "E": 5000000000.0,
+          "nu": 0.34
+        },
+        "criteria": {
+          "regime_by": "mu",
+          "mu_stable": 0.02,
+          "mu_chaotic": 0.3,
+          "mirror_residual_max": 0.05,
+          "amp_by_level": {
+            "0": 0.0,
+            "1": 0.03,
+            "2": 0.15,
+            "3": 1.2,
+            "4": 1.6,
+            "5": 1.6,
+            "6": 1.6,
+            "7": 1.6,
+            "8": 1.6
+          }
+        },
+        "drive": {
+          "amp_m": 0.144
+        },
+        "links": [
+          {
+            "L": 0.9,
+            "m": 0.02,
+            "EI": 0.00113,
+            "zeta": 0.1
+          },
+          {
+            "L": 0.25,
+            "m": 0.02,
+            "EI": 0.00113,
+            "zeta": 0.1
+          }
+        ]
+      }
+    },
+    {
+      "物体": "僧人",
+      "spec": {
+        "family": "chain",
+        "source": "gait",
+        "drive": {
+          "f_hz": 1.0,
+          "amp_m": 0.02
+        },
+        "links": [
+          {
+            "L": 0.35,
+            "m": 0.02,
+            "EI": 0.00113,
+            "zeta": 0.1
+          }
+        ]
+      }
+    }
+  ],
+  "path": {
+    "pts": [
+      [
+        60.0,
+        878.8
+      ],
+      [
+        232.0,
+        714.0
+      ],
+      [
+        303.0,
+        645.9
+      ],
+      [
+        341.8,
+        608.7
+      ],
+      [
+        366.2,
+        585.3
+      ],
+      [
+        383.1,
+        569.2
+      ],
+      [
+        395.3,
+        557.4
+      ]
+    ],
+    "half_width_m": 1.2,
+    "perspective": {
+      "horizon_y": 482.0,
+      "camera_height_m": 3.366,
+      "focal_px": 1344.0,
+      "near_y": 878.0,
+      "far_y": 600.0,
+      "near_px_per_m": 117.647,
+      "far_px_per_m": 35.056,
+      "vanishing_pt": [
+        474.0,
+        482.0
+      ]
+    }
+  },
+  "gait": {
+    "speed_mps": 0.95,
+    "stride_m": 1.5
+  },
+  "walkers_s": [
+    40.0,
+    160.0,
+    280.0
+  ],
+  "flag_anchor_xy": [
+    430,
+    880
+  ],
+  "solver": {
+    "T_flag": 1.673
+  },
+  "families": {
+    "僧人": "biped",
+    "柳树": "vegetation",
+    "幡杆": "rigid",
+    "幡身": "cloth",
+    "垂带": "cloth",
+    "城头旗": "cloth",
+    "旗杆": "rigid"
+  },
+  "biped_rig": {
+    "身高m": 1.7,
+    "anthro": {
+      "trunk": 0.3,
+      "head": 0.13,
+      "neck": 0.04,
+      "upperarm": 0.186,
+      "lowerarm": 0.146,
+      "hand": 0.108,
+      "thigh": 0.245,
+      "shank": 0.245,
+      "shoulder_half": 0.115,
+      "hip_half": 0.09
+    },
+    "face": {
+      "eye_back": 0.22,
+      "ear_back": 0.35,
+      "face_side": 0.16
+    },
+    "poses": {
+      "stand": {
+        "a_trunk": 90.0,
+        "a_head": 90.0,
+        "a_shoulder_l": 0.0,
+        "a_shoulder_r": 0.0,
+        "a_upperarm_l": -90.0,
+        "a_upperarm_r": -90.0,
+        "a_forearm_l": -90.0,
+        "a_forearm_r": -90.0,
+        "a_hip_l": 0.0,
+        "a_hip_r": 0.0,
+        "a_thigh_l": -90.0,
+        "a_thigh_r": -90.0,
+        "a_shank_l": -90.0,
+        "a_shank_r": -90.0
+      },
+      "walk": {
+        "a_trunk": 85.0,
+        "a_head": 90.0,
+        "a_shoulder_l": 0.0,
+        "a_shoulder_r": 0.0,
+        "a_upperarm_l": -90.0,
+        "a_upperarm_r": -90.0,
+        "a_forearm_l": -90.0,
+        "a_forearm_r": -90.0,
+        "a_hip_l": 0.0,
+        "a_hip_r": 0.0,
+        "a_thigh_l": -90.0,
+        "a_thigh_r": -90.0,
+        "a_shank_l": -90.0,
+        "a_shank_r": -90.0
+      },
+      "run": {
+        "a_trunk": 75.0,
+        "a_head": 90.0,
+        "a_shoulder_l": 0.0,
+        "a_shoulder_r": 0.0,
+        "a_upperarm_l": -90.0,
+        "a_upperarm_r": -90.0,
+        "a_forearm_l": -90.0,
+        "a_forearm_r": -90.0,
+        "a_hip_l": 0.0,
+        "a_hip_r": 0.0,
+        "a_thigh_l": -90.0,
+        "a_thigh_r": -90.0,
+        "a_shank_l": -90.0,
+        "a_shank_r": -90.0
+      }
+    },
+    "gait": {
+      "speed_m_s": 0.95,
+      "stance_ratio": 0.6,
+      "swing_height_m": 0.12,
+      "stride_m": 1.5,
+      "bob_m": 0.042,
+      "arm_swing_deg": 24.6,
+      "elbow_bend_deg": 25.0,
+      "torso_lean_deg": 5.0,
+      "pelvis_rot_deg": 5.0,
+      "knee_land_bend_deg": 15.0
+    }
+  },
+  "注": "anthro/face 为成年男性通用人体测量比例（AI搜证填入）；cycle由代码反算，禁手填"
+}

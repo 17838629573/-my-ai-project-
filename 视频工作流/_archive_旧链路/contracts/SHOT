@@ -1,0 +1,5 @@
+[L] SHOT  M=7  S=17
+desc: 镜头装配：叙事意图 → 解机位 → 骨架动画 → 装配 → 渲染
+M: SHOT/skel, SHOT/sheet, SHOT/sys, SHOT/loop, SHOT/sub, SHOT/gen, SHOT/assemble  +TOP:render_v4,render_v4_main
+uses: ATOM/aero,ATOM/frame,ATOM/img,ATOM/path,ATOM/phys,ATOM/rule
+rule: T28 T26 T31 T84 T72 T68 T76 T83 T85 T69

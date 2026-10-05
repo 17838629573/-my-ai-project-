@@ -1,0 +1,5 @@
+[M] SHOT/assemble  S=2: film_assemble,film_assemble_render
+api: film_assemble.sub_shift(img,dx,dy) | film_assemble.scroll_bg(bg,dx,W,H) | film_assemble.prep_native(key,W,H) | film_assemble.prep_scaled(key,char_h) | film_assemble_render.self_check() | film_assemble_render.render_one(p,out_mp4,W,H,fps,bg_speed,bob,step_frames,cam_pull,cam_push,crf)
+rule: T28 T26 T13
+uses: ATOM/frame,ATOM/img,ATOM/rule,SHOT/sheet,SHOT/sub
+inner=2  selftest=2/2

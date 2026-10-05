@@ -1,0 +1,38 @@
+{
+  "param_decl": {
+    "state": "PASS",
+    "sec": 0.4,
+    "tail": [
+      "PASS 证伪A require无静默兜底 无兜底路径",
+      "PASS 证伪B 脏数据被抓 ",
+      "---- 10/10 PASS ----"
+    ]
+  },
+  "path": {
+    "state": "PASS",
+    "sec": 0.0,
+    "tail": [
+      "PASS 弯曲路径自投影offset≈0  offset=0.0000",
+      "",
+      "共 13 项，失败 0 -> PASS"
+    ]
+  },
+  "placement": {
+    "state": "PASS",
+    "sec": 0.0,
+    "tail": [
+      "PASS 越界trim报错",
+      "",
+      "共 13 项，失败 0 -> PASS"
+    ]
+  },
+  "pose": {
+    "state": "PASS",
+    "sec": 0.1,
+    "tail": [
+      "PASS 12 位移=速度×时间  Δx=0.750 m",
+      "",
+      "12/12 项 -> PASS"
+    ]
+  }
+}

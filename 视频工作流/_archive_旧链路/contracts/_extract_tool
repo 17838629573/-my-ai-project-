@@ -1,0 +1,2 @@
+[S] _extract_tool @OPS/tool d0 in=0
+api: collect_top_defs(src), collect_refs(func_src,top_names), get_import_block(src), extract(src_module,new_module,func_names,dry)

@@ -1,0 +1,47 @@
+# INDEX  分层导航（L→M→S）
+
+读法：改代码只读 [L]大模块 → 定位 [M]中模块 → 查 [S]小模块。其余不进上下文。
+
+## ATOM  (9M / 32S)
+  ATOM/math        <- _common,_common_selfcheck,_px
+  ATOM/phys        <- physics,physics_rules
+  ATOM/frame       <- framerate,_loopspec
+  ATOM/aero        <- cloth_aero,cloth_wire,wind_response,wind_sway
+  ATOM/water       <- water,rain_layer
+  ATOM/cam         <- _camera,_camera_selfcheck,_perspective,_surface
+  ATOM/path        <- path,path_align,groundline,scale_map,placement,anchor
+  ATOM/img         <- chroma,chroma_selfcheck,composite,_layer_style,_matting
+  ATOM/rule        <- photo_rules,param_decl,actors,_family_map
+
+## SOLVE  (5M / 22S+TOP)
+  SOLVE/spec       <- solver_survey,driver,gen_chain
+  SOLVE/base       <- _solver_base,_solver_chain_aux,_solver_geom
+  SOLVE/chain      <- _solver_chain,_solver_probe
+  SOLVE/sheet      <- _solver_sheet,_solver_reuse,_solver_run
+  SOLVE/check      <- _chk_base,_chk_physics,_chk_chain,_chk_assemble,_chk_survey,_chk_motion,_chk_multi,_chk_
+  [TOP] solver
+
+## BUILD  (2M / 6S+TOP)
+  BUILD/util       <- build_util
+  BUILD/phase      <- build_phase_time,build_phase_setup,build_phase_asset,build_phase_gen,build_phase_render
+  [TOP] build_video
+
+## SHOT  (7M / 17S+TOP)
+  SHOT/skel        <- skeleton_runtime,skeleton_runtime_selfcheck,pose,pose_selfcheck,pose_prompt
+  SHOT/sheet       <- character_sheet
+  SHOT/sys         <- systems,systems_phys,systems_view,systems_selfcheck
+  SHOT/loop        <- loop_engine
+  SHOT/sub         <- subtitle
+  SHOT/gen         <- genqueue,prompt_tpl,shot_plan
+  SHOT/assemble    <- film_assemble,film_assemble_render
+  [TOP] render_v4,render_v4_main
+
+## GATE  (2M / 5S)
+  GATE/core        <- enforce,enforce_cmds
+  GATE/size        <- gate_module,gate_doc,gate_size
+
+## OPS  (3M / 21S)
+  OPS/audit        <- _audit_dead,_audit_dup,_import_sweep,_actor_audit
+  OPS/tool         <- _extract_tool,_extract2,_migrate_common,deps_sync,_split_sheet,_split_tool,_split_plan
+  OPS/demo         <- render_gate_banner,render_desert_banner,_build32,run_batch,run_gen_queue,environment,mot
+

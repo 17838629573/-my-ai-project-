@@ -1,0 +1,4 @@
+[S] _chk_assemble @SOLVE/check d7 in=1
+api: check(ctx)
+up: _chk_base
+down: solver_check

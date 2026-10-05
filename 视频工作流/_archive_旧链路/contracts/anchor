@@ -1,0 +1,6 @@
+[S] anchor @ATOM/path d1 in=3
+api: dimensionless(L,sigma,B,U,H), judge_regime(R2,family), strouhal_freq(U,L,a_over_l), cantilever_points(n,waves), pendulum2_points(n,waves), build_anchor(name,L,H,sigma,B,U,family,n,a_over_l), self_check()
+const: RHO_F=1.225, NU=1.5e-05, G=9.81, ST_TARGET=0.2, BETA1=1.8751, R2_STRAIGHT=0.00406, R2_DEFLECT=0.00172, FAMILIES[4]
+up: framerate
+down: _chk_base,_solver_chain,_solver_geom
+rule: T14:先用对模型族再取参数 T20:生图形态必须由物理点锚定 T29 T32 T45

@@ -1,0 +1,12 @@
+  01_gate  240帧  rc=0  145.8s  1616KB
+  02_hall  240帧  rc=0  124.3s  662KB
+  03_office  240帧  rc=0  124.6s  864KB
+  04_yamen  240帧  rc=0  74.5s  573KB
+  05_river  240帧  rc=0  66.5s  1127KB
+  06_desert  300帧  rc=0  67.6s  1326KB
+  07_oasis  270帧  rc=0  67.4s  651KB
+  08_yiwu  300帧  rc=0  73.0s  1523KB
+
+[S] 合并 8 段...
+  合并 rc=0  -> 大唐偷渡客_全片.mp4
+  8168KB  总耗时 837.9s

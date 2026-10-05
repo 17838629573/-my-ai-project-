@@ -1,0 +1,6 @@
+[M] SHOT/sub  S=1: subtitle
+api: subtitle.get_font(size) | subtitle.wrap(text,font,max_w,max_chars) | subtitle.draw_subtitle(bgr,text,alpha,font_size,margin_bottom,box_w,max_chars,stroke) | subtitle.subtitle_alpha(local_frame,total_frames,fade_frames)
+rule: T28 T26
+uses: ATOM/frame
+usedby: SHOT/assemble,SHOT/sys
+inner=0  selftest=1/1

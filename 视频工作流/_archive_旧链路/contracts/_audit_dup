@@ -1,0 +1,3 @@
+[S] _audit_dup @OPS/audit d0 in=0
+api: active(path)
+const: ROOT, SKIP, ATOMS[6]

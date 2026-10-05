@@ -1,0 +1,5 @@
+[L] SOLVE  M=5  S=22
+desc: 物理求解：AI填物性 → 代码算无量纲数/周期/帧数 → 答案包 → AI生图
+M: SOLVE/spec, SOLVE/base, SOLVE/chain, SOLVE/sheet, SOLVE/check  +TOP:solver
+uses: ATOM/frame,ATOM/path,ATOM/phys,ATOM/rule,SHOT/gen
+rule: T31 T39 T32 T47 T29 T48 T20 T54 T41 T33

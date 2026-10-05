@@ -1,0 +1,7 @@
+[S] systems @SHOT/sys d4 in=5
+api: init_skeleton(ctx), step_px(char_px), scroll_per_frame(char_px,fps), matched_playrate(actual_speed_px_s,char_px,clamp), com_vertical_amp(char_px), update_animation(ctx,i,t), self_check(verbose)
+const: REAL_HEIGHT_M=1.7, STRIDE_RATIO=0.45, STEP_LENGTH_M, CADENCE_SPM=120, STEPS_PER_SEC, WALK_PERIOD, PLAYRATE_CLAMP[2], WALK_POSE_TABLE[8] …
+up: framerate,physics,physics_rules,skeleton_runtime,systems_phys,systems_selfcheck,systems_view
+down: render_desert_banner,render_gate_banner,render_v4,systems_phys,systems_selfcheck
+rule: T28
+warn: 已知：render_v4_main.py 用 systems.REAL_HEIGHT_M 但未 import（NameError

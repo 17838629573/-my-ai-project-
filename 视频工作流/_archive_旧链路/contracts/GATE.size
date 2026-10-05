@@ -1,0 +1,3 @@
+[M] GATE/size  S=3: gate_module,gate_doc,gate_size
+api: gate_doc.sz(p) | gate_doc.self_check() | gate_size.dir_mb(d) | gate_size.self_check()
+inner=0  selftest=2/3

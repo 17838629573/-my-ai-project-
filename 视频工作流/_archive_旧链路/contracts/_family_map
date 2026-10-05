@@ -1,0 +1,5 @@
+[S] _family_map @ATOM/rule d0 in=1
+api: to_physics_dyn(fam,spec), is_five(fam), to_physics(fam), need_physics(fam), self_check()
+const: FIVE[5], PHYSICS[6], FAMILY_TO_PHYSICS[5]
+down: _solver_chain
+rule: T88

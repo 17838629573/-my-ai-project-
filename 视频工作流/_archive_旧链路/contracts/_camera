@@ -1,0 +1,5 @@
+[S] _camera @ATOM/cam d1 in=1
+api: focal_px(image_h,ratio), distance_for_tau(h_subject_m,tau,image_h,f_px), horizon_y(image_h,f_px,pitch_rad), pitch_for_framing(y_target_m,h_cam_m,dist_m,v_target_px,image_h,f_px), camera_height_for_angle(y_base_m,h_subject_m,angle), project_point(x_m,y_m,z_m,h_cam_m,z_cam_m,pitch_rad,image_w,image_h,f_px), solve(subject,must_include,shot_size,angle,image_w,image_h,v_target_ratio,f_ratio,dist_scale) …
+const: SHOT_SIZE[5], ANGLE[4], F_OVER_IMAGE_H=1.2
+up: _perspective
+down: _camera_selfcheck

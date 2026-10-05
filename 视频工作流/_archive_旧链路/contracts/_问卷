@@ -1,0 +1,3 @@
+[S] _问卷 @OPS/demo d10 in=0
+const: ACTORS[6], ANSWER[1]
+up: solver

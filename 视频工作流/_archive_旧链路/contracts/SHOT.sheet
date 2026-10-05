@@ -1,0 +1,5 @@
+[M] SHOT/sheet  S=1: character_sheet
+api: character_sheet.missing_assets() | character_sheet.load_native(path,H,W) | character_sheet.load_scaled(path,target_h) | character_sheet.resolve(shot_type,pose,frame)
+uses: ATOM/img,ATOM/rule
+usedby: GATE/core,OPS/audit,OPS/demo,SHOT/assemble
+inner=0  selftest=1/1

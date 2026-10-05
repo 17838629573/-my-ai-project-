@@ -1,0 +1,4 @@
+[S] skeleton_runtime @SHOT/skel d2 in=5
+api: mat_mul(A,B), mat_local(x,y,rot_deg,sx,sy), mat_apply(M,px,py), mat_inverse(M), apply_animation(sk,anim,time)
+up: skeleton_runtime_selfcheck
+down: skeleton_runtime_selfcheck,systems,systems_phys,systems_selfcheck,systems_view

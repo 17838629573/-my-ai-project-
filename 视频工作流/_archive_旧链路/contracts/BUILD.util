@@ -1,0 +1,6 @@
+[M] BUILD/util  S=1: build_util
+api: build_util.load_sheet(path,grid,take) | build_util.resize_h(frame,target_h) | build_util.sway_image(rgb,a,t,wind,world_xy,amp_px) | build_util.over(canvas,rgb,a,x,y)
+rule: T84 T91 T79 T31 T80 T13
+uses: ATOM/aero,ATOM/frame,ATOM/img,ATOM/math,ATOM/path,SHOT/gen,SHOT/skel
+usedby: BUILD/phase
+inner=0  selftest=0/1

@@ -1,0 +1,3 @@
+[S] gate_size @GATE/size d0 in=0
+api: dir_mb(d), self_check()
+const: LIMIT_MB[11], DUPLICATE_GROUPS[1]

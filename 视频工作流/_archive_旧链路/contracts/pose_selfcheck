@@ -1,0 +1,5 @@
+[S] pose_selfcheck @SHOT/skel d1 in=1
+api: self_check()
+up: pose
+down: pose
+rule: T68 T69 T70 T72

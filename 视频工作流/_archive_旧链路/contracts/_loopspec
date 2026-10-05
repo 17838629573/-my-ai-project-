@@ -1,0 +1,4 @@
+[S] _loopspec @ATOM/frame d0 in=0
+api: frames_for_cycle(cycle_s,fps), playrate_for(n_frames,cycle_s), phase_map(n,include_endpoint), loop_closure_error(seq,tol), rain_tile_sheets(n_layers,tiles_per_layer), self_check()
+const: MIN_FRAMES_PER_CYCLE=24, MAX_FRAMES_PER_CYCLE=32
+rule: T113 T114 T115 T116

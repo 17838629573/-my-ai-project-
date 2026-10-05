@@ -1,0 +1,7 @@
+[S] build_util @BUILD/util d4 in=5
+api: load_sheet(path,grid,take), resize_h(frame,target_h), sway_image(rgb,a,t,wind,world_xy,amp_px), over(canvas,rgb,a,x,y), place_at(kind,rgb,a,target_xy), apply_garment_wind(rgb,a,t_s,gr,px_per_m,wind_dir)
+const: KEYJOINTS[6]
+up: _common,chroma,cloth_wire,composite,framerate,genqueue,groundline,path,placement,pose,scale_map,shot_plan,wind_sway
+down: build_phase_asset,build_phase_gen,build_phase_render,build_phase_setup,build_video
+rule: T13:逻辑唯一 T31 T79 T80 T84 T91
+warn: 已修 bug（改前必看，勿回退） ｜ over 拆分时漏算画布 W/H → NameError（WORKLOG 2026-10-03 实录）

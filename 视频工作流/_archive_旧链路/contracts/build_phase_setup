@@ -1,0 +1,6 @@
+[S] build_phase_setup @BUILD/phase d5 in=1
+api: setup_baseline(bg,spec,W), setup_scale(spec,baseline_y,wind_dir), setup_path(spec,bg,W,H,px_per_m)
+const: W_DIR_DEFAULT=1.0
+up: _px,build_util,cloth_wire,groundline,path,path_align,scale_map,wind_response
+down: build_video
+rule: T84 T86 T96 T98 T102

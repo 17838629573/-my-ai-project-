@@ -1,0 +1,5 @@
+[M] ATOM/cam  S=4: _camera,_camera_selfcheck,_perspective,_surface
+api: _camera.focal_px(image_h,ratio) | _camera.distance_for_tau(h_subject_m,tau,image_h,f_px) | _camera.horizon_y(image_h,f_px,pitch_rad) | _camera.pitch_for_framing(y_target_m,h_cam_m,dist_m,v_target_px,image_h,f_px) | _camera_selfcheck.ck(cond,msg) | _camera_selfcheck.main() | _perspective.focal_px(image_h,ratio) | _perspective.horizon_from_vanishing(segs,image_h) | _perspective.camera_height_from_ref(y_world,v_t,v_b,v_h) | _perspective.scale_field(y,v_h,h_cam) …
+rule: T31 T100
+uses: ATOM/rule
+inner=3  selftest=3/4

@@ -1,0 +1,5 @@
+[S] systems_phys @SHOT/sys d5 in=1
+api: init_physics(ctx), update_physics(ctx,i,t), update_movables(ctx,i,t)
+up: framerate,physics,physics_rules,skeleton_runtime,systems
+down: systems
+rule: T14:先用对模型族再取参数 T23:真实尺寸由 AI 搜索传 T28 T46

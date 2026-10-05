@@ -1,0 +1,6 @@
+[S] solver_check @SOLVE/check d8 in=1
+api: self_check()
+const: DOMAINS[9]
+up: _chk_assemble,_chk_base,_chk_chain,_chk_motion,_chk_multi,_chk_pack,_chk_physics,_chk_reuse,_chk_sheet,_chk_survey
+down: solver
+rule: T26

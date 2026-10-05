@@ -1,0 +1,91 @@
+{
+  "title": "雨落进城市",
+  "shots": [
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/01.jpg",
+      "caption": "云层压下来的时候",
+      "label": "SHOT 01 · 广角推入",
+      "camera_move": "dolly_in",
+      "parallax": 0.85,
+      "saliency": 0.3,
+      "layers": [
+        "rain"
+      ],
+      "duration": null,
+      "tier": null
+    },
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/02.jpg",
+      "caption": "第一滴雨",
+      "label": "SHOT 02 · 窗玻璃微距",
+      "camera_move": "truck_r",
+      "parallax": 0.55,
+      "saliency": 0.95,
+      "layers": [
+        "rain"
+      ],
+      "duration": null,
+      "tier": null
+    },
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/03.jpg",
+      "caption": "街上的人都在赶着回家",
+      "label": "SHOT 03 · 街头跟拍",
+      "camera_move": "dolly_in",
+      "parallax": 0.6,
+      "saliency": 0.55,
+      "layers": [
+        "rain"
+      ],
+      "duration": null,
+      "tier": null
+    },
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/04.jpg",
+      "caption": "积水里装着另一座城市",
+      "label": "SHOT 04 · 水洼低机位",
+      "camera_move": "pedestal_u",
+      "parallax": 0.25,
+      "saliency": 0.7,
+      "layers": [
+        "ripple"
+      ],
+      "duration": null,
+      "tier": null
+    },
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/05.jpg",
+      "caption": "一滴水落完整个秋天",
+      "label": "SHOT 05 · 叶尖特写",
+      "camera_move": "zoom_in",
+      "parallax": 0.2,
+      "saliency": 0.9,
+      "layers": [
+        "none"
+      ],
+      "duration": null,
+      "tier": null
+    },
+    {
+      "image": "/data/workspace/rain_film/workflow/../shots/06.jpg",
+      "caption": "雨停了，光就回来了",
+      "label": "SHOT 06 · 雨后升镜",
+      "camera_move": "dolly_out",
+      "parallax": 0.8,
+      "saliency": 0.35,
+      "layers": [
+        "leak"
+      ],
+      "duration": null,
+      "tier": null
+    }
+  ],
+  "tier": "normal",
+  "shot_duration": 3.5,
+  "transition": 0.8,
+  "fps": 30,
+  "width": 360,
+  "height": 640,
+  "shots_per_chunk": 0,
+  "overlap_frames": 8
+}

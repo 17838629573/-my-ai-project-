@@ -1,0 +1,4 @@
+[S] _solver_reuse @SOLVE/sheet d0 in=3
+api: reuse_plan(series,criteria,anchor,axis), layer_plan(spec), additive_offset(base_curve,drive_curve,weight)
+down: _chk_base,_solver_run,solver
+rule: T18:可动件必须生成序列帧 T31 T32 T49 T51 T52 T53

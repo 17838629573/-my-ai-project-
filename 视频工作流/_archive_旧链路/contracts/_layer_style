@@ -1,0 +1,5 @@
+[S] _layer_style @ATOM/img d0 in=1
+api: contact_shadow(alpha,dx,dy,blur,strength), env_reflection(fg,alpha,bg_tint,opacity), multiply_shade(dst,shadow), global_grade(fg,bg), bg_tint_of(bg,alpha), over(dst,src,a)
+down: _build32
+rule: T13:逻辑唯一 T101
+warn: over 合成（与 build_util.over / build_video.over 三处同名，违反铁律13）

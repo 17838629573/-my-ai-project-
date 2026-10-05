@@ -1,0 +1,5 @@
+[S] _chk_survey @SOLVE/check d7 in=1
+api: check(ctx)
+up: _chk_base
+down: solver_check
+rule: T36

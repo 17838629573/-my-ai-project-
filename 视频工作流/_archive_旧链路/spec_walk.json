@@ -1,0 +1,51 @@
+{
+ "height_m": 1.7,
+ "anthro": {
+  "trunk": 0.3,
+  "head": 0.13,
+  "neck": 0.052,
+  "upperarm": 0.186,
+  "lowerarm": 0.146,
+  "hand": 0.108,
+  "thigh": 0.245,
+  "shank": 0.246,
+  "shoulder_half": 0.115,
+  "hip_half": 0.095
+ },
+ "poses": {
+  "stand": {
+   "a_trunk": 90.0,
+   "a_head": 90.0,
+   "a_shoulder_l": 270.0,
+   "a_shoulder_r": 270.0,
+   "a_upperarm_l": 270.0,
+   "a_upperarm_r": 270.0,
+   "a_forearm_l": 270.0,
+   "a_forearm_r": 270.0,
+   "a_hip_l": 180.0,
+   "a_hip_r": 0.0,
+   "a_thigh_l": 270.0,
+   "a_thigh_r": 270.0,
+   "a_shank_l": 270.0,
+   "a_shank_r": 270.0
+  }
+ },
+ "gait": {
+  "speed_m_s": 1.35,
+  "cycle_s": 1.0,
+  "stride_m": 1.35,
+  "stance_ratio": 0.6,
+  "swing_height_m": 0.1,
+  "bob_m": 0.04,
+  "arm_swing_deg": 25.0,
+  "elbow_bend_deg": 20.0,
+  "pelvis_rot_deg": 4.0,
+  "torso_lean_deg": 3.0
+ },
+ "face": {
+  "eye_back": 0.25,
+  "ear_back": 0.45,
+  "face_side": 0.35
+ },
+ "identity": "a Tang dynasty Buddhist monk named Xuanzang, shaved head, ochre-red kasaya robe, cloth shoes"
+}

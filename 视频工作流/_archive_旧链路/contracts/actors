@@ -1,0 +1,6 @@
+[S] actors @ATOM/rule d2 in=4
+api: require(action,actor), check_shot(name,decl), check_body_type(), wind_response(name,v), missing_actor_assets()
+const: BASE, CHAR_DIR, BG_DIR, ACTORS[10], CAPABILITY[10], BG_STATIC[8], BODY_TYPES[3]
+up: physics
+down: environment,render_desert_banner,render_gate_banner,render_v4
+rule: T11:硬阻断不给后门 T16:数值归代码，形态归 AI

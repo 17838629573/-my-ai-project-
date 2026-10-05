@@ -1,0 +1,4 @@
+[S] run_batch @OPS/demo d2 in=0
+api: probe(mod), main()
+const: BASE, OUT, TIMEOUT=45, BATCH_SIZE=4
+up: enforce

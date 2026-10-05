@@ -1,0 +1,3 @@
+[S] _common_selfcheck @ATOM/math d1 in=0
+api: chk(name,cond,got,exp)
+up: _common

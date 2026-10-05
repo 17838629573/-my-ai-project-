@@ -1,0 +1,6 @@
+[M] SOLVE/sheet  S=3: _solver_sheet,_solver_reuse,_solver_run
+api: _solver_sheet.sheet_layout(ans) | _solver_sheet.sheet_plan(ans,spec,max_cells,cell_px,bg,aspect) | _solver_sheet.draw_sheet(ans,prefix,cw,ch,cols,rows) | _solver_reuse.reuse_plan(series,criteria,anchor,axis) | _solver_reuse.layer_plan(spec) | _solver_reuse.additive_offset(base_curve,drive_curve,weight) | _solver_run.run_spec(path)
+rule: T41 T54 T39 T52 T49 T53 T57 T1 T40 T56
+uses: SOLVE/base,SOLVE/chain
+usedby: SOLVE/check
+inner=2  selftest=0/3

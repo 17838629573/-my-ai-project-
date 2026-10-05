@@ -1,0 +1,180 @@
+{
+  "video": "/data/workspace/视频工作流_dump/视频工作流/_v2/out/v3_抠图合成.mp4",
+  "layers": {
+    "L0_assets": {
+      "sheet_cells": [
+        {
+          "path": "/data/workspace/视频工作流_dump/视频工作流/_生成/玄奘_物理8格.png",
+          "grid": [
+            4,
+            4
+          ],
+          "n_cells": 16,
+          "areas": [
+            46698,
+            47895,
+            47141,
+            46821,
+            46680,
+            49284,
+            48025,
+            47530,
+            47094,
+            47609,
+            49984,
+            47954,
+            45283,
+            44774,
+            46441,
+            46801
+          ],
+          "green_edge": [
+            -0.4081000089645386,
+            -0.4120999872684479,
+            -0.3481000065803528,
+            -0.31619998812675476,
+            -0.3781999945640564,
+            -0.3626999855041504,
+            -0.40950000286102295,
+            -0.35190001130104065,
+            -0.3677999973297119,
+            -0.4325000047683716,
+            -0.33889999985694885,
+            -0.2800000011920929,
+            -0.38690000772476196,
+            -0.3538999855518341,
+            -0.34940001368522644,
+            -0.3630000054836273
+          ],
+          "zero_cells": [],
+          "dirty_cells": [],
+          "ok": true,
+          "verdict": "PASS"
+        }
+      ],
+      "sheet_grid": [
+        {
+          "path": "/data/workspace/视频工作流_dump/视频工作流/_生成/玄奘_物理8格.png",
+          "bg_assumed": [
+            33,
+            189,
+            50
+          ],
+          "blocks": 16,
+          "grid_by_connected": [
+            4,
+            4
+          ],
+          "grid_by_probe": [
+            4,
+            4
+          ],
+          "grid_agree": true,
+          "verdict_grid": "PASS 两法一致 (4, 4)"
+        }
+      ],
+      "geometry": {
+        "horizon_ok": true,
+        "horizon_verdict": "三方一致",
+        "perspective_ok": true,
+        "perspective_verdict": "公式最大误差 0.00%"
+      },
+      "ok": true,
+      "failed": []
+    },
+    "L1_pixel": {
+      "freeze": {
+        "events": 0,
+        "frames": 0
+      },
+      "flicker": {
+        "pulse_count": 0,
+        "fail": false,
+        "threshold": {
+          "delta": 0.1,
+          "window_s": 1.0,
+          "fail_n": 3
+        }
+      },
+      "flow": {
+        "summary": {
+          "flow_consistency_std": 0.1954145035863425,
+          "motion_smoothness_std": 0.031826978277265654,
+          "mean_occlusion_ratio": 0.0012586967204634802,
+          "max_occlusion_ratio": 0.01017554012345679,
+          "frames_analyzed": 180
+        }
+      },
+      "ssim": {
+        "min": 0.7377,
+        "mean": 0.9703,
+        "jump_frames": [
+          1,
+          2,
+          12,
+          24,
+          25,
+          36,
+          48,
+          49,
+          60,
+          72,
+          73,
+          84,
+          96,
+          97,
+          108,
+          120,
+          121,
+          132,
+          144,
+          145
+        ]
+      }
+    },
+    "L2_physics": {
+      "skipped": "未传求解器参数"
+    },
+    "L3_scene": {
+      "n_checked": 180,
+      "horizon_y": 482.0,
+      "sky_exclude_boxes": 3,
+      "sky_violation": {
+        "frames_above_horizon": 0,
+        "min_foot_y": 844.0,
+        "max_foot_y": 578.0,
+        "horizon_y": 482.0,
+        "ok": true
+      },
+      "layer": {
+        "dL": -38.607,
+        "dBhatta": 0.366,
+        "dContrast": 0.072,
+        "dSat": 15.12,
+        "dSharp": -0.505,
+        "dRB": -29.781,
+        "failed": [
+          "dL",
+          "dBhatta",
+          "dRB"
+        ],
+        "ok": false,
+        "thresholds": {
+          "dL": 15.0,
+          "dBhatta": 0.35,
+          "dContrast": 0.4,
+          "dSat": 25.0,
+          "dSharp": 0.6,
+          "dRB": 12.0
+        }
+      },
+      "verdict": "FAIL",
+      "reason": "天空约束 OK（来源=像素反推）；图层 ['dL', 'dBhatta', 'dRB'] 不匹配（dL=-38.6 dSat=15.1 dRB=-29.8）"
+    }
+  },
+  "failed_layers": [
+    "L1_ssim",
+    "L3_scene"
+  ],
+  "verdict": "FAIL"
+}

@@ -1,0 +1,6 @@
+[S] genqueue @SHOT/gen d3 in=4
+api: plan(objects), build_prompt(task), next_task(q,done), accept(q,tid,report), reject(q,tid,reason), self_check()
+const: _KIND[5], _ID_KEYS[7]
+up: pose,prompt_tpl
+down: build_phase_gen,build_util,build_video,driver
+rule: T31 T68 T81

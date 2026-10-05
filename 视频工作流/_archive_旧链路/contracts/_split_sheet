@@ -1,0 +1,5 @@
+[S] _split_sheet @OPS/tool d3 in=0
+api: split_grid(bgra,cols,rows,names,anchor_edge,trim_px,clean_depth,min_area,cell,fit), self_check()
+const: RAW=assets_tang/_raw, OUT=assets_tang/char, TRIM_BORDER_PX=4, CLEAN_EDGE_DEPTH=3, MIN_AREA=10, KEY_DIST=150, DARK=40, PLAN[4]
+up: chroma
+rule: T44

@@ -1,0 +1,5 @@
+[M] ATOM/frame  S=2: framerate,_loopspec
+api: framerate.frames_for_period(T_phys,fps) | framerate.playrate(n_have,n_want,clamp) | framerate.dt(fps) | framerate.seconds_to_frames(sec,fps) | _loopspec.frames_for_cycle(cycle_s,fps) | _loopspec.playrate_for(n_frames,cycle_s) | _loopspec.phase_map(n,include_endpoint) | _loopspec.loop_closure_error(seq,tol)
+rule: T30 T29 T28 T46 T113 T114 T115 T116
+usedby: ATOM/path,BUILD/phase,BUILD/util,OPS/demo,SHOT/assemble,SHOT/loop,SHOT/sub,SHOT/sys,SOLVE/base,SOLVE/chain,SOLVE/check
+inner=0  selftest=2/2

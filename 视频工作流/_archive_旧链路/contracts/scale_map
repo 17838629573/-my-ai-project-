@@ -1,0 +1,5 @@
+[S] scale_map @ATOM/path d0 in=4
+api: build_scale_map(scene), verify(smap,measured), prompt_block(smap), self_check()
+const: REQUIRED_CANVAS[2], REQUIRED_REF[3], PIVOTS[3], DEFAULT_TOL[1]
+down: build_phase_setup,build_util,build_video,shot_plan
+rule: T31 T32 T64 T65

@@ -1,0 +1,41 @@
+{
+  "_说明": "qc_scene 各判定的业界对照。搜证优先于自判：凡业界有做法的，以业界为准重写阈值/维度。",
+  "对照": [
+    {
+      "项": "前景检测用帧间差分",
+      "我的判定": "相邻帧差分 阈值10（p50=1,p90=6）；vs背景图差分阈值30时19.4%画面误报",
+      "业界": "Physics-IQ (arXiv 2501.09038) Spatial IoU：用【帧间像素强度变化阈值】做二值 motion mask，跨时间 max 得 spatial motion map，与 GT 比 IoU。作者明确指出『静态相机下，对像素强度变化设简单阈值即可定位动作发生处』",
+      "结论": "✓ 我的做法与业界一致，保留"
+    },
+    {
+      "项": "图层只测亮度差 dL + 色温 dRB",
+      "我的判定": "dL(LAB的L均值差) <15 且 |dRB| <12 判一致",
+      "业界": "PAI-Studio(2606.01399)/PAI-Actor(2609.05918) FG-BG Fusion 判据是多维：Color & tone match 要求【contrast, saturation, grain, sharpness】全部匹配，不止亮度色温。Illum_Harmony 另列 lighting direction / exposure / shadow plausibility",
+      "结论": "✗ 维度不足。须补 contrast(std)、saturation、sharpness(拉普拉斯方差)"
+    },
+    {
+      "项": "图层用均值差比较",
+      "我的判定": "取前景内部像素的均值减背景同位置均值",
+      "业界": "deepfake 合成一致性论文：Color Consistency 用【直方图 Bhattacharyya 距离】而非均值差；Illumination 用感知亮度 L=0.2126R+0.7152G+0.0722B 的均值差。均值差会被分布形状差异掩盖（前景双峰/背景单峰可均值相同）",
+      "结论": "✗ 须补 Bhattacharyya 直方图距离；亮度公式改用感知亮度"
+    },
+    {
+      "项": "地平线用 Hough 消失点反解",
+      "我的判定": "spec 无顶层 horizon_y 时回落到 Hough 反解（本次误检 588.5 vs 真值 482）",
+      "业界": "Shipboard horizon tracking (AMS JTECH)：Hough 法总体正确率仅 92.3%，最差一天 70.8%，失败主因是【光照/眩光】。作者因此定义质量指标 m = 第一峰值/第二峰值比，用 m 诊断失败",
+      "结论": "✗ 反解值须带置信度；低置信度(峰值比接近1)不得采信，应报错而非静默使用"
+    },
+    {
+      "项": "天空约束用绝对 y > 地平线",
+      "我的判定": "前景最低点 y 必须 > horizon_y，否则判飘天",
+      "业界": "Principia (cctest.ai)：相机参数/尺度未知时，绝对测量不可靠，应测【关系一致性】(配对物体间的相对行为)，calibration-independent、直接在图像空间测",
+      "结论": "△ 保留绝对判据(本场景有 spec 标定)，但须只对 on_ground=true 物体生效——墙上物体(幡)本就在地平线以上，属合法。本次 12帧误报全是幡"
+    },
+    {
+      "项": "整体",
+      "我的判定": "无参考、纯数学",
+      "业界": "BrokenVideos 基准：AI 视频缺陷需【像素级定位】而非全局分数，且 20% 视频含 >=3 处缺陷并空间重叠；Skyra：缺陷分层 taxonomy，『违反定律』类含 Unnatural Movement(违反重力)",
+      "结论": "△ 我的 per_frame 记录已是定位式，保留；但须能同时报多项缺陷而非只报一个 verdict"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+[TOP] render_v4 @SHOT/_top d5 in=3
+api: make_parts(), build_engine(), check_all_shots(), self_check(), main()
+const: BASE, BG_DIR, OUT, ENC_IN[18], ENC_OUT[8], SHOTS[8], LEGACY_OUT_NAMES[4]
+up: actors,film_assemble,framerate,loop_engine,photo_rules,physics,render_v4_main,systems
+down: render_desert_banner,render_gate_banner,render_v4_main
+rule: T19:不复用旧产物 T26

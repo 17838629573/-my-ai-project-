@@ -1,0 +1,6 @@
+[M] ATOM/aero  S=4: cloth_aero,cloth_wire,wind_response,wind_sway
+api: cloth_aero.wind_force(area_m2,v_wind,nx,ny,v_face) | cloth_aero.will_blow_off(area_m2,v_wind,mass_kg,nx,ny) | cloth_aero.self_check() | cloth_wire.garment_geom(spec_obj) | cloth_wire.garment_state(area_m2,mass_kg,v_wind,nx,ny) | cloth_wire.garment_amp_m(spec_obj,v_wind,family,L_char_m,nx,ny) | cloth_wire.self_check() | wind_response.family_freq(family,L,u) | wind_response.family_amp(family,L,u) | wind_response.wind_response(family,L,u,regime) …
+rule: T99 T91 T32 T103 T102 T92 T93 T94 T82 T80
+uses: ATOM/math,ATOM/rule
+usedby: BUILD/phase,BUILD/util,SHOT/gen
+inner=3  selftest=4/4

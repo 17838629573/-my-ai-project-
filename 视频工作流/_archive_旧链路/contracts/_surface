@@ -1,0 +1,6 @@
+[S] _surface @ATOM/cam d1 in=1
+api: surface_at(y,v_h), wall_top_y(h_wall_m,z_wall_m,v_h,f_px,h_cam,image_h), wall_depth_for_top(h_wall_m,y_top_target,v_h,f_px,h_cam), ground_y_at_depth(z_m,v_h,f_px,h_cam), offset_outside_path(path_center_x_px,path_half_w_m,clear_m,side,px_per_m), place(kind,v_h,f_px,h_cam,*,z_m,h_wall_m,image_h,path_center_x_px,path_half_w_m,clear_m,side), self_check() …
+const: SURFACE_CLASSES[6], NORMAL[6], RULES[6]
+up: _perspective,param_decl
+down: build_video
+rule: T31

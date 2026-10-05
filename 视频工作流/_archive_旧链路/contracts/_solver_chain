@@ -1,0 +1,5 @@
+[S] _solver_chain @SOLVE/chain d3 in=3
+api: flag_lift_deg(), amp_over_L(), solve(spec), chain_response(), chain_response_multi(), frame_durations(), loop_seam_ratio() …
+up: _family_map,_solver_base,_solver_chain_aux,_solver_geom,anchor,framerate,physics
+down: _chk_base,_solver_run,solver
+rule: T20:生图形态必须由物理点锚定 T29 T32 T34 T42 T43 T54 T88

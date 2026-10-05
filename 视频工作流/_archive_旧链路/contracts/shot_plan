@@ -1,0 +1,6 @@
+[S] shot_plan @SHOT/gen d3 in=3
+api: build_scale(scene), path_hint(pts,half_width_m,px_per_m,persp), locate(kind,real_m,anchor_xy,px_per_m,src_shape,scale), path_prompt(ph,material), obj_prompt(name,real_m,ph,kind,on_path), material_name(ph), on_path_by_family(fam,declared) …
+const: _PATH_FAMILIES[3]
+up: path,placement,scale_map,wind_sway
+down: build_phase_gen,build_util,build_video
+rule: T31 T76 T78 T83 T84 T85 T97 T100

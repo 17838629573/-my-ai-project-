@@ -1,0 +1,5 @@
+[M] SHOT/loop  S=1: loop_engine
+api: loop_engine.self_check()
+rule: T28 T26
+uses: ATOM/frame
+inner=0  selftest=1/1

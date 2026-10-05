@@ -1,0 +1,5 @@
+[S] character_sheet @SHOT/sheet d3 in=6
+api: missing_assets(), load_native(path,H,W), load_scaled(path,target_h), resolve(shot_type,pose,frame), measure_native_composition(path,H,W), check_naming(directory), tier_target_h(body_frac) …
+const: BASE, CHAR_DIR, SHEET[8], SUPPORTING[4], EXPRESSION[6], PROP[5], WALK_8FRAME[4], TIER_BY_SHARE[4]
+up: chroma,photo_rules
+down: _actor_audit,enforce_cmds,film_assemble,render_desert_banner,render_gate_banner,render_v4_main

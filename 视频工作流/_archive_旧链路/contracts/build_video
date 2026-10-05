@@ -1,0 +1,6 @@
+[TOP] build_video @BUILD/_top d6 in=0
+api: load_sheet(), resize_h(), sway_image(), over(), place_at(), apply_garment_wind(), main()
+const: FPS, OUT=玄奘西行_城墙成片.mp4
+up: _surface,build_phase_asset,build_phase_gen,build_phase_render,build_phase_setup,build_phase_time,build_util,chroma,cloth_wire,composite,framerate,genqueue,groundline,path,placement,scale_map,shot_plan,wind_sway
+rule: T13:逻辑唯一 T31 T76 T77 T79 T81 T84
+warn: —— 与 build_util、_layer_style 存在三处同名 over 定义，违反铁律13，待收敛

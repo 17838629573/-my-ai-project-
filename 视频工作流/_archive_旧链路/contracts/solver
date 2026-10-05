@@ -1,0 +1,5 @@
+[TOP] solver @SOLVE/_top d9 in=1
+api: self_check()
+up: _solver_base,_solver_chain,_solver_geom,_solver_probe,_solver_reuse,_solver_run,_solver_sheet,solver_check,solver_survey
+down: _问卷
+rule: T20:生图形态必须由物理点锚定 T29 T31 T33 T41 T54

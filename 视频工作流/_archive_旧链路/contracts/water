@@ -1,0 +1,5 @@
+[S] water @ATOM/water d0 in=1
+api: drop_terminal_velocity(D_mm,model), marshall_palmer_lambda(I_mm_h), drop_count_above(D_mm,I_mm_h), median_volume_diameter(I_mm_h), rain_intensity_class(I_mm_h), rain_inclination(v_wind,D_mm), rain_velocity_vector(v_wind,D_mm) …
+const: G=9.81, SIGMA_W=0.0728, RHO_W=1000.0, MU_W=0.001002, RHO_A=1.204, MP_N0=8000.0, LAMBDA_CG=0.017
+down: rain_layer
+rule: T98

@@ -1,0 +1,2 @@
+[S] _extract2 @OPS/tool d0 in=0
+api: extract(src_path,names,new_path,new_header,wrapper)

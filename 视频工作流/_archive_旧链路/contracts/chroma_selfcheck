@@ -1,0 +1,5 @@
+[S] chroma_selfcheck @ATOM/img d1 in=1
+api: self_check()
+up: chroma
+down: chroma
+rule: T15:无量纲数定义必须标源，禁 T18:可动件必须生成序列帧

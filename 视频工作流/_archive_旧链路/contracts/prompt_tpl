@@ -1,0 +1,8 @@
+[S] prompt_tpl @SHOT/gen d0 in=2
+api: scale_slots(family), families(), build(family,params), structural_pose(family,solved), self_check()
+const: EXAMPLES[5], TPL[5], DISCIPLINE=【生图纪律·代码强制】
+1. 一次只生成【一个物体】的【一类图】，禁把多个物体的描述混在同一批。
+2. 本批未通过验收前，禁止开始下一批。
+3. 骨架图/控制图【永不进画面】——它只是计算中间量。, HARDCODE_BAN[10], SCALE_SLOT[5]
+down: build_phase_gen,genqueue
+rule: T31 T37 T81 T82 T83 T84 T85 T113

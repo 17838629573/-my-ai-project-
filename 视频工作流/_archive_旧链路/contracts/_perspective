@@ -1,0 +1,5 @@
+[S] _perspective @ATOM/cam d0 in=2
+api: focal_px(image_h,ratio), horizon_from_vanishing(segs,image_h), camera_height_from_ref(y_world,v_t,v_b,v_h), scale_field(y,v_h,h_cam), depth_at(y,v_h,f_px,h_cam), y_at_depth(z,v_h,f_px,h_cam), path_along_depth(z0,z1,n,v_h,f_px,h_cam,x_of) …
+const: F_OVER_IMAGE_H=1.4
+down: _camera,_surface
+rule: T31 T100

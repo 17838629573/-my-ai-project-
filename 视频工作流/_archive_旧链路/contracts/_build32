@@ -1,0 +1,4 @@
+[S] _build32 @OPS/demo d1 in=0
+api: key_color_of(im), key_alpha(cell,key), prep(item,th), sh_of(al,i)
+const: BATCH[4], FPS=32, DUR=8.0, SPEED=1.5, OUT_W=576, PX_PER_M, BASE_Y
+up: _layer_style

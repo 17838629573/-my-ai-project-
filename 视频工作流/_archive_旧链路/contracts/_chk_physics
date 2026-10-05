@@ -1,0 +1,5 @@
+[S] _chk_physics @SOLVE/check d7 in=1
+api: check(ctx)
+up: _chk_base
+down: solver_check
+rule: T20:生图形态必须由物理点锚定 T29 T31 T41

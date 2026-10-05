@@ -1,0 +1,6 @@
+[S] _px @ATOM/math d0 in=3
+api: px_per_m(ref_px,ref_m,*,crop_top), canvas_px_per_m(canvas_h,crop_top), to_px(real_m,ppm), to_m(px,ppm), world_y_from_canvas(y_canvas,*,crop_top), canvas_y_from_world(y_world,*,crop_top), self_check()
+const: CANVAS_W=1080, CANVAS_H=1080, CROP_TOP_DEFAULT=196, VISIBLE_H_DEFAULT
+down: build_phase_asset,build_phase_setup,physics
+rule: T18:可动件必须生成序列帧 T86
+warn: 已知：内联未收敛

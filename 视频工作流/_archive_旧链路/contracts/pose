@@ -1,0 +1,6 @@
+[S] pose @SHOT/skel d2 in=6
+api: bone_lengths(spec), fk(root,lengths,angles), two_bone_ik(hip,target,L1,L2,knee_sign), leg_of(L), hip_height(gait,L), foot_target(t,side,gait), blend_poses(a,b,w) …
+const: NAMES[17], BONES[18], SEGS[14], FACE_KEYS[3], _MA, _MB
+up: pose_selfcheck
+down: build_phase_gen,build_util,genqueue,pose_prompt,pose_selfcheck,骨架_行走
+rule: T37 T67 T68 T69 T70 T72 T99 T100

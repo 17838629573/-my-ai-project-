@@ -1,0 +1,6 @@
+[S] subtitle @SHOT/sub d1 in=2
+api: get_font(size), wrap(text,font,max_w,max_chars), draw_subtitle(bgr,text,alpha,font_size,margin_bottom,box_w,max_chars,stroke), subtitle_alpha(local_frame,total_frames,fade_frames), check_timing(seconds,chars,fps), self_check()
+const: _FONT_CANDIDATES[4], _FONT_CACHE[0], FADE_FRAMES=6, MIN_GAP_FRAMES=2, MIN_DURATION_S, MAX_DURATION_S=7.0
+up: framerate
+down: film_assemble,systems_view
+rule: T26 T28

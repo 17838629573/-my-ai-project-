@@ -1,0 +1,6 @@
+[S] cloth_aero @ATOM/aero d1 in=1
+api: wind_force(area_m2,v_wind,nx,ny,v_face), will_blow_off(area_m2,v_wind,mass_kg,nx,ny), self_check()
+const: G=9.80665
+up: param_decl
+down: cloth_wire
+rule: T99

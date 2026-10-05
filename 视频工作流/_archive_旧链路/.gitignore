@@ -1,0 +1,17 @@
+# 缓存
+__pycache__/
+*.py[cod]
+
+# 生成产物（媒体）：不入库，可随时重跑生成
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.avi
+*.wav
+*.mp3
+*.npy
+_生成/
+assets_tang/
+_gen_*/
+_证据_*/

@@ -1,0 +1,4 @@
+[S] _camera_selfcheck @ATOM/cam d2 in=0
+api: ck(cond,msg), main()
+const: FAILS[0]
+up: _camera

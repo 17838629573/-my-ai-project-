@@ -1,0 +1,5 @@
+[S] pose_prompt @SHOT/skel d3 in=0
+api: leg_state(joints,side,meta,gait,p), arm_state(joints,side,p), describe(joints,meta,gait,facing,p), frame_prompt(spec,mode,t,i,n,facing,p), sheet_prompts(spec,mode,n,facing,p), self_check()
+const: PARAMS[8], SIDE[2], COMMON=full-body side view, the whole figure from head to feet visible, feet on a shared ground contact line at the bottom of the frame, standing in place without drifting sideways, fixed camera, locked identity, same outfit and proportions as the reference
+up: pose
+rule: T32 T73 T74 T75 T76
