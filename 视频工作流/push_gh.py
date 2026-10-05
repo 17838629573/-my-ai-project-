@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parent
 EXCLUDE_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v", ".flv",
                ".pyc", ".pyo", ".so", ".zip"}
 EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules"}
+MAX_PER_RUN = 50
 
 API = "https://api.github.com"
 HDR = {"Authorization": f"Bearer {TOKEN}",
@@ -85,20 +86,31 @@ def main():
     base_tree = base["tree"]["sha"]
     print(f"基点 commit {base_sha[:8]}")
 
-    # 1) blobs
-    blobs = {}
-    def up(item):
-        rel, p = item
-        raw = p.read_bytes()
-        b = _req("POST", f"/repos/{OWNER}/{REPO}/git/blobs",
-                 {"content": base64.b64encode(raw).decode(), "encoding": "base64"})
-        return rel, b["sha"]
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        for n, (rel, sha) in enumerate(ex.map(up, files), 1):
-            blobs[rel] = sha
-            if n % 50 == 0 or n == len(files):
-                print(f"  blob {n}/{len(files)}")
-    print(f"blob 上传完成 {len(blobs)}")
+    # 1) blobs —— 分批续传(规避单批大量请求触发沙箱限制)
+    CACHE = Path("/tmp/gh_blobs.json")
+    blobs = json.loads(CACHE.read_text()) if CACHE.exists() else {}
+    todo = [(r, p) for r, p in files if r not in blobs]
+    print(f"待传 {len(todo)} / 共 {len(files)}（已缓存 {len(blobs)}）")
+    if todo:
+        batch = todo[:MAX_PER_RUN]
+        def up(item):
+            rel, p = item
+            b = _req("POST", f"/repos/{OWNER}/{REPO}/git/blobs",
+                     {"content": base64.b64encode(p.read_bytes()).decode(),
+                      "encoding": "base64"})
+            return rel, b["sha"]
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            for n, (rel, sha) in enumerate(ex.map(up, batch), 1):
+                blobs[rel] = sha
+                if n % 20 == 0 or n == len(batch):
+                    print(f"  blob {n}/{len(batch)}")
+        CACHE.write_text(json.dumps(blobs))
+    remain = len(files) - len(blobs)
+    if remain > 0:
+        print(f"\n本批完成，尚余 {remain} 个 —— 再跑一次本脚本继续")
+        return 0
+    print(f"blob 全部就绪 {len(blobs)}")
+    blobs = {r: s for r, s in blobs.items() if r in {f[0] for f in files}}
 
     # 2) 逐目录建 tree（自底向上，确保二级路径也登记）
     # 自底向上: 深层目录先建, 父目录才能引用到子目录的 tree sha
