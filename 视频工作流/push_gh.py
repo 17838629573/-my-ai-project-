@@ -75,11 +75,42 @@ def collect():
     return out
 
 
+def _snapshot(files):
+    """内容快照: 用于自动生成 commit message 并判定本次真实改动
+
+    只按路径缓存会让改过的文件一直复用旧 sha(同 .done 只查存在不校验内容),
+    故键为 路径->内容哈希
+    """
+    return {r: hashlib.sha1(p.read_bytes()).hexdigest() for r, p in files}
+
+
+def _message(cur, prev, files):
+    """commit message 动态生成 —— 硬编码会让自己每推一次都长同一条
+
+    优先级: 命令行 --msg > 本次改动摘要 > 全量说明
+    """
+    for i, a in enumerate(sys.argv):
+        if a == "--msg" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    changed = sorted(r for r in cur if prev.get(r) != cur[r])
+    if not changed:
+        return f"视频工作流: 全量 {len(files)} 个文件"
+    names = ", ".join(Path(r).name for r in changed[:3])
+    more = f" 等{len(changed)}个" if len(changed) > 3 else ""
+    return f"视频工作流: 更新{more} — {names}"
+
+
 def main():
     files = collect()
     print(f"本地待推 {len(files)} 个文件")
     if not files:
         print("无文件"); return 1
+
+    SNAP = Path("/data/workspace/.gh_snapshot.json")
+    prev = json.loads(SNAP.read_text()) if SNAP.exists() else {}
+    cur = _snapshot(files)
+    msg = _message(cur, prev, files)
+    print(f"message: {msg}")
 
     ref = _req("GET", f"/repos/{OWNER}/{REPO}/git/ref/heads/{BRANCH}")
     base_sha = ref["object"]["sha"]
@@ -167,11 +198,23 @@ def main():
 
     parent_tree = _req("POST", f"/repos/{OWNER}/{REPO}/git/trees",
                        {"tree": parent_entries})
-    c = _req("POST", f"/repos/{OWNER}/{REPO}/git/commits", {
-        "message": f"修A4转身: 峰值角速度纳入约束(1020->460dps, ISBS2015), M_A 0.9->0.6; jitter_px口径错用改peak_rate_dps; PASS21/FAIL0",
-        "tree": parent_tree["sha"], "parents": [base_sha]})
-    _req("PATCH", f"/repos/{OWNER}/{REPO}/git/refs/heads/{BRANCH}",
-         {"sha": c["sha"]})
+    # 建 commit + 移动分支指针: 422 not-fast-forward 时以最新 HEAD 重建重试
+    # (首次运行被超时 kill 可能已 PATCH 成功, 第二次拿旧 base_sha 必然 422)
+    c = None
+    for attempt in range(3):
+        try:
+            c = _req("POST", f"/repos/{OWNER}/{REPO}/git/commits", {
+                "message": msg, "tree": parent_tree["sha"],
+                "parents": [base_sha]})
+            _req("PATCH", f"/repos/{OWNER}/{REPO}/git/refs/heads/{BRANCH}",
+                 {"sha": c["sha"]})
+            break
+        except RuntimeError as e:
+            if "422" not in str(e) or attempt == 2:
+                raise
+            print(f"  [重试] {e} -> 以最新 HEAD 重建 commit")
+            base_sha = _req("GET", f"/repos/{OWNER}/{REPO}/git/ref/heads/{BRANCH}")["object"]["sha"]
+    SNAP.write_text(json.dumps(cur))
     print(f"\ncommit {c['sha']}")
     print(f"https://github.com/{OWNER}/{REPO}/commit/{c['sha']}")
 
