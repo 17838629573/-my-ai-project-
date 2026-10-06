@@ -223,4 +223,6 @@ def case_H40():
     for k_, v in arcs.items():
         print("     %-7s %.4f" % (k_, v))
     print("   最坏穿透对：%s" % (worst_pair or "无"))
-    return H.report(checks)
+    meta = {"实体数": len(tracks), "各实体弧长_m": arcs,
+            "最坏穿透对": worst_pair or "无"}
+    return checks, meta

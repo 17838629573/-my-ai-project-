@@ -1,4 +1,4 @@
-"""35 项测试用例声明（测试第二步：声明）
+"""45 项测试用例声明（测试第二步：声明）
 
 契约: tests/cases
   输入: 无（静态声明）
@@ -114,6 +114,29 @@ CASES = [
     ("G39", "G", "四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑",
      ["quadruped"],
      ["gait_contact_deficit", "foot_slip_m", "frame_jump_ratio"], 70),
+
+    # ---------------------------------------------------------------- H 混合场景
+    # 登记由来（真实回归）：H40 与 P41~P45 的执行体早已写进 run_all.EXEC，
+    # 但从未登记进 CASES —— main() 只遍历 CASES，故这 6 条**从未被门检跑过**，
+    # 与"climb 白写"同类（注册了却没接线），只是方向相反：有执行体无声明。
+    ("H40", "H", "混合场景：7 类实体同时间轴 / 无 NaN / 跨体穿透 / 时间轴对齐",
+     ["walk", "run", "ball", "rope", "quadruped", "fish_swim", "bird_fly"],
+     ["nan_count", "frame_jump_ratio", "xbody_penetration_m",
+      "ground_penetration_m", "min_arc_m", "time_span_err_s"], 71),
+
+    # ---------------------------------------------------------------- P 常见物理现象
+    ("P41", "P", "树叶飘落：终端速度远低于自由落体 / 水平漂移 / flutter 涌现",
+     ["leaf_fall"], ["leaf_v_term_mps", "leaf_drift_m", "leaf_swings"], 72),
+    ("P42", "P", "墙体开裂：断键 / 多碎块 / 碎块位移有界",
+     ["fracture"], ["frac_max_disp_m", "frac_n_broken", "frac_n_frag"], 73),
+    ("P43", "P", "水流冲击地面：不穿地 / 横向铺展 / 粒子不丢 / 密度收敛",
+     ["water_jet"], ["water_spread_ratio", "water_rho_rel", "water_n_alive",
+                     "ground_penetration_m"], 74),
+    ("P44", "P", "牛顿摆：末球弹出 / 中间球窗口内静止 / 能量守恒",
+     ["newton_cradle"], ["cradle_th_mid_win_rad", "cradle_th_last_win_rad",
+                         "cradle_energy_err"], 75),
+    ("P45", "P", "转台：离心滑移 / 被甩向外 / 科氏横向偏转",
+     ["turntable"], ["turntable_r_end_m", "turntable_lateral_m"], 76),
 ]
 
 

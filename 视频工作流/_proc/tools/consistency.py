@@ -54,6 +54,24 @@ def exec_table():
     return out
 
 
+def declared_cases():
+    """tests/cases.py 里 CASES 登记的用例 ID 集合（门检真正遍历的那张表）。"""
+    p = os.path.join(ROOT, "tests", "cases.py")
+    tree = _parse(p)
+    out = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        for tgt in node.targets:
+            if isinstance(tgt, ast.Name) and tgt.id == "CASES" \
+               and isinstance(node.value, (ast.List, ast.Tuple)):
+                for el in node.value.elts:
+                    if isinstance(el, (ast.Tuple, ast.List)) and el.elts \
+                       and isinstance(el.elts[0], ast.Constant):
+                        out.add(str(el.elts[0].value))
+    return out
+
+
 def case_funcs():
     """tests/ 下所有 case_XX 函数名（含 cases_*.py 里定义的）。"""
     tdir = os.path.join(ROOT, "tests")
@@ -295,6 +313,16 @@ def run():
         for c in undrivable:
             issues.append("[R14 注册不可驱动] 能力 %r 进了导入表，"
                           "但签名/返回格式无法被时间线驱动" % c)
+    # 5) EXEC 有执行体、但 cases.CASES 没登记 —— H40/P41-P45 事故
+    dec = declared_cases()
+    if dec:
+        for cid in sorted(set(ex) - dec):
+            issues.append("[R14 有执行体未登记] %s 在 EXEC 里挂了 case 函数，"
+                          "但 cases.CASES 没登记 —— 门检永远不会跑它，"
+                          "首次被跑就暴露 ERROR（与 climb 白写同类）" % cid)
+        for cid in sorted(dec - set(ex)):
+            issues.append("[R14 声明无执行体] %s 在 CASES 里登记，"
+                          "但 EXEC 里没有对应执行体" % cid)
     return issues
 
 
