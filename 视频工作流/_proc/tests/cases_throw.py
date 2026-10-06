@@ -41,6 +41,29 @@ def _ball_at(p_m, cv, cam):
     cv.set_arr(a)
 
 
+def _b10_ballistic(T, Y):
+    """飞行段（首次触地前）二次拟合系数 a，与球穿地深度。"""
+    idx = len(T)
+    for i in range(1, len(T)):
+        if Y[i] <= _B.R_BALL + 1e-6 and Y[i] < Y[i - 1]:
+            idx = i
+            break
+    a = float(np.polyfit(T[:idx + 1], Y[:idx + 1], 2)[0])
+    return a, max(0.0, _B.R_BALL - float(np.min(Y)))
+
+
+def _b10_hold_pen(n, f_rel):
+    """释放前球心与手心的最大偏离（脱手/穿透检测）。"""
+    from motion.character import throw as TH
+    pen = 0.0
+    for i in range(n):
+        t = i / (n - 1)
+        if t <= f_rel:
+            pen = max(pen, float(np.linalg.norm(
+                TH.hand_center(t) - TH.ball_center(t))))
+    return pen
+
+
 def case_B10():
     """扔球：动力链顺序加速->出手->弹道->落地反弹
 
@@ -63,31 +86,17 @@ def case_B10():
     # --- 弹道：二次拟合 a = -g/2 ---
     T, P = TH._traj()
     Y = np.asarray(P)[:, 1]
-    idx = len(T)
-    for i in range(1, len(T)):
-        if Y[i] <= _B.R_BALL + 1e-6 and Y[i] < Y[i - 1]:
-            idx = i
-            break
-    a = float(np.polyfit(T[:idx + 1], Y[:idx + 1], 2)[0])
-    gerr = abs(a - (-RG.G / 2.0)) / (RG.G / 2.0)
+    a, pen_g = _b10_ballistic(T, Y)
 
     # --- 释放前：球被握住，球心与手心重合（不脱手、不穿透） ---
-    pen = 0.0
-    for i in range(n):
-        t = i / (n - 1)
-        if t <= TH.F_REL:
-            pen = max(pen, float(np.linalg.norm(
-                TH.hand_center(t) - TH.ball_center(t))))
-
-    # --- 球不穿地 ---
-    pen_g = max(0.0, _B.R_BALL - float(np.min(Y)))
+    pen = _b10_hold_pen(n, TH.F_REL)
 
     # --- 帧间不跳变（球心位移） ---
     bc = [TH.ball_center(i / (n - 1)) for i in range(n)]
     disp = [float(np.linalg.norm(bc[i + 1] - bc[i])) for i in range(n - 1)]
 
     import tests.harness as H
-    checks = [("flight_g_err", gerr),
+    checks = [("flight_g_err", abs(a - (-RG.G / 2.0)) / (RG.G / 2.0)),
               ("penetration_m", pen),
               ("ground_penetration_m", pen_g),
               ("frame_jump_ratio", H.frame_jump_ratio(disp)),

@@ -86,39 +86,13 @@ def render_case(name, pose_fn, n, out_prefix, yaw=90.0, Zc=5.0,
     frames = []
     worst = {"silhouette_gap_px": 0.0, "silhouette_span_ratio": 9.9,
              "mask_iou": 1.0}
+    kw = {"yaw": yaw, "Zc": Zc, "lane": lane, "palette": palette,
+          "hand_lod": hand_lod, "extra": extra}
     for i in range(n):
         t = (t_end or (n / FPS)) * i / max(n - 1, 1)
-        J = pose_fn(t)
-        Xc = lane
-        cv = R.CV(W, HH)
-        cv.set_arr(bg_arr.astype(np.float32))
-        Jp = R.draw_actor(cv, cam, J, Xc=Xc, Zc=Zc, yaw=yaw,
-                          body_h=BODY_H, template="humanoid",
-                          hand_lod=hand_lod, palette=palette)
-        # 剪影判据只针对人物：extra 画的球/道具是附加元素，
-        # 若先画再取掩膜，飞出人体的球会被算进人物剪影，
-        # 在头顶与球之间留出空白行 → silhouette_gap_px 虚高(B10 曾报 23px)。
-        # GT 掩膜同样只含人物胶囊，故也必须在 extra 之前取。
-        m = _render_mask(bg_arr, np.asarray(cv.img).astype(np.int16))
-        if extra is not None:
-            extra(t, cv, cam)
-        joints, caps, _ = L.build_body("humanoid", hand_lod, BODY_H)
-        from _proc.shape import hand as _H
-        J2 = _H.attach(dict(J), hand_lod)
-        Jp2 = CR.project_body(J2, cam, Xc=Xc, Zc=Zc, yaw=yaw, body_h=BODY_H)
-        by_reg, _ell = R._screen_caps(caps, Jp2, BODY_H)
-        allcaps = [c for v in by_reg.values() for c in v]
-        if allcaps and m.any():
-            gt = _gt_mask(Jp2, allcaps, BODY_H)
-            top = min(p[1] for p in Jp2.values())
-            bot = max(p[1] for p in Jp2.values())
-            worst["silhouette_gap_px"] = max(worst["silhouette_gap_px"],
-                                             HS.silhouette_gap_px(m))
-            worst["silhouette_span_ratio"] = min(
-                worst["silhouette_span_ratio"],
-                HS.silhouette_span_ratio(m, top, bot))
-            worst["mask_iou"] = min(worst["mask_iou"], HS.mask_iou(m, gt))
-        frames.append(cv.img.copy())
+        img, m, Jp2 = _render_frame(t, i, pose_fn, cam, bg_arr, kw)
+        _silhouette_worst(m, Jp2, worst)
+        frames.append(img)
     mp4 = os.path.join(OUT, "%s.mp4" % out_prefix)
     R.to_mp4(frames, mp4, int(FPS))
     png = os.path.join(OUT, "%s_索引.png" % out_prefix)
@@ -127,6 +101,46 @@ def render_case(name, pose_fn, n, out_prefix, yaw=90.0, Zc=5.0,
     txt, ok = HS.report(checks)
     return {"name": name, "mp4": mp4, "png": png, "ok": ok,
             "report": txt, "vals": worst}
+
+
+def _render_frame(t, i, pose_fn, cam, bg_arr, kwargs):
+    """渲染单帧：人物胶囊 -> 掩膜（extra 之前取）-> extra 附加元素 -> 剪影判据。"""
+    from _proc.shape import hand as _H
+    yaw, Zc, lane, palette, hand_lod, extra = (
+        kwargs["yaw"], kwargs["Zc"], kwargs["lane"], kwargs["palette"],
+        kwargs["hand_lod"], kwargs["extra"])
+    J = pose_fn(t)
+    cv = R.CV(W, HH)
+    cv.set_arr(bg_arr.astype(np.float32))
+    R.draw_actor(cv, cam, J, Xc=lane, Zc=Zc, yaw=yaw, body_h=BODY_H,
+                 template="humanoid", hand_lod=hand_lod, palette=palette)
+    # 剪影判据只针对人物：extra 画的球/道具是附加元素，
+    # 若先画再取掩膜，飞出人体的球会被算进人物剪影，
+    # 在头顶与球之间留出空白行 → silhouette_gap_px 虚高(B10 曾报 23px)。
+    # GT 掩膜同样只含人物胶囊，故也必须在 extra 之前取。
+    m = _render_mask(bg_arr, np.asarray(cv.img).astype(np.int16))
+    if extra is not None:
+        extra(t, cv, cam)
+    J2 = _H.attach(dict(J), hand_lod)
+    Jp2 = CR.project_body(J2, cam, Xc=lane, Zc=Zc, yaw=yaw, body_h=BODY_H)
+    return cv.img.copy(), m, Jp2
+
+
+def _silhouette_worst(m, Jp2, worst):
+    """用当帧掩膜更新剪影三项的 worst 值（仅人物胶囊参与）。"""
+    _, caps, _ = L.build_body("humanoid", 1, BODY_H)
+    by_reg, _ell = R._screen_caps(caps, Jp2, BODY_H)
+    allcaps = [c for v in by_reg.values() for c in v]
+    if not (allcaps and m.any()):
+        return
+    gt = _gt_mask(Jp2, allcaps, BODY_H)
+    top = min(p[1] for p in Jp2.values())
+    bot = max(p[1] for p in Jp2.values())
+    worst["silhouette_gap_px"] = max(worst["silhouette_gap_px"],
+                                     HS.silhouette_gap_px(m))
+    worst["silhouette_span_ratio"] = min(worst["silhouette_span_ratio"],
+                                         HS.silhouette_span_ratio(m, top, bot))
+    worst["mask_iou"] = min(worst["mask_iou"], HS.mask_iou(m, gt))
 
 
 def _index(frames, path, k=6):

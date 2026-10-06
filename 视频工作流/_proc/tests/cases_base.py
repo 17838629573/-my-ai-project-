@@ -52,20 +52,9 @@ def case_A1():
          "最坏帧最低关节_m": round(max(lows), 4)}
 
 
-def case_A2():
-    """跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
-
-    依据: 占空比 β=0.35（Novacheck 1998），腾空占比 1-2β；
-    腾空顶点升高 = g·T_F²/8（抛体解析）；急停匀减速 a=v0²/2D，
-    D=2.39m 取 5m sprint-to-stop 制动距离（Graham-Smith）
-    """
+def _A2_collect(RAW, BRAW, NR, SPS):
+    """跑段 + 制动段并轨采样：地面余隙 / 水平位置 / 接触标志 / 髋高。"""
     from motion.character import run as R
-    SPS = 200
-    dt = R.T_STRIDE / SPS
-    NR = 2 * SPS
-    NB = int(round(R.T_BRAKE / dt)) + 1
-    RAW = [R.run((i / SPS) % 1.0) for i in range(NR)]
-    BRAW = [R.brake(i * dt) for i in range(NB)]
     g0 = R.GROUND_V                        # 脚底基准=最低关节触地高度，非踝高
     lows, pxs, contact, hips = [], [], [], []
     for i, J in enumerate(RAW):
@@ -81,7 +70,11 @@ def case_A2():
         ph = Jd.get("ph", 0.0)
         contact.append((ph < R.BETA) or (0.5 <= ph < 0.5 + R.BETA))
         hips.append(J["pelvis"][1])
-    hgt = [v * H_M for v in lows]
+    return lows, pxs, contact, hips
+
+
+def _A2_flight_windows(contact, NR):
+    """腾空窗口：把连续的非接触帧分组（只取跑段）。"""
     wins, cur = [], []
     for i in range(NR):
         if not contact[i]:
@@ -90,11 +83,37 @@ def case_A2():
             wins.append(cur); cur = []
     if cur:
         wins.append(cur)
+    return wins
+
+
+def _A2_apex(wins, hips, dt):
+    """最大腾空升高及其腾空时长（用于抛体解析对照）。"""
     rise, tf = 0.0, 0.0
     for w in wins:
         r = (max(hips[i] for i in w) - hips[w[0]]) * H_M
         if r > rise:
             rise, tf = r, len(w) * dt
+    return rise, tf
+
+
+def case_A2():
+    """跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
+
+    依据: 占空比 β=0.35（Novacheck 1998），腾空占比 1-2β；
+    腾空顶点升高 = g·T_F²/8（抛体解析）；急停匀减速 a=v0²/2D，
+    D=2.39m 取 5m sprint-to-stop 制动距离（Graham-Smith）
+    """
+    from motion.character import run as R
+    SPS = 200
+    dt = R.T_STRIDE / SPS
+    NR = 2 * SPS
+    NB = int(round(R.T_BRAKE / dt)) + 1
+    RAW = [R.run((i / SPS) % 1.0) for i in range(NR)]
+    BRAW = [R.brake(i * dt) for i in range(NB)]
+    lows, pxs, contact, hips = _A2_collect(RAW, BRAW, NR, SPS)
+    hgt = [v * H_M for v in lows]
+    wins = _A2_flight_windows(contact, NR)
+    rise, tf = _A2_apex(wins, hips, dt)
     disp = [abs(pxs[i + 1] - pxs[i]) for i in range(len(pxs) - 1)]
     return [
         ("ground_penetration_m", H.ground_penetration_m(hgt)),
@@ -415,75 +434,3 @@ def case_B9():
         "落定杯底高_m": round(ys[-1], 4),
         "末帧手物距_m": round(float(np.linalg.norm(hands[-1] - cens[-1])), 4),
         "末帧owner": owners[-1]}
-
-
-
-def _g36_series(name, kw, N, gait, gesture, layer):
-    """单个 additive 能力的 base/over 两条序列（N 帧 gait + 上层叠加）。"""
-    fn = getattr(gesture, name)
-    base = [gait.gait(i / (N - 1), "natural") for i in range(N)]
-    over = [layer.blend(base[i], fn(i / (N - 1), kw),
-                        region="upper", mode="additive", layer_w=1.0)
-            for i in range(N)]
-    return base, over
-
-
-def _g36_lower_pollution(base, over, N, layer):
-    """下半身污染量：additive 只作用上半身，LOWER 区必须逐帧零偏差。"""
-    worst = 0.0
-    for i in range(N):
-        for jn in layer.LOWER:
-            if jn in base[i] and jn in over[i]:
-                dv = max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
-                worst = max(worst, dv)
-    return worst
-
-
-def _g36_upper_delta(base, over, N, layer):
-    """上半身叠加生效量：over 相对 base 的最大位移（必须 > 0 才算真的叠加）。"""
-    pairs = [(i, jn) for i in range(N) for jn in layer.UPPER
-             if jn in base[i] and jn in over[i]]
-    return max(max(abs(over[i][jn][k] - base[i][jn][k]) for k in range(3))
-               for i, jn in pairs)
-
-
-def _g36_jump_ratio(base, over, N, layer):
-    """帧间一致性比值：叠加后帧间步长 / 叠加前帧间步长（应 ≈1，不引入跳变）。"""
-    b_d = max(max(abs(base[i + 1][jn][k] - base[i][jn][k]) for k in range(3))
-              for i in range(N - 1) for jn in layer.UPPER if jn in base[i])
-    pairs = [(i, jn) for i in range(N - 1) for jn in layer.UPPER
-             if jn in base[i] and jn in over[i]]
-    o_d = max(max(abs(over[i + 1][jn][k] - over[i][jn][k]) for k in range(3))
-              for i, jn in pairs)
-    return o_d / max(b_d, 1e-12)
-
-
-def case_G36():
-    """ADDITIVE 三能力接线：gaze_shift / finger_tap / page_flip 叠加到 gait
-
-    接线依据: UE Layered Blend per Bone — additive 层只作用于 mask 覆盖的骨骼，
-    下半身必须零污染；分界点选腰部(waist)，选骨盆太靠下手臂混合不彻底。
-    """
-    import importlib
-    gait = importlib.import_module("motion.character.body.gait")
-    gesture = importlib.import_module("motion.character.gesture")
-    from motion import layer
-    from tests import harness as H
-
-    ADDS = (("gaze_shift", {"yaw": 1.0}),
-            ("finger_tap", {"side": "right", "reps": 2}),
-            ("page_flip", {"side": "right"}))
-    N = 48
-    worst_lower = 0.0
-    worst_ratio = 0.0
-    for name, kw in ADDS:
-        base, over = _g36_series(name, kw, N, gait, gesture, layer)
-        worst_lower = max(worst_lower,
-                          _g36_lower_pollution(base, over, N, layer))
-        moved = _g36_upper_delta(base, over, N, layer)
-        assert moved > 1e-4, f"{name}: additive 未生效 (上半身位移 {moved})"
-        worst_ratio = max(worst_ratio, _g36_jump_ratio(base, over, N, layer))
-    return [
-        ("lower_pollution", worst_lower),
-        ("frame_jump_ratio", worst_ratio),
-    ], {"能力数": len(ADDS), "帧数": N}

@@ -58,21 +58,15 @@ import numpy as np
 
 from ..beat import capability
 
-RHO_AIR = 1.225          # 海平面空气密度 kg/m^3
-G = 9.80665
-DOWN_FRAC = 0.55         # 下扑占周期比例（>0.5 即下扑长于上举）
-FOLD = 0.62              # 上举最屈曲时的有效展长比（相对完全伸展）
+# 气动与翼骨几何的唯一真源在 .bird_aero（自本模块拆出，避免两处各写一份）。
+from .bird_aero import (RHO_AIR, G, DOWN_FRAC, FOLD, N_ELEM, N_WING_SEG,
+                        CD0_PROFILE, E_OSWALD, CL_MAX, stroke_angle_deg,
+                        flapping_angle, is_downstroke, flapping_rate,
+                        fold_factor, sweep_angle, wing_aero, trim_alpha,
+                        _wing_points, _cl_coeff, _cd_coeff)
+
 ST_DIRECT = 0.21         # 连续扑翼飞行者巡航 Strouhal 数（Nudds 2004）
-N_ELEM = 24              # 叶素法沿半翼展的分段数
-N_WING_SEG = 3           # 翼骨段数（肩→腕→中→尖）
-CD0_PROFILE = 0.02       # 鸟翼剖面阻力系数（Pennycuick 2008，滑翔鸟 0.01~0.03）
-E_OSWALD = 0.9           # Oswald 效率因子（Pennycuick 2008 取 0.9~1.0）
-CL_MAX = 1.5             # 失速升力系数上限（鸟翼实测 1.3~1.6）
 
-
-def stroke_angle_deg(b):
-    """扑动幅角 θ（度）。θ ≈ 67·b^(−0.24)，b 单位米 —— Nudds et al. 2004。"""
-    return 67.0 * (b ** (-0.24))
 
 
 def beat_freq_pennycuick(m, b, S, rho=RHO_AIR):
@@ -99,177 +93,7 @@ def cruise_speed(f, b, St=ST_DIRECT):
     return f * stroke_amplitude(b) / St
 
 
-# ---- 三位置角 ----
-def flapping_angle(t, f, amp_deg=None, b=1.2, down_frac=DOWN_FRAC):
-    """扑动角 φ(t)（弧度，+ 为上举）。
-
-    下扑 φ: +A → −A（占 down_frac）；上举 φ: −A → +A（占 1−down_frac）。
-    两段均用余弦，端点导数为 0 → 周期衔接处 C1 连续（无速度突跳）。
-    """
-    if amp_deg is None:
-        amp_deg = stroke_angle_deg(b) / 2.0
-    A = math.radians(amp_deg)
-    T = 1.0 / f if f > 0 else 1.0
-    p = (t / T) % 1.0
-    if p < down_frac:
-        return A * math.cos(math.pi * p / down_frac)
-    q = (p - down_frac) / (1.0 - down_frac)
-    return -A * math.cos(math.pi * q)
-
-
-def flapping_rate(t, f, amp_deg=None, b=1.2, down_frac=DOWN_FRAC):
-    """dφ/dt（弧度/秒），解析导数，供叶素法求局部气流速度。"""
-    if amp_deg is None:
-        amp_deg = stroke_angle_deg(b) / 2.0
-    A = math.radians(amp_deg)
-    T = 1.0 / f if f > 0 else 1.0
-    p = (t / T) % 1.0
-    if p < down_frac:
-        return -A * (math.pi / down_frac) * math.sin(math.pi * p / down_frac) / T
-    q = (p - down_frac) / (1.0 - down_frac)
-    return A * (math.pi / (1.0 - down_frac)) * math.sin(math.pi * q) / T
-
-
-def is_downstroke(t, f, down_frac=DOWN_FRAC):
-    """相位是否处于下扑段（dφ/dt<0）。"""
-    T = 1.0 / f if f > 0 else 1.0
-    p = (t / T) % 1.0
-    return p < down_frac
-
-
-def fold_factor(t, f, fold=FOLD, down_frac=DOWN_FRAC):
-    """翼折叠因子 eff ∈ [fold, 1]：下扑完全伸展(1)，上举屈曲回收(fold)。
-
-    上举段用 sin^2 过渡，端点导数为 0 → 与下扑段 C1 连续。
-    """
-    T = 1.0 / f if f > 0 else 1.0
-    p = (t / T) % 1.0
-    if p < down_frac:
-        return 1.0
-    q = (p - down_frac) / (1.0 - down_frac)
-    return 1.0 - (1.0 - fold) * (math.sin(math.pi * q) ** 2)
-
-
-def sweep_angle(t, f, sweep_deg=12.0, down_frac=DOWN_FRAC):
-    """仰角/扫掠角 θ(t)（弧度，+ 为前掠）。
-
-    扑动平面前倾（stroke plane tilted）在低速飞行时更明显；这里给一个小幅
-    前后扫掠，与扑动同频但相位差 90°，使翼尖走出 8 字形轨迹。
-    """
-    T = 1.0 / f if f > 0 else 1.0
-    return math.radians(sweep_deg) * math.sin(2.0 * math.pi * (t / T))
-
-
-# ---- 翼骨架（骨长守恒的对称折叠）----
-def _wing_points(shoulder, e_hat, n_hat, semi, eff):
-    """由肩点、展向单位向量、拱起法向、半展长、有效展长比，解出腕/中/尖。
-
-    三段等长 L=semi/3 恒定（骨长守恒），相邻段对称偏折 γ：
-      弦长 = L(1+2cos γ) = semi·eff  →  cos γ = (3·eff−1)/2
-    eff=1 → γ=0 完全伸展；eff<1 → 拱起折叠（鸟收翼）。
-    竖直方向偏折互相抵消 → 弦严格沿展向，翼尖不产生伪竖直位移。
-    """
-    L = semi / N_WING_SEG
-    cg = (N_WING_SEG * eff - 1.0) / 2.0
-    cg = max(-1.0, min(1.0, cg))
-    g = math.acos(cg)
-    sg, cgv = math.sin(g), math.cos(g)
-    d1 = cgv * e_hat + sg * n_hat
-    d3 = cgv * e_hat - sg * n_hat
-    wrist = shoulder + L * d1
-    mid = wrist + L * e_hat
-    tip = mid + L * d3
-    return wrist, mid, tip
-
-
-def _cl_coeff(alpha_deg):
-    """鸟翼升力系数：薄翼位流 CL=2π·sinα，失速后饱和到 ±CL_MAX。
-
-    **为什么弃用 Sane & Dickinson 2001 的果蝇翼拟合**：那组系数在 Re≈100 下
-    测得，零升阻力系数约 0.39，L/D 峰值仅约 1.3。而鸟翼 L/D 实测 10~15
-    （Pennycuick 2008）。扑翼要产生净推力，下扑段的 L/D 必须大于 U/|v_f|
-    （本例约 1.6）——用果蝇系数恒为负推力，物理上不成立。
-    """
-    cl = 2.0 * math.pi * math.sin(math.radians(alpha_deg))
-    return max(-CL_MAX, min(CL_MAX, cl))
-
-
-def _cd_coeff(alpha_deg, AR):
-    """鸟翼阻力系数 = 剖面阻力 + 诱导阻力（Pennycuick 2008《Modelling the
-    flying bird》）。AR=b²/S 为展弦比，e 为 Oswald 效率因子。
-
-    简化声明：诱导阻力按局部 CL 逐叶素施加。若展向 CL 呈椭圆分布，其积分
-    恰等于整机诱导阻力；本模型 CL 展向变化平缓，属可控的一阶近似。
-    """
-    cl = _cl_coeff(alpha_deg)
-    return CD0_PROFILE + cl * cl / (math.pi * AR * E_OSWALD)
-
-
-def wing_aero(t, f, U, b, S, alpha0_deg, rho=RHO_AIR, down_frac=DOWN_FRAC,
-              fold=FOLD, amp_deg=None, n_elem=N_ELEM):
-    """准定常叶素法：对双侧翼沿展向积分，返回 (Fx, Fy)（牛）。
-
-    每个叶素：
-      局部竖直速度 v_f = s·cosφ·φ̇（扑动引起）
-      合速度     u_r  = √(U² + v_f²)
-      有效攻角   α_eff = α0 − atan2(v_f, U)     下扑 v_f<0 → α 增大
-      升力 ⊥ 来流：方向 (−v_f, U)/u  → 下扑时其 x 分量 >0，即**推力**
-      阻力 ∥ 来流：方向 (−U, −v_f)/u
-    推力由下扑自然产生，不是写死的 —— 这是扑翼推进的机制本身。
-    """
-    semi = b / 2.0
-    chord = S / b                      # 平均气动弦长
-    AR = b * b / S                     # 展弦比（诱导阻力依赖它）
-    if amp_deg is None:
-        amp_deg = stroke_angle_deg(b) / 2.0
-    phi = flapping_angle(t, f, amp_deg, b, down_frac)
-    dphi = flapping_rate(t, f, amp_deg, b, down_frac)
-    eff = fold_factor(t, f, fold, down_frac)
-    span = semi * eff                  # 屈曲时受气流的有效展长缩短
-    dr = span / n_elem
-    fx = fy = 0.0
-    for i in range(n_elem):
-        s = (i + 0.5) * dr
-        vf = s * math.cos(phi) * dphi
-        u = math.hypot(U, vf)
-        if u < 1e-12:
-            continue
-        a_eff = alpha0_deg - math.degrees(math.atan2(vf, U))
-        q = 0.5 * rho * chord * u * u * dr
-        dl = q * _cl_coeff(a_eff)
-        dd = q * _cd_coeff(a_eff, AR)
-        fx += (-dl * vf - dd * U) / u
-        fy += (dl * U - dd * vf) / u
-    return 2.0 * fx, 2.0 * fy          # 双侧翼
-
-
-def trim_alpha(f, U, b, S, m, rho=RHO_AIR, lo=-5.0, hi=25.0, iters=60):
-    """反解配平攻角 α0：使一个翼拍周期内的平均升力 = m·g（定常水平飞行）。
-
-    二分：平均升力随 α0（在失速前）单调递增。
-    """
-    def mean_lift(a0):
-        n = 48
-        T = 1.0 / f if f > 0 else 1.0
-        tot = 0.0
-        for i in range(n):
-            tot += wing_aero(i * T / n, f, U, b, S, a0, rho)[1]
-        return tot / n
-    target = m * G
-    a, bb = lo, hi
-    fa, fb = mean_lift(a) - target, mean_lift(bb) - target
-    if fa * fb > 0:
-        return bb if abs(fb) < abs(fa) else a     # 单调性不成立时取更接近端
-    for _ in range(iters):
-        mid = 0.5 * (a + bb)
-        fm = mean_lift(mid) - target
-        if abs(fm) < 1e-15:      # 浮点不做相等比较；1e-15 远小于升力量级(N)
-            return mid
-        if fa * fm < 0:
-            bb, fb = mid, fm
-        else:
-            a, fa = mid, fm
-    return 0.5 * (a + bb)
+# ---- 三位置角（fold_factor / sweep_angle 唯一真源见 .bird_aero）----
 
 
 def bird_flight_sim(m=1.0, b=1.2, S=0.2, U=None, alpha0_deg=None, alt0=8.0,

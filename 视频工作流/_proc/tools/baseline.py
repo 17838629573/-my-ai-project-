@@ -191,9 +191,7 @@ def update(today=None, owner="", clear_when=""):
 
 
 def self_check():
-    """自检 5 项：新增 FAIL / 恶化 FAIL / 修复报陈旧 / 变好自动收紧 / 逾期升 FAIL。"""
-    import tempfile
-    import shutil
+    """自检 7 项：新增FAIL/恶化FAIL/修复报陈旧/变好收紧/逾期升FAIL/移动非新增/依赖缺失必报错。"""
     ok = True
 
     def _chk(name, cond):
@@ -206,6 +204,13 @@ def self_check():
                 "line": line, "params": 0}
 
     today = "2026-10-06"
+    _sc_states(today, _chk, _item)
+    _sc_missing_dep(_chk)
+    return ok
+
+
+def _sc_states(today, _chk, _item):
+    """自检 1~6：diff() 的六种状态判定(new/worse/fixed/tightened/overdue/移动)。"""
     # 1) 新增条目 → new
     d = diff([_item("a.py", "f", 12, 20)], {}, today)
     _chk("新增条目判为 new（不许新增债）", len(d["new"]) == 1 and len(d["stable"]) == 0)
@@ -230,19 +235,19 @@ def self_check():
     # 6) 行号变化但函数名不变 → 仍是同一条目（Betterer issueHash 语义：移动≠新增）
     d = diff([_item("a.py", "f", 12, 20, line=99)], base, today)
     _chk("仅行号变化识别为移动而非新增", len(d["stable"]) == 1 and len(d["new"]) == 0)
-    # 7) 依赖缺失必须报错，不能静默 ok
-    tmp = tempfile.mkdtemp()
+
+
+
+def _sc_missing_dep(_chk):
+    """自检 7：依赖缺失必须报错，不能静默 ok。"""
+    from tools import complexity as _c
+    saved = _c.lizard
+    _c.lizard = None
     try:
-        saved, complexity_lizard = BASELINE_PATH, None
-        from tools import complexity as _c
-        complexity_lizard = _c.lizard
-        _c.lizard = None
-        r = run(today)
+        r = run("2026-10-06")
         _chk("lizard 缺失时 run() 返回 ok=False（不静默当零问题）", r["ok"] is False)
-        _c.lizard = complexity_lizard
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    return ok
+        _c.lizard = saved
 
 
 def _update():

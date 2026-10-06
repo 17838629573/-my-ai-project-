@@ -22,6 +22,30 @@ from ..beat import capability
 G = 9.8
 
 
+def _cradle_collide(anchor_x, th, om, vt, n, r, L, e):
+    """相邻球切向接触求解：等质量 ⇒ 交换切向速度（乘 e）。返回本步是否碰撞。
+
+    碰撞沿摆的切向；接触条件为球心距 < 2r 且互相接近。就地改 om/vt。
+    """
+    pos_x = anchor_x + L * np.sin(th)
+    hit = False
+    for i in range(n - 1):
+        d = pos_x[i + 1] - pos_x[i]
+        if d < 2.0 * r and (vt[i] - vt[i + 1]) > 0.0:
+            a, b = e * vt[i + 1], e * vt[i]
+            vt[i], vt[i + 1] = a, b
+            om[i], om[i + 1] = vt[i] / L, vt[i + 1] / L
+            hit = True
+    return hit
+
+
+def _cradle_windows(th, n, th_mid_win, th_last_win):
+    """首撞后窗口内中间球/末球的最大角位移。"""
+    if n > 2:
+        th_mid_win = max(th_mid_win, float(np.max(np.abs(th[1:-1]))))
+    return th_mid_win, max(th_last_win, abs(float(th[-1])))
+
+
 @capability("newton_cradle", source="GAUGE(arXiv:2608.05948) Newton's Cradle; "
                                     "等质量弹性碰撞⇒速度交换",
             group="phenom")
@@ -54,25 +78,14 @@ def newton_cradle_sim(n=5, L=0.50, r=0.04, m=0.20, th0=0.60, T=3.0,
         # 单摆：θ'' = -(g/L) sinθ
         om += (-(G / L) * np.sin(th)) * dt
         th += om * dt
-        # 球心位置与切向速度
-        pos_x = anchor_x + L * np.sin(th)
         vt = om * L
-        # 相邻球接触检测（球心距 < 2r 且互相接近）
-        for i in range(n - 1):
-            d = pos_x[i + 1] - pos_x[i]
-            if d < 2.0 * r and (vt[i] - vt[i + 1]) > 0.0:
-                # 等质量弹性碰撞 ⇒ 交换速度（乘恢复系数）
-                a, b = e * vt[i + 1], e * vt[i]
-                vt[i], vt[i + 1] = a, b
-                om[i], om[i + 1] = vt[i] / L, vt[i + 1] / L
-                if first_hit is None:
-                    first_hit = _step
+        hit = _cradle_collide(anchor_x, th, om, vt, n, r, L, e)
+        if hit and first_hit is None:
+            first_hit = _step
         v_last = max(v_last, abs(vt[-1]))
         if first_hit is not None and (_step - first_hit) * dt <= 0.25:
-            if n > 2:
-                th_mid_win = max(th_mid_win,
-                                 float(np.max(np.abs(th[1:-1]))))
-            th_last_win = max(th_last_win, abs(float(th[-1])))
+            th_mid_win, th_last_win = _cradle_windows(
+                th, n, th_mid_win, th_last_win)
     # 末态能量（动能 + 势能）
     ek = 0.5 * m * (om * L) ** 2
     ep = m * G * L * (1.0 - np.cos(th))

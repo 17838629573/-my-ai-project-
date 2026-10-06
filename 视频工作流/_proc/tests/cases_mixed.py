@@ -57,36 +57,36 @@ def _place(a, off):
     return a + np.asarray(off, dtype=float).reshape(1, 1, 3)
 
 
-def _entity_tracks(fps, dur):
-    """构造 7 类实体的世界轨迹。返回 [(name, (n,k,3) 点集), ...]。"""
-    n = int(round(fps * dur))
-    ts = np.arange(n) / fps
+def _trk_bipeds(ts):
+    """人形：走 / 跑（相位由里程驱动，与 A1/A2 同口径）。"""
     out = []
-
-    # --- 人形：走 / 跑（相位由里程驱动，与 A1/A2 同口径）---
     for nm, fn, v, z in (("walker", lambda p: gait(p % 1.0), 1.4, -1.5),
                          ("runner", lambda p: run(p % 1.0, v=3.2), 3.2, 1.5)):
         seq = []
         for i, t in enumerate(ts):
             J = fn(v * t / 1.4 / 2.0)          # 步频随速度：每 2 步 1.4m
-            pts = np.array([J[k] for k in sorted(J.keys())], float)
-            seq.append(pts)
+            seq.append(np.array([J[k] for k in sorted(J.keys())], float))
         a = _pts(seq)
-        # x 方向按速度推进里程
         a[:, :, 0] += (v * ts)[:, None]
         out.append((nm, _place(a, (0.0, 0.0, z))))
+    return out
 
-    # --- 物件：弹球（x 固定在 8m 处上下弹跳）---
+
+def _trk_ball(n, ts, dur):
+    """物件：弹球（x 固定在 8m 处上下弹跳）。"""
     _, ys = bounce_traj(1.0, 0.8, dur)
     ys = np.asarray(ys, float)
     yi = np.interp(ts, np.linspace(0, dur, len(ys)), ys)
     ball = np.stack([np.full(n, 8.0), yi, np.zeros(n)], axis=1)[:, None, :]
-    out.append(("ball", _place(ball, (0.0, 0.11, 0.0))))
+    return ("ball", _place(ball, (0.0, 0.11, 0.0)))
 
-    # --- 物件：绳（悬挂点 (12,1.2)，末端点由 Verlet 摆动给出）---
-    # rope_sim 返回 (收敛误差, 垂度, 末端点轨迹(steps,2))；末端 y≈1.2−8×0.12
-    # 即绳自然垂下。绳身以「锚点—末端」两点表征（静止悬垂近似直线），
-    # 摆动本身来自 rope_sim 的真实动力学，不由用例写死。
+
+def _trk_rope(n, ts):
+    """物件：绳（悬挂点 (12,1.2)，末端点由 Verlet 摆动给出）。
+
+    rope_sim 返回 (收敛误差, 垂度, 末端点轨迹(steps,2))；绳身以「锚点—末端」
+    两点表征。摆动本身来自 rope_sim 的真实动力学，不由用例写死。
+    """
     rp = rope_sim(n=8, seg=0.12, anchor=(12.0, 1.2), iters=200, steps=400)
     traj = np.asarray(rp[2], float)
     ti = np.linspace(0, len(traj) - 1, n)
@@ -94,50 +94,65 @@ def _entity_tracks(fps, dur):
                     np.interp(ti, np.arange(len(traj)), traj[:, 1]),
                     np.zeros(n)], axis=1)
     anc = np.tile(np.array([12.0, 1.2, 0.0]), (n, 1))
-    rope = np.stack([anc, tip], axis=1)
-    out.append(("rope", rope))
+    return ("rope", np.stack([anc, tip], axis=1))
 
-    # --- 生物：四足小跑（足端 2D → 补 z，x 按 speed 推进）---
+
+def _trk_quad(n, ts):
+    """生物：四足小跑（足端 2D → 补 z，x 按 speed 推进）。"""
     q = quadruped_sim(cycles=2, n=n, gait="trot", speed=0.8, freq=2.5)
     qa = _pts(q[0])
     qa[:, :, 0] += (0.8 * ts)[:, None]
-    out.append(("quad", _place(qa, (0.0, 0.0, -4.0))))
+    return ("quad", _place(qa, (0.0, 0.0, -4.0)))
 
-    # --- 生物：鱼（水层 y=0.6，z=+4）---
+
+def _trk_fish(ts):
+    """生物：鱼（水层 y=0.6，z=+4）。"""
     fs = []
     for t in ts:
         J = fish_swim(t)["J"]
         fs.append(np.array([J[k] for k in sorted(J.keys())], float))
-    out.append(("fish", _place(_pts(fs), (0.0, 0.6, 4.0))))
+    return ("fish", _place(_pts(fs), (0.0, 0.6, 4.0)))
 
-    # --- 生物：鸟（巡航高度 8m，z=+2）---
+
+def _trk_bird(ts):
+    """生物：鸟（巡航高度，z=+2）。"""
     bs = []
     for t in ts:
         J = _bf_mod.bird_fly(t)["J"]
         bs.append(np.array([J[k] for k in sorted(J.keys())], float))
-    out.append(("bird", _place(_pts(bs), (0.0, 0.0, 2.0))))
+    return ("bird", _place(_pts(bs), (0.0, 0.0, 2.0)))
 
+
+def _entity_tracks(fps, dur):
+    """构造 7 类实体的世界轨迹。返回 [(name, (n,k,3) 点集), ...]。"""
+    n = int(round(fps * dur))
+    ts = np.arange(n) / fps
+    out = []
+    out += _trk_bipeds(ts)
+    out.append(_trk_ball(n, ts, dur))
+    out.append(_trk_rope(n, ts))
+    out.append(_trk_quad(n, ts))
+    out.append(_trk_fish(ts))
+    out.append(_trk_bird(ts))
     return out
 
 
-def case_H40():
-    """H40 混合场景：7 类实体同时间轴、同世界坐标下的接口一致性。"""
-    fps, dur = 24.0, 3.0
-    tracks = _entity_tracks(fps, dur)
-
-    # 1) 无 NaN（坐标口径不一致最常见的表现）
-    nan_cnt = int(sum(int(np.isnan(a).sum()) for _, a in tracks))
-
-    # 2) 各自帧间平滑（取所有实体的最坏值）
+def _h40_smooth(tracks):
+    """各自帧间平滑（取所有实体的最坏值）。"""
     fjr = 0.0
     for _, a in tracks:
         d = np.linalg.norm(np.diff(a, axis=0), axis=1).max(axis=1)
         fjr = max(fjr, float(H.frame_jump_ratio(d)))
+    return fjr
 
-    # 3) 跨实体互不穿透（包围球口径）
-    # 包围球**逐帧**算：若把全部帧塞进一个球，位移大的实体（鸟 3 秒飞 37m）
-    # 半径会膨胀到十几米，把「互相穿透」量成「轨迹包络重叠」——那是口径错，
-    # 不是穿模。逐帧比较才是「同一时刻两个物体有没有叠在一起」。
+
+def _h40_overlap(tracks, fps):
+    """跨实体互不穿透（包围球口径，逐帧）。
+
+    包围球**逐帧**算：若把全部帧塞进一个球，位移大的实体（鸟 3 秒飞 37m）
+    半径会膨胀到十几米，把「互相穿透」量成「轨迹包络重叠」——那是口径错，
+    不是穿模。逐帧比较才是「同一时刻两个物体有没有叠在一起」。
+    """
     info = []
     for nm, a in tracks:
         c = a.mean(axis=1)                                    # (n,3)
@@ -153,19 +168,45 @@ def case_H40():
             if -float(gap[k]) > worst_pen:
                 worst_pen = -float(gap[k])
                 worst_pair = "%s/%s@%.2fs" % (n1, n2, k / fps)
+    return worst_pen, worst_pair
 
-    # 4) 地面实体不穿地（球/四足/人形的足最低点）
+
+def _h40_ground(tracks):
+    """地面实体不穿地（球/四足/人形的足最低点）。"""
     lows = []
     for nm, a in tracks:
         if nm in ("walker", "runner", "quad", "ball"):
             lows.append(float(a[:, :, 1].min()))
-    pen_ground = H.ground_penetration_m(lows) if lows else 0.0
+    return H.ground_penetration_m(lows) if lows else 0.0
 
-    # 5) 每个实体都真在动（总弧长，防静态复制/时间轴没接上）
+
+def _h40_arcs(tracks):
+    """每个实体的总弧长（防静态复制 / 时间轴没接上）。"""
     arcs = {}
     for nm, a in tracks:
         arcs[nm] = float(np.linalg.norm(np.diff(a, axis=0), axis=1).sum())
-    min_arc = min(arcs.values())
+    return arcs, min(arcs.values())
+
+
+def case_H40():
+    """H40 混合场景：7 类实体同时间轴、同世界坐标下的接口一致性。"""
+    fps, dur = 24.0, 3.0
+    tracks = _entity_tracks(fps, dur)
+
+    # 1) 无 NaN（坐标口径不一致最常见的表现）
+    nan_cnt = int(sum(int(np.isnan(a).sum()) for _, a in tracks))
+
+    # 2) 各自帧间平滑
+    fjr = _h40_smooth(tracks)
+
+    # 3) 跨实体互不穿透
+    worst_pen, worst_pair = _h40_overlap(tracks, fps)
+
+    # 4) 地面实体不穿地
+    pen_ground = _h40_ground(tracks)
+
+    # 5) 每个实体都真在动
+    arcs, min_arc = _h40_arcs(tracks)
 
     # 6) 时间轴同步：各实体覆盖时长一致
     spans = [a.shape[0] / fps for _, a in tracks]

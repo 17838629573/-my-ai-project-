@@ -75,9 +75,28 @@ def climb(t, rung_sep=0.30, body_h=1.70, cycle=1.4, base=0.0):
     b = base * u
 
     r = t / cycle
+    f, leg, s, idx, ph = _climb_phase(r, sep)
+
+    foot_y = b + f * sep
+    pel_y = foot_y + leg
+    h = b + float(idx) * sep + LEG_BASE + ARM_UP + s
+
+    sway = SWAY * math.sin(2.0 * math.pi * (idx + ph))
+
+    J = {}
+    _climb_torso(J, pel_y, sway)
+    _climb_arms(J, pel_y, h)
+    _climb_legs(J, pel_y, foot_y)
+    return J
+
+
+def _climb_phase(r, sep):
+    """两阶段相位：手上伸(0~0.5) → 脚上跨(0.5~1)。
+
+    返回 (f 脚所在阶, leg 腿长, s 手额外上升量, idx, ph)。
+    """
     idx = int(math.floor(r))
     ph = r - idx
-
     if ph < 0.5:
         e1 = _ease(ph / 0.5)
         f = float(idx)
@@ -88,44 +107,39 @@ def climb(t, rung_sep=0.30, body_h=1.70, cycle=1.4, base=0.0):
         f = idx + e2
         leg = LEG_BASE + LEG_SWING * (1.0 - e2)
         s = sep
+    return f, leg, s, idx, ph
 
-    foot_y = b + f * sep
-    pel_y = foot_y + leg
-    h = b + float(idx) * sep + LEG_BASE + ARM_UP + s
 
-    sway = SWAY * math.sin(2.0 * math.pi * (idx + ph))
-
-    J = {}
+def _climb_torso(J, pel_y, sway):
+    """躯干与头：沿脊柱堆叠，横摆沿脊柱递减。"""
     J["pelvis"] = (0.0, pel_y, sway)
     J["waist"] = (0.0, pel_y + 0.10, sway * 0.8)
     J["chest"] = (0.0, pel_y + 0.24, sway * 0.6)
     J["neck"] = (0.0, pel_y + 0.34, sway * 0.4)
     J["head"] = (0.0, pel_y + 0.44, sway * 0.3)
-
     J["sh_l"] = (0.0, pel_y + SHOULDER_UP, +0.10)
     J["sh_r"] = (0.0, pel_y + SHOULDER_UP, -0.10)
 
+
+def _climb_arms(J, pel_y, h):
+    """双臂：腕前伸抓横杆，肘由两骨 IK 反解（肘朝前 +x，骨长守恒）。"""
     # 腕（前伸抓握横杆）
     J["wri_l"] = (0.13, h, +0.085)
     J["wri_r"] = (0.13, h, -0.085)
-
-    # 肘：两骨 IK 反解，肘朝前（+x），骨长守恒
     J["elb_l"] = _mid(J["sh_l"], J["wri_l"], UPPER_ARM, FOREARM, (1.0, 0.0, 0.0))
     J["elb_r"] = _mid(J["sh_r"], J["wri_r"], UPPER_ARM, FOREARM, (1.0, 0.0, 0.0))
 
+
+def _climb_legs(J, pel_y, foot_y):
+    """双腿：踝/跟/趾定位，膝由两骨 IK 反解（膝朝前 +x，骨长守恒）。"""
     J["hip_l"] = (0.0, pel_y, +0.080)
     J["hip_r"] = (0.0, pel_y, -0.080)
-
     for side, z in (("l", +0.075), ("r", -0.075)):
         J["ank_" + side] = (0.02, foot_y, z)
         J["heel_" + side] = (-0.035, foot_y, z)
         J["toe_" + side] = (0.085, foot_y, z)
-
-    # 膝：两骨 IK 反解，膝朝前（+x），骨长守恒
     J["knee_l"] = _mid(J["hip_l"], J["ank_l"], THIGH, SHANK, (1.0, 0.0, 0.0))
     J["knee_r"] = _mid(J["hip_r"], J["ank_r"], THIGH, SHANK, (1.0, 0.0, 0.0))
-
-    return J
 
 
 def _d(a, b):

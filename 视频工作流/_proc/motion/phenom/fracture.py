@@ -177,6 +177,30 @@ def _ground_contact(p, bvel):
 
 
 # ------------------------------------------------------------------ 主入口
+def _fracture_step(p, bp, bvel, bv, bonds, rest, alive, fix, strain_limit,
+                   p_break_hist, ball_r, ball_m, mass, restitution,
+                   damping, iters, dt):
+    """单步：重力积分 → bond 投影 → 球砖碰撞 → 地面夹紧 → 速度反推。
+
+    顺序不可换：地面夹紧须在速度反推之前（否则穿地），地面接触须在其后。
+    """
+    bvel[:, 1] -= G * dt
+    bv[1] -= G * dt
+    p_prev = p.copy()
+    p += bvel * dt
+    bp += bv * dt
+    for _it in range(iters):
+        _project_bonds(p, bonds, rest, alive, fix, strain_limit,
+                       p_break_hist)
+    p, bp, bvel, bv = _ball_brick(p, bp, bvel, bv, fix, ball_r, ball_m,
+                                  mass, restitution)
+    p, bp = _ground_clamp(p, bp, ball_r)
+    bvel = (p - p_prev) / dt
+    bvel = _ground_contact(p, bvel)
+    bvel *= max(0.0, 1.0 - damping * dt)
+    return p, bp, bvel, bv
+
+
 @capability("fracture", source="GAUGE(arXiv:2608.05948) Wall Breaking; "
                                "内聚区断裂(Dugdale 1960/Barenblatt 1962)",
             group="phenom")
@@ -204,27 +228,10 @@ def fracture_sim(cols=5, rows=4, brick=0.12, gap=0.002, mass=1.0,
     n_steps = int(round(T / dt))
     p_break_hist = []
     for _ in range(n_steps):
-        # 重力 + 积分（半隐式欧拉）
-        bvel[:, 1] -= G * dt
-        bv[1] -= G * dt
-        p_prev = p.copy()
-        p += bvel * dt
-        bp += bv * dt
-        # bond 约束（PBD 迭代）
-        for _it in range(iters):
-            _project_bonds(p, bonds, rest, alive, fix, strain_limit,
-                           p_break_hist)
-        # 球-砖碰撞
-        p, bp, bvel, bv = _ball_brick(p, bp, bvel, bv, fix, ball_r, ball_m,
-                                      mass, restitution)
-        # 地面（位置夹紧，须在速度反推之前）
-        p, bp = _ground_clamp(p, bp, ball_r)
-        # PBD：由约束投影后的位置反推速度
-        bvel = (p - p_prev) / dt
-        # 地面接触：法向弱回弹 + 切向摩擦（须在速度反推之后）
-        bvel = _ground_contact(p, bvel)
-        # 空气阻尼 / 内耗（防止断裂碎块无限加速）
-        bvel *= max(0.0, 1.0 - damping * dt)
+        p, bp, bvel, bv = _fracture_step(
+            p, bp, bvel, bv, bonds, rest, alive, fix, strain_limit,
+            p_break_hist, ball_r, ball_m, mass, restitution,
+            damping, iters, dt)
 
     n_broken = int(np.sum(~alive))
     n_frag = _components(n_p, bonds, alive)

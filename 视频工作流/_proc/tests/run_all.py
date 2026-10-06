@@ -21,6 +21,8 @@ if __package__ in (None, ""):
 from .common import *          # noqa: F401,F403
 from .cases_base import *      # noqa: F401,F403  A1..A7 / B8 / B9
 from .cases_base import _grip_hand      # 下划线名须显式导出
+from .cases_g36 import *        # noqa: F401,F403  G36（ADDITIVE 叠加污染）
+from .cases_g36 import _g36_series, _g36_lower_pollution, _g36_upper_delta, _g36_jump_ratio
 
 
 def case_F35():

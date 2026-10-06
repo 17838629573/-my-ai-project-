@@ -85,11 +85,9 @@ def _one(a, b, idx):
     return out
 
 
-def main(argv):
-    shard = 60
-    jobs = 1
-    final = FINAL
-    s0, ns = 0, -1          # 本次只跑第 s0 段起、共 ns 段（分小批，避免内存/时限触发沙箱回收）
+def _parse_args(argv):
+    """解析 --shard/--jobs/--out/--s0/--n。返回 (shard,jobs,final,s0,ns)。"""
+    shard, jobs, final, s0, ns = 60, 1, FINAL, 0, -1
     for k, key in enumerate(argv[1:]):
         if key == "--shard":
             shard = int(argv[1:][k + 1])
@@ -101,25 +99,22 @@ def main(argv):
             s0 = int(argv[1:][k + 1])
         elif key == "--n":
             ns = int(argv[1:][k + 1])
-    os.makedirs(TMP, exist_ok=True)
-    n = timeline.NF
-    spans = [(a, min(a + shard, n)) for a in range(0, n, shard)]
-    if ns >= 0:
-        spans = spans[s0:s0 + ns]
-    print("[plan] %d frames / %d shards / jobs=%d / run seg %d..%d"
-          % (n, len(spans), jobs, s0, s0 + len(spans) - 1))
-    t0 = time.time()
-    # 用 fork 子进程而非 multiprocessing: 每段渲染完即退出, 内存彻底归还
+    return shard, jobs, final, s0, ns
+
+
+def _fork_spans(spans, s0, jobs, t0):
+    """用 fork 子进程逐段渲染：每段渲染完即退出，内存彻底归还。"""
     running = []
     for _i, (a, b) in enumerate(spans):
-        idx = s0 + _i          # 段号必须是全局编号; 用 enumerate 的 0 基下标会全部写回 seg_000
+        idx = s0 + _i      # 段号必须全局编号；用 0 基下标会全部写回 seg_000
         pid = os.fork()
         if pid == 0:
             try:
                 _one(a, b, idx)
                 os._exit(0)
             except Exception as e:
-                sys.stderr.write("[seg %d ERR] %s: %s\n" % (idx, type(e).__name__, e))
+                sys.stderr.write("[seg %d ERR] %s: %s\n"
+                                 % (idx, type(e).__name__, e))
                 os._exit(1)
         running.append((pid, idx))
         if len(running) >= jobs:
@@ -129,6 +124,19 @@ def main(argv):
     for pid, idx in running:
         os.waitpid(pid, 0)
         print("[seg] %d done (%.0fs)" % (idx, time.time() - t0))
+
+
+def main(argv):
+    shard, jobs, final, s0, ns = _parse_args(argv)
+    os.makedirs(TMP, exist_ok=True)
+    n = timeline.NF
+    spans = [(a, min(a + shard, n)) for a in range(0, n, shard)]
+    if ns >= 0:
+        spans = spans[s0:s0 + ns]
+    print("[plan] %d frames / %d shards / jobs=%d / run seg %d..%d"
+          % (n, len(spans), jobs, s0, s0 + len(spans) - 1))
+    t0 = time.time()
+    _fork_spans(spans, s0, jobs, t0)
     if ns >= 0:
         print("[partial] 分批渲染，跳过 concat（全部段完成后再拼）")
         return None

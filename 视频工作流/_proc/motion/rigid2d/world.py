@@ -305,42 +305,55 @@ class World:
         if not cs:
             return
         for _ in range(iters):
-            moved = 0.0
-            delta = {}
-            for c in cs:
-                a, b = c.a, c.b
-                sm = a.inv_m + b.inv_m
-                if sm <= 0.0:
-                    continue
-                d = POS_PERCENT * max(0.0, c.pen - SLOP) / sm
-                # b2_maxLinearCorrection：限制单步位移修正量，防过冲（出处[2]）
-                if d > MAX_LIN_CORR:
-                    d = MAX_LIN_CORR
-                if d <= 0.0:
-                    continue
-                moved = max(moved, d)
-                va = -c.n * (d * a.inv_m)
-                vb = c.n * (d * b.inv_m)
-                if not a.fixed:
-                    a.p = a.p + va
-                    da = delta.get(id(a))
-                    delta[id(a)] = va if da is None else da + va
-                if not b.fixed:
-                    b.p = b.p + vb
-                    db = delta.get(id(b))
-                    delta[id(b)] = vb if db is None else db + vb
+            moved, delta = self._relax_pass(cs)
             if not delta:
                 return
-            for c in cs:
-                da = delta.get(id(c.a))
-                db = delta.get(id(c.b))
-                if da is None and db is None:
-                    continue
-                da = da if da is not None else _ZERO
-                db = db if db is not None else _ZERO
-                rel = db - da
-                c.pen -= float(c.n[0] * rel[0] + c.n[1] * rel[1])
-                c.p = c.p + 0.5 * (da + db)
-            delta.clear()
+            self._relax_update_pen(cs, delta)
             if moved < 1e-6:
                 return
+
+    def _relax_pass(self, cs):
+        """一轮位置修正：返回 (本轮最大修正量 d, 各体位移增量表)。
+
+        按质量倒数分配修正量；b2_maxLinearCorrection 限制单步位移防过冲（出处[2]）。
+        """
+        moved = 0.0
+        delta = {}
+        for c in cs:
+            a, b = c.a, c.b
+            sm = a.inv_m + b.inv_m
+            if sm <= 0.0:
+                continue
+            d = POS_PERCENT * max(0.0, c.pen - SLOP) / sm
+            if d > MAX_LIN_CORR:
+                d = MAX_LIN_CORR
+            if d <= 0.0:
+                continue
+            moved = max(moved, d)
+            va = -c.n * (d * a.inv_m)
+            vb = c.n * (d * b.inv_m)
+            if not a.fixed:
+                a.p = a.p + va
+                da = delta.get(id(a))
+                delta[id(a)] = va if da is None else da + va
+            if not b.fixed:
+                b.p = b.p + vb
+                db = delta.get(id(b))
+                delta[id(b)] = vb if db is None else db + vb
+        return moved, delta
+
+    def _relax_update_pen(self, cs, delta):
+        """解析更新穿透量（等价重算窄相，见 _relax docstring）。
+
+        接触点随体刚性平移、法线不变，故 pen_new = pen_old - dot(n, Δp_b - Δp_a)。
+        """
+        for c in cs:
+            da = delta.get(id(c.a))
+            db = delta.get(id(c.b))
+            if da is None and db is None:
+                continue
+            da = da if da is not None else _ZERO
+            db = db if db is not None else _ZERO
+            rel = db - da
+            c.pen -= float(c.n[0] * rel[0] + c.n[1] * rel[1])
+            c.p = c.p + 0.5 * (da + db)

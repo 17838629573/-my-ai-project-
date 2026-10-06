@@ -130,6 +130,48 @@ def _foot_pitch_run(p):
     return math.radians(FP_TOE_OFF_DEG + (FP_STRIKE_DEG - FP_TOE_OFF_DEG) * t)
 
 
+def _run_body_lift(ph, v, H):
+    """腾空段整体抬升（抛物线顶点 = g·T_F²/8）。支撑段返回 0。"""
+    hw = 0.5 - BETA
+    T_F = hw / step_freq(v, H)
+    apex = G_ACC * T_F * T_F / 8.0 / H
+    tau = None
+    if BETA <= ph < 0.5:
+        tau = (ph - BETA) / hw
+    elif 0.5 + BETA <= ph < 1.0:
+        tau = (ph - 0.5 - BETA) / hw
+    return 4.0 * apex * tau * (1.0 - tau) if tau is not None else 0.0
+
+
+def _run_leg(J, base, side, off, ph, half, swing, body, cu, L1, L2):
+    """单腿：支撑/摆动前后位置 + 脚掌俯仰 + 两骨 IK 反解膝。就地改 J。"""
+    p = (ph + off) % 1.0
+    if p < BETA:                                  # 支撑：脚从前滑到后
+        ahead = half * (1.0 - 2.0 * p / BETA)
+    else:                                         # 摆动：脚从后摆回前
+        ahead = -half + 2.0 * half * (p - BETA) / swing
+    th = _foot_pitch_run(p)
+    st, ct = np.sin(th), np.cos(th)
+    # 脚掌绕踝旋转后，脚跟/脚尖相对踝的 v 偏移；低者即为接地点
+    hv = -FOOT_HEEL_U * st - FOOT_ANK_H * ct
+    tv = FOOT_TOE_U * st - FOOT_ANK_H * ct
+    low = min(hv, tv)
+    ank_u = cu + ahead
+    ank_v = GROUND_V + _foot_y(p, BETA) + body - low
+    hip = np.array([base["hip_" + side][0],
+                    base["hip_" + side][1] + body])
+    knee = two_bone_ik(hip, np.array([ank_u, ank_v]), L1, L2,
+                       bend=(1.0, 0.0))
+    J["ank_" + side][0] = ank_u
+    J["ank_" + side][1] = ank_v
+    J["knee_" + side][0] = knee[0]
+    J["knee_" + side][1] = knee[1]
+    J["heel_" + side][0] = ank_u + (-FOOT_HEEL_U * ct + FOOT_ANK_H * st)
+    J["heel_" + side][1] = ank_v + hv
+    J["toe_" + side][0] = ank_u + (FOOT_TOE_U * ct + FOOT_ANK_H * st)
+    J["toe_" + side][1] = ank_v + tv
+
+
 def run(ph, v=3.2, H=1.70):
     """跑步步态。ph: 步相 0~1（单腿周期）。返回归一化关节字典。
 
@@ -147,44 +189,11 @@ def run(ph, v=3.2, H=1.70):
     L2 = float(PROP["shank"])
 
     # 腾空段整体抬升（先算，脚部继承）
-    hw = 0.5 - BETA
-    T_STRIDE = 1.0 / step_freq(v, H)
-    T_F = hw * T_STRIDE
-    apex = G_ACC * T_F * T_F / 8.0 / H
-    tau = None
-    if BETA <= ph < 0.5:
-        tau = (ph - BETA) / hw
-    elif 0.5 + BETA <= ph < 1.0:
-        tau = (ph - 0.5 - BETA) / hw
-    body = 4.0 * apex * tau * (1.0 - tau) if tau is not None else 0.0
+    body = _run_body_lift(ph, v, H)
 
     cu = 0.5 * (base["ank_l"][0] + base["ank_r"][0])
     for side, off in (("l", 0.0), ("r", 0.5)):
-        p = (ph + off) % 1.0
-        if p < BETA:                                  # 支撑：脚从前滑到后
-            ahead = half * (1.0 - 2.0 * p / BETA)
-        else:                                         # 摆动：脚从后摆回前
-            ahead = -half + 2.0 * half * (p - BETA) / swing
-        th = _foot_pitch_run(p)
-        st, ct = np.sin(th), np.cos(th)
-        # 脚掌绕踝旋转后，脚跟/脚尖相对踝的 v 偏移；低者即为接地点
-        hv = -FOOT_HEEL_U * st - FOOT_ANK_H * ct
-        tv = FOOT_TOE_U * st - FOOT_ANK_H * ct
-        low = min(hv, tv)
-        ank_u = cu + ahead
-        ank_v = GROUND_V + _foot_y(p, BETA) + body - low
-        hip = np.array([base["hip_" + side][0],
-                        base["hip_" + side][1] + body])
-        knee = two_bone_ik(hip, np.array([ank_u, ank_v]), L1, L2,
-                           bend=(1.0, 0.0))
-        J["ank_" + side][0] = ank_u
-        J["ank_" + side][1] = ank_v
-        J["knee_" + side][0] = knee[0]
-        J["knee_" + side][1] = knee[1]
-        J["heel_" + side][0] = ank_u + (-FOOT_HEEL_U * ct + FOOT_ANK_H * st)
-        J["heel_" + side][1] = ank_v + hv
-        J["toe_" + side][0] = ank_u + (FOOT_TOE_U * ct + FOOT_ANK_H * st)
-        J["toe_" + side][1] = ank_v + tv
+        _run_leg(J, base, side, off, ph, half, swing, body, cu, L1, L2)
 
     for k in ("pelvis", "hip_l", "hip_r", "waist", "chest", "neck", "head",
               "sh_l", "sh_r", "elb_l", "elb_r", "wri_l", "wri_r"):
