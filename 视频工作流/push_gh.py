@@ -7,6 +7,7 @@
   被依赖: 人工执行(无代码引用)
   约束: 排除 mp4/mov/avi/webm/mkv/m4v/flv(产物, 不入库)
         排除 pyc/pyo/__pycache__/_bak(缓存与过程备份)
+        排除 .refcache/.refcache.json(refcheck 联网缓存，运行时生成)
         整包替换: 远程「视频工作流」子树整体换新 sha, 不留旧残留
         低并发(3)+429/403 指数退避, 规避 GitHub 二级限流
   校验: 运行后自动拉取远程 tree 比对文件数
@@ -27,7 +28,8 @@ ROOT = Path(__file__).resolve().parent
 EXCLUDE_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v", ".flv",
                ".pyc", ".pyo", ".so", ".zip",
                ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
-EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules"}
+EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules",
+                 ".refcache"}
 MAX_PER_RUN = 50
 
 API = "https://api.github.com"

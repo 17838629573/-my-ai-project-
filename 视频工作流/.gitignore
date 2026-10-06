@@ -15,3 +15,7 @@ __pycache__/
 # 归档与生成图
 _生成/
 _archive_旧链路/
+
+# refcheck 联网缓存（运行时生成）
+.refcache/
+.refcache.json
