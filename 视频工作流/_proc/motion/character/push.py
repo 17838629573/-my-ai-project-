@@ -25,8 +25,8 @@ if __package__ in (None, ""):
 import numpy as np
 
 from ..beat import capability
-from ..rigid2d_core import Body2
-from ..rigid2d_world import World
+from ..rigid2d.core import Body2
+from ..rigid2d.world import World
 
 SLOP = 0.005        # Box2D 官方 b2_linearSlop（见模块 docstring 依据）
 DT = 1.0 / 240.0

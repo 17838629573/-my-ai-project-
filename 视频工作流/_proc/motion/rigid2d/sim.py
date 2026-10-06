@@ -21,13 +21,13 @@ if __package__ in (None, ""):
 import math
 import numpy as np
 
-from .beat import capability
-from .rigid2d_core import (  # noqa: F401
+from ..beat import capability
+from .core import (  # noqa: F401
     SLOP, BETA, SLEEP_LIN, SLEEP_ANG, SLEEP_TIME, WAKE_VN, POS_PERCENT, _ZERO, MAX_LIN_CORR, ITER, rot, cross, cross_w, Body2,
 )
-from .rigid2d_collide import Segment2  # noqa: F401
-from .rigid2d_solve import DistanceConstraint  # noqa: F401
-from .rigid2d_world import World  # noqa: F401
+from .collide import Segment2  # noqa: F401
+from .solve import DistanceConstraint  # noqa: F401
+from .world import World  # noqa: F401
 
 @capability("stack", source="顺序冲量+warm starting+Baumgarte(Erin Catto GDC2006/Box2D Lite)", group="physics")
 def stack_sim(n_box=4, size=0.22, T=3.0, dt=1.0 / 240.0):

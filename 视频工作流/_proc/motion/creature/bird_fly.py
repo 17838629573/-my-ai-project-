@@ -384,10 +384,21 @@ def _cap_bird_fly(t, params):
 
 
 def self_check():
+    """飞行自检：分四组（频率巡航 / 骨长守恒 / 气动因果 / 帧间采样）。"""
     from base.assertrun import Checker
-    import importlib
     c = Checker("motion.creature.bird_fly")
+    _sc_freq(c)
+    _sc_bones(c)
+    _sc_aero(c)
+    _sc_frames(c)
+    return not c.failed
 
+
+def _sc_freq(c):
+    m, b, S = 1.0, 1.2, 0.2
+    f = beat_freq_pennycuick(m, b, S)
+    T = 1.0 / f
+    U = cruise_speed(f, b, ST_DIRECT)
     # --- 频率与巡航速度（银鸥 herring gull 量级）---
     m, b, S = 1.0, 1.2, 0.2
     f = beat_freq_pennycuick(m, b, S)
@@ -422,6 +433,12 @@ def self_check():
     c.chk("扑动角速率在周期衔接处连续 | Δ=%.3e" % abs(r0 - r1), abs(r0 - r1) < 1e-3,
           "两段余弦端点导数均为 0 → C1 连续")
 
+
+def _sc_bones(c):
+    m, b, S = 1.0, 1.2, 0.2
+    f = beat_freq_pennycuick(m, b, S)
+    T = 1.0 / f
+    U = cruise_speed(f, b, ST_DIRECT)
     # --- 翼骨段长守恒 ---
     semi = b / 2.0
     worst = 0.0
@@ -437,6 +454,10 @@ def self_check():
     c.chk("翼骨三段等长守恒 | 最大偏差 %.3e" % worst, worst < 1e-9,
           "骨长守恒同款 IK 判据：段长恒 = semi/3")
 
+
+def _sc_aero(c):
+    m, b, S = 1.0, 1.2, 0.2
+    sim = bird_flight_sim(m=m, b=b, S=S, t_end=2.0)
     # --- 气动因果：下扑推力/升力主导（由 BEM 积分得出，非写死）---
     sim = bird_flight_sim(m=m, b=b, S=S, t_end=2.0)
     dn, up = sim["down"], ~sim["down"]
@@ -470,6 +491,12 @@ def self_check():
           abs(mean_fy - m * G) < 0.05 * m * G,
           "定常水平飞行配平（trim_alpha 反解攻角，5% 容差）")
 
+
+def _sc_frames(c):
+    m, b, S = 1.0, 1.2, 0.2
+    f = beat_freq_pennycuick(m, b, S)
+    T = 1.0 / f
+    U = cruise_speed(f, b, ST_DIRECT)
     # --- 帧间无跳变 ---
     mj = 0.0
     prev = None

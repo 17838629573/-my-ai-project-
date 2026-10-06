@@ -8,7 +8,7 @@
   输入: 相位进度 u∈[0,1]、params{方向/重复次数/幅度}、基准关节 J
   输出: {'J': {关节: (u,v,w)}, 'phase': str, 'detail': dict}
   依赖: numpy
-  被依赖: motion.beat, motion.cafe
+  被依赖: motion.beat, showreel.cafe
   约束: 眼睛先于头到达（Pejsa: 眼到 OMR 后头才追上，VOR 锁定）；
         敲击用 anticipation→strike→settle 三段（Lango: 5/2/3 帧）；
         翻页纸张变形用 cos(πu) 镜像 + sin(πu) 起弧，中线不动；

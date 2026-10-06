@@ -1,6 +1,6 @@
-# 契约: proc/motion/cafe
+# 契约: proc/showreel/cafe
 #   一句话: 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
-#   完整契约见 motion/__init__.py
+#   完整契约见 showreel/__init__.py
 
 import os
 import sys

@@ -77,61 +77,6 @@
       "owner": "motion",
       "since": "2026-10-06"
     },
-    "motion/rigid2d_collide.py::_sat_pick_axis": {
-      "ccn": 13,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/rigid2d_collide.py",
-      "func": "_sat_pick_axis",
-      "length": 27,
-      "line": 157,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
-    "motion/rigid2d_collide.py::_vertex_contain": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/rigid2d_collide.py",
-      "func": "_vertex_contain",
-      "length": 29,
-      "line": 186,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
-    "motion/rigid2d_collide.py::collide_box_box_np": {
-      "ccn": 16,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/rigid2d_collide.py",
-      "func": "collide_box_box_np",
-      "length": 39,
-      "line": 59,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
-    "motion/rigid2d_world.py::_pair_candidates": {
-      "ccn": 12,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/rigid2d_world.py",
-      "func": "_pair_candidates",
-      "length": 42,
-      "line": 133,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
-    "motion/rigid2d_world.py::_relax": {
-      "ccn": 18,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/rigid2d_world.py",
-      "func": "_relax",
-      "length": 61,
-      "line": 286,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
     "showreel/phys.py::run": {
       "ccn": 11,
       "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",

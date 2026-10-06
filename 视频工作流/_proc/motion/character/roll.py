@@ -30,9 +30,9 @@ import math
 import numpy as np
 
 from ..beat import capability
-from ..rigid2d_core import Body2
-from ..rigid2d_collide import Segment2
-from ..rigid2d_world import World
+from ..rigid2d.core import Body2
+from ..rigid2d.collide import Segment2
+from ..rigid2d.world import World
 
 DT = 1.0 / 240.0
 

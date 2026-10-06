@@ -21,15 +21,15 @@ if __package__ in (None, ""):
 import math
 import numpy as np
 
-from .rigid2d_core import (  # noqa: F401
+from .core import (  # noqa: F401
     SLOP, BETA, SLEEP_LIN, SLEEP_ANG, SLEEP_TIME, WAKE_VN, POS_PERCENT, _ZERO, MAX_LIN_CORR, ITER, rot, cross, cross_w, Body2,
 )
-from .rigid2d_collide import (  # noqa: F401
+from .collide import (  # noqa: F401
     _ANCHOR,  # 世界锚点（静态、零半径）
     collide_box_box, collide_box_box_np, collide_ground, collide_seg,
     _clip_face, _inside_obb, _round_pair, Segment2,
 )
-from .rigid2d_solve import (  # noqa: F401
+from .solve import (  # noqa: F401
     Contact, solve, _prepare, _apply,
 )
 

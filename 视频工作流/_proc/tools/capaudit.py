@@ -29,7 +29,7 @@ for m in ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
         __import__("motion.character." + m)
     except Exception as _e:
         IMPORT_ERRS.append(("motion.character." + m, repr(_e)))
-for m in ("motion.crowd", "motion.rigid", "motion.rigid2d", "motion.rigid2d_sim"):
+for m in ("motion.crowd", "motion.rigid", "motion.rigid2d", "motion.rigid2d.sim"):
     try:
         __import__(m)
     except Exception as _e:

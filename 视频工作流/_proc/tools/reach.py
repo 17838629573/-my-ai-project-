@@ -21,7 +21,7 @@ SKIP_PARTS = {"__pycache__", ".git", "_bak", "tools"}
 # 活跃入口：演示脚本 + 测试 + 门禁
 ENTRY = {
     "_proc/beat_demo.py",
-    "_proc/motion/cafe.py",
+    "_proc/showreel/cafe.py",
     "_proc/tests/run_all.py",
     "_proc/check.py",
     "_proc/gen_index.py",

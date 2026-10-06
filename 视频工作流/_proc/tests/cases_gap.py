@@ -33,8 +33,8 @@ import numpy as np
 
 from .common import *
 import tests.harness as H
-from motion.rigid2d_world import World
-from motion.rigid2d_core import Body2, ITER, SLOP
+from motion.rigid2d.world import World
+from motion.rigid2d.core import Body2, ITER, SLOP
 from motion.character.push import push_sim, box_sim
 from motion.character.roll import roll_sim
 from motion.creature.quadruped import quadruped_sim

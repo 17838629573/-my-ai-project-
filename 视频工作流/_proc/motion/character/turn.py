@@ -8,7 +8,7 @@
   输入: 起始 yaw、目标转角 delta_deg、进度 u∈[0,1]、基准关节 J
   输出: {'yaw': float, 'J': {关节: (u,v,w)}}
   依赖: numpy, math
-  被依赖: motion.beat, motion.cafe
+  被依赖: motion.beat, showreel.cafe
   约束: 转身速率分档（基础 125°/s，|Δ|>100° 线性加速到 300°/s）；
         yaw 由每帧设置驱动，转身动画本身只带腿部动作；
         缓动用 smoothstep u²(3-2u)，首尾速度为 0；

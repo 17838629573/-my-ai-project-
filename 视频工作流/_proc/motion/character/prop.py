@@ -9,7 +9,7 @@
         各相位的手部目标点(归一化身高, 身体坐标系)
   输出: {'phase':str, 'owner':str, 'J':{关节:(u,v,w)}, 'events':[str]}
   依赖: numpy, motion.character.leg(两骨IK)
-  被依赖: motion.cafe, motion.beat
+  被依赖: showreel.cafe, motion.beat
   约束: 所有权切换只在 pickup 末(attach) 与 release 末(detach) 两个事件点发生，
         各只触发一次(不重复 release)；detach 瞬间道具世界位置连续无跳变；
         pivot 取道具底面中心(UE5: 放下需补偿 pivot→bounds)；

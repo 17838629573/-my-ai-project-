@@ -33,8 +33,8 @@ import math
 import numpy as np
 
 from .beat import capability
-from .rigid2d_core import Body2  # noqa: F401
-from .rigid2d_world import World  # noqa: F401
+from .rigid2d.core import Body2  # noqa: F401
+from .rigid2d.world import World  # noqa: F401
 
 ITER = 200         # 距离约束松弛迭代次数（Jakobsen relaxation）
 #   残差 ≈ g·dt²/iters（每步重力新引入的拉伸被 N 次松弛摊薄），

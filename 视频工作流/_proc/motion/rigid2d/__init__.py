@@ -38,20 +38,20 @@ if __package__ in (None, ""):
     __package__ = _os.path.relpath(
         _os.path.dirname(_os.path.abspath(__file__)), _d).replace(_os.sep, ".")
 
-from .rigid2d_core import (  # noqa: F401
+from .core import (  # noqa: F401
     SLOP, BETA, SLEEP_LIN, SLEEP_ANG, SLEEP_TIME, WAKE_VN,
     POS_PERCENT, _ZERO, MAX_LIN_CORR, ITER,
     rot, cross, cross_w, Body2,
 )
-from .rigid2d_collide import (  # noqa: F401
+from .collide import (  # noqa: F401
     collide_box_box, collide_box_box_np, collide_ground, collide_seg,
     _clip_face, _inside_obb, _round_pair, Segment2,
 )
-from .rigid2d_solve import (  # noqa: F401
+from .solve import (  # noqa: F401
     Contact, solve, _prepare, _apply, DistanceConstraint,
 )
-from .rigid2d_world import World  # noqa: F401
-from .rigid2d_sim import (  # noqa: F401
+from .world import World  # noqa: F401
+from .sim import (  # noqa: F401
     stack_sim, ramp_sim, pendulum_sim, self_check,
 )
 

@@ -21,7 +21,7 @@ if __package__ in (None, ""):
 import math
 import numpy as np
 
-from .rigid2d_core import (  # noqa: F401
+from .core import (  # noqa: F401
     SLOP, BETA, SLEEP_LIN, SLEEP_ANG, SLEEP_TIME, WAKE_VN, POS_PERCENT, _ZERO, MAX_LIN_CORR, ITER, rot, cross, cross_w, Body2,
 )
 

@@ -36,8 +36,8 @@ import math
 import numpy as np
 
 from .beat import capability
-from .rigid2d_core import SLOP, Body2  # noqa: F401
-from .rigid2d_world import World  # noqa: F401
+from .rigid2d.core import SLOP, Body2  # noqa: F401
+from .rigid2d.world import World  # noqa: F401
 
 K_FRAC = 0.5   # 保守推进：单步位移上限 = K_FRAC × 半径（出处见模块 docstring）
 
