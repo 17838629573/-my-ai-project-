@@ -45,6 +45,7 @@ TOOLS = [
     ("文档漂移", "tools/docsync.py", True),
     ("出处核验", "tools/refcheck.py", True),
     ("阈值溯源", "tools/provenance.py", False),
+    ("动作质量", "tools/motionqual.py", False),
 ]
 
 _DEF_RE = re.compile(r"^\s*def\s+([A-Za-z_]\w*)", re.M)

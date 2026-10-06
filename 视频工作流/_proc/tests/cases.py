@@ -101,6 +101,19 @@ CASES = [
      ["overlap_resolve"], ["penetration_m"], 65),
     ("F35", "F", "超长视频：1分钟以上，检查累积误差漂移",
      ["walk"], ["frame_jump_ratio", "jitter_px", "skate_cm_frame"], 66),
+    # ---------------------------------------------------------------- G 生物运动
+    ("G36", "G", "ADDITIVE 三能力接线：gaze/finger/page 叠加到 gait，下半身零污染",
+     ["walk", "gaze_shift", "finger_tap", "page_flip"],
+     ["lower_pollution", "frame_jump_ratio"], 67),
+    ("G37", "G", "攀岩：三点支撑 / 支撑相零滑移 / 不穿壁",
+     ["climb_rock"],
+     ["support_min", "foot_slip_m", "ground_penetration_m", "frame_jump_ratio"], 68),
+    ("G38", "G", "鱼游：脊椎段长守恒 / Strouhal 区间 / 帧间平滑",
+     ["fish_swim", "fish_strouhal"],
+     ["seg_len_err", "strouhal_lo", "strouhal_hi", "frame_jump_ratio"], 69),
+    ("G39", "G", "四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑",
+     ["quadruped"],
+     ["gait_contact_deficit", "foot_slip_m", "frame_jump_ratio"], 70),
 ]
 
 

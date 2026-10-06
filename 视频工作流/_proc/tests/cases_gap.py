@@ -37,7 +37,7 @@ from motion.rigid2d_world import World
 from motion.rigid2d_core import Body2, ITER, SLOP
 from motion.character.push import push_sim, box_sim
 from motion.character.roll import roll_sim
-from motion.character.quadruped import quadruped_sim
+from motion.creature.quadruped import quadruped_sim
 from motion.constraint_ext import rope_sim, hinge_door_sim, toppling_sim
 from motion.physics_ext import (ccd_sim, broadphase_sim, gravity_off_sim,
                                 friction_sim, overlap_resolve_sim,

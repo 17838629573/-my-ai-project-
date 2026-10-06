@@ -282,6 +282,21 @@ _SEM = {
     "silhouette_gap_px": "silhouette gap mask continuity pixel rendered body segmentation",
     "silhouette_span_ratio": "silhouette span ratio mask rendered body proportion scale",
     "skate_cm_frame": "foot skating slide ground contact velocity displacement marker",
+    # 2026-10 动作质量指标补齐（tools/motionqual.py 测量）
+    "zmp_out_pct": "zero moment point stability support polygon balance biped locomotion dynamics",
+    "bos_dist_m": "base of support distance margin zero moment point stability balance",
+    "jitter_accel": "jitter smoothness acceleration joint temporal artifact high frequency",
+    "pene_bone_m": "penetration bone self intersection capsule skeleton per bone interpenetration",
+    "contact_f1": "contact detection precision recall f1 foot ground prediction",
+    "duty_factor_err": "duty factor stance phase gait quadruped Hildebrand locomotion",
+    "phase_err": "relative phase footfall gait quadruped Hildebrand lateral sequence",
+    "wave_len_ratio": "undulatory swimming body wave wavelength carangiform fish locomotion",
+    "foot_slip_m": "foot slip slide contact ground displacement artifact",
+    "gait_contact_deficit": "gait contact support feet quadruped stance number deficit",
+    "seg_len_err": "segment length constraint distance PBD Jakobsen chain conservation",
+    "strouhal_lo": "Strouhal number swimming flapping efficiency cruise locomotion",
+    "strouhal_hi": "Strouhal number swimming flapping efficiency cruise locomotion",
+    "support_min": "support contact points climbing stability three points",
 }
 
 

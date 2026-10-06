@@ -58,7 +58,9 @@ def init_capabilities(verbose=False):
         "character",
         ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
          "carry", "throw", "catch", "kick", "climb", "pass_ball",
-         "push", "quadruped", "roll"),
+         "push", "roll"),
+    ), (
+        "creature", ("climb_rock", "fish_swim", "quadruped"),
     ), (
         "character.body", ("gait", "leg", "joints", "proportions", "sdf", "render", "cloth"),
     ), (

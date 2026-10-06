@@ -118,12 +118,16 @@ def case_E28():
 
 
 
+from tests.cases_creature import case_G37, case_G38, case_G39  # noqa: F401
 from tests.cases_gap import (case_B12, case_B13, case_B14, case_C15,  # noqa: F401
                              case_D23, case_E25, case_E27, case_E29,
                              case_F30, case_F31, case_F32, case_F33,
                              case_F34)
 
-EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": case_A3,
+EXEC = {
+    "G37": case_G37,
+    "G38": case_G38,
+    "G39": case_G39,"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": case_A3,
         "A4": case_A4, "A5": case_A5, "B8": case_B8, "B9": case_B9, "A6": case_A6, "A7": case_A7,
         "C16": case_C16, "C17": case_C17, "C18": case_C18,
         "C19": case_C19, "C20": case_C20, "D21": case_D21, "D24": case_D24,
@@ -137,8 +141,6 @@ EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": ca
         "F34": case_F34}
 
 
-from tests.cases_crowd import case_D21, case_D24  # noqa: F401
-from tests.cases_throw import case_B10, case_B11  # noqa: F401
 
 
 

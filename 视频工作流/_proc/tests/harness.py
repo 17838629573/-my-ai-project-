@@ -111,6 +111,48 @@ CRIT = {
         "阈值 0.75 为本工程自测标定（实测 D22 剪影 IoU=0.9357 留 25% 余量）。"
         "撤除说明：原引 ResiHMR(arXiv:2604.28025) 主题为残肢人群单图 3D 人体网格恢复，"
         "与本判据无方法论关联，属语义贴牌，已撤除"),
+  # 足端滑移（foot skating / sliding artifact）：支撑相足在世界系里的位移。
+    # 业界判据：HumanML3D/CIMI4D 等文本生动作工作用 foot sliding metric 量化该伪影；
+    # 阈值 1e-3 m 为本工程自测标定（爬梯/攀岩支撑相实测 ~1e-16 留 9 量级余量）。
+    "foot_slip_m":          (1e-3, "<",
+        "Foot skating/sliding artifact：支撑相足端世界位移（业界 foot sliding metric）；阈值本工程自测标定"),
+    # Strouhal 数 St = f·A/v（A=尾端峰峰振幅）：生物高效巡航区间 0.2~0.4
+    "strouhal_lo":          (0.2, ">", "Triantafyllou 1993：生物巡航 St 0.2~0.4（下界）"),
+    "strouhal_hi":          (0.4, "<", "同上上界"),
+    # 脊椎链段长守恒：PBD/Jakobsen 距离约束每次迭代后段长误差
+    "seg_len_err":          (1e-6, "<",
+        "Jakobsen 2001 Advanced Character Physics 距离约束：段长误差应收敛到 0"),
+    # 三点支撑：攀岩/爬梯的稳定原则，任一时刻至少 3 个效应器固定
+    "support_min":          (3, ">=", "攀岩三点支撑（three points of contact）：任一时刻 ≥3 效应器固定"),
+    # 四足步态支撑足缺口：实测最少同时支撑足 vs 该步态期望值（GAIT_TABLE 第三项）
+    "gait_contact_deficit": (0, "<=",
+        "Hildebrand 1965 四足步态分类：walk/crawl 全程有支撑、trot/pace 对角 2 足、"
+        "bound/gallop 存在腾空相(期望 0)；实测不得低于期望"),
+    # ---- 以下 8 项由 tools/motionqual.py 测量（业界指标补齐，2026-10 新增）----
+    # 只登记阈值与出处；测量实现不在本文件，避免"同一判据两套实现"
+    "zmp_out_pct": (0.0, "<=",
+        "ZMP 稳定性：ZMP 全序列落在支撑多边形（BoS）内则越界率 0；"
+        "出处 HUMOS(arXiv:2409.03944) Dyn.Stability / BoSDist"),
+    "bos_dist_m": (0.0, ">=",
+        "同上：ZMP 到支撑多边形边界的最小距离（米），<0 表示越界"),
+    "jitter_accel": (1e-3, "<",
+        "Karunratanakul 2023 Jitter：关节加速度变化量均值，非像素级抖动；"
+        "过大会表现为高频抽搐"),
+    "pene_bone_m": (0.04, "<",
+        "PeneBone(业界骨级自穿透指标)：每骨以 2cm 为半径做胶囊，"
+        "非相邻骨间最深穿透深度；2r=0.04 即半径和的几何上界"),
+    "contact_f1": (0.9, ">=",
+        "CHOIS 接触指标：预测接触与真值接触的 precision/recall/F1；"
+        "此处真值取动作自身声明的支撑相"),
+    "duty_factor_err": (0.05, "<",
+        "Hildebrand 1965 三变量之一：占空比(触地时长/周期)，"
+        "walk 类应 >0.5；本项测实测与步态表期望值之差"),
+    "phase_err": (0.05, "<",
+        "同上：相对相位(以 LH 为参考的触地滞后)，"
+        "trot 对角同相 0.0/0.5；本项测实测与期望之差"),
+    "wave_len_ratio": (0.5, ">",
+        "鱼类行波：体波波长/体长；鲹科巡航约 1 个体长量级，"
+        "低于 0.5 说明行波未成形（出处 Triantafyllou 1993）"),
 }
 
 
