@@ -29,7 +29,7 @@ EXCLUDE_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v", ".flv",
                ".pyc", ".pyo", ".so", ".zip",
                ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules",
-                 ".refcache"}
+                 ".refcache", ".refcache.json"}
 MAX_PER_RUN = 50
 
 API = "https://api.github.com"
