@@ -7,6 +7,7 @@
   依赖: 标准库 ast/os
   被依赖: 瘦身流程
   约束: 排除 _bak 等存档目录
+        短名歧义全部登记, 结果不依赖文件系统遍历顺序(同一份代码必须算出同一结果)
   校验: python3 _proc/tools/reach.py
 """
 import ast
@@ -91,12 +92,16 @@ def imports_of(path):
     return out
 
 
-def main():
-    files = {rel(p): p for p in all_py()}
-    # 模块名 -> 文件
-    # 项目内并存两套包名（扁平 motion/scene/shape 与绝对 _proc.motion），两套都要登记
+def _build_name2file(files):
+    """模块名 -> 文件列表。
+
+    项目内并存两套包名（扁平 motion/scene/shape 与绝对 _proc.motion），两套都要登记。
+    短名歧义（如 scene 同时匹配 _proc/scene/__init__.py 与 _proc/showreel/scene.py）
+    必须全部登记，不能用 setdefault 只留一个：否则结果取决于文件系统遍历顺序
+    （rglob 顺序随目录增删改而变），同一份代码会算出不同的可达集合。
+    """
     name2file = {}
-    for r in files:
+    for r in sorted(files):
         m = mod_name(r)
         cands = {m, m.split(".")[-1]}
         if m.startswith("_proc."):
@@ -104,8 +109,12 @@ def main():
             cands.add(flat)
             cands.add(flat.split(".")[-1])
         for c in cands:
-            name2file.setdefault(c, r)
+            name2file.setdefault(c, []).append(r)
+    return name2file
 
+
+def _reach(files, name2file):
+    """从活跃入口做 BFS，返回可达文件集合。"""
     seen = set()
     queue = [e for e in ENTRY if e in files]
     while queue:
@@ -114,10 +123,16 @@ def main():
             continue
         seen.add(cur)
         for imp in imports_of(files[cur]):
-            tgt = name2file.get(imp)
-            if tgt and tgt not in seen:
-                queue.append(tgt)
+            # 一个 import 名可能对应多个文件（短名歧义）：全部入队
+            for tgt in name2file.get(imp, ()):
+                if tgt and tgt not in seen:
+                    queue.append(tgt)
+    return seen
 
+
+def main():
+    files = {rel(p): p for p in all_py()}
+    seen = _reach(files, _build_name2file(files))
     orphans = sorted(set(files) - seen)
     print(f"活跃入口 {len(ENTRY)} 个")
     print(f"可达文件 {len(seen)}")
