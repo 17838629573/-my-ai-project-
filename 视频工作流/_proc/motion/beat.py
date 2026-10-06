@@ -39,6 +39,15 @@ import numpy as np
 CAP = {}          # name -> fn(u, params) -> J {joint: (u,v,w)}
 CAP_SRC = {}      # name -> 出处
 CAP_GROUP = {}    # name -> 互斥组名
+# CAP_ALL：不可裁剪的注册快照。
+# 为什么需要第二份字典：capbridge.normalize() 是「就地归一化」，
+# 会把 AUX/PHYS/ADDITIVE 类能力 del 出 CAP，只留能当姿态用的 POSE。
+# 门检却拿 CAP 判「能力是否注册」——于是 rope/hinge_door/toppling/ccd/broadphase/
+# gravity_off/friction/overlap_resolve/quadruped/roll/push 等 13 项明明写好了、
+# self_check 也过，却被报成「STUB 缺能力」，与 climb 事故同源。
+# 注册完整性是「注册」的属性，不该被归一化视图裁掉，故另存一份。
+# 出处: 单一职责——注册表与视图分离（Fowler PoEAA «Separated Presentation»）。
+CAP_ALL = {}      # name -> fn（永不删除，仅供门检/审计判「是否已注册」）
 
 # ADAPT 原文：只有 sitting 与 navigating 互斥
 EXCLUSIVE = [{"sit", "navigate"}]
@@ -67,6 +76,7 @@ def capability(name, source, group="other"):
         CAP[name] = fn
         CAP_SRC[name] = source
         CAP_GROUP[name] = group
+        CAP_ALL[name] = fn
         return fn
     return deco
 

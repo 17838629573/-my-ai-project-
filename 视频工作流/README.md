@@ -38,10 +38,10 @@
 ## 三、规模（2026-10-06 脚本实测，非记忆值）
 
 ```
-活跃文件  70 个         ← reach.py: 入口 11 个，可达性分析得出
-孤立文件  22 个         ← 无任何活跃入口引用
+活跃文件  78 个         ← reach.py: 入口 11 个，可达性分析得出
+孤立文件  20 个         ← 无任何活跃入口引用
 能力表    注册 30（可直接驱动时间线 10）
-测试      PASS 22 / FAIL 0 / STUB 13 / ERROR 0（共 35 项）
+测试      PASS 35 / FAIL 0 / STUB 0 / ERROR 0（共 35 项）
 仓库体积  工作树 1.1 MB / GitHub 平台 136 MB（含 git 历史对象）
 ```
 
@@ -57,7 +57,7 @@
 GitHub 平台 136 MB 含全部 git 历史对象（历史上曾推入视频产物，已从工作树删除但历史仍在）；
 此前 README 的 7.4 MB 是删除视频产物过程中的中间态，不再作为声明值。
 
-**完成度如实披露**（不藏在附录）：35 项测试中 **22 项通过、13 项 STUB（37% 未实现）**；
+**完成度如实披露**（不藏在附录）：35 项测试**全部通过、0 项 STUB**（缺口用例已全部补执行体，见第九节）；
 注册 30 个能力中 **仅 10 个（33%）可直接驱动时间线**，注册 ≠ 可调用。
 
 ---
@@ -148,7 +148,7 @@ Box2D Lite 的物理层与动画层分离。
 | 状态 | 数量 | 判定 | 成员 |
 |---|---|---|---|
 | **可用** | 10 | POSE，`(u,params)->{关节}`，时间线可直接调用 | walk run jump kick throw catch crouch reach_grab climb carry_box |
-| **在研（STUB）** | 13 | 门检显式报 `缺能力: xxx`，未实现、不降级不伪造 | toppling ccd broadphase gravity_off friction overlap_resolve 等（见 `run_all.py` 实测输出） |
+| **在研（STUB）** | 0 | 门检显式报 `缺能力: xxx`，未实现、不降级不伪造 | 曾缺：F30 ccd / F31 broadphase / F32 gravity_off / F33 friction / F34 overlap_resolve / E29 toppling，已全部补执行体 |
 | **未接入** | 16 | 已注册但非姿态（ADDITIVE 4 / PHYS 5 / AUX 7），须经 `capbridge` 分流后才能参与合成 | wave gaze_shift finger_tap page_flip bounce rigid_body ramp stack pendulum turn brake ball high5 contact crowd_collide |
 
 **不要用注册数衡量完成度**：注册 30 ≠ 可用 30。真实可驱动时间线的只有 10 个（33%）。
@@ -173,7 +173,7 @@ silhouette_gap_px  剪影纵向断裂
 mask_iou           渲染掩膜 vs 胶囊几何真值
 ```
 
-**当前**：PASS 22 / FAIL 0 / STUB 13 / ERROR 0（共 35 项，以 `run_all.py` 实测为准）。
+**当前**：PASS 35 / FAIL 0 / STUB 0 / ERROR 0（共 35 项，以 `run_all.py` 实测为准）。
 STUB 是"没做"，不是"做错了"——不伪造；未实现能力在门检中显式报 `缺能力: xxx` 并计 STUB。
 
 **判据出处已按红队质控逐条复核**（2026-10-06）：

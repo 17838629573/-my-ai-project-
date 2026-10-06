@@ -152,7 +152,7 @@ def _mod(name):
 def _pose_walk(t):
     d = 0.67 * t
     ph = (d / 0.561) % 1.0
-    return _mod("gait").gait(ph, "natural")
+    return _mod("body.gait").gait(ph, "natural")
 
 
 def _pose_jump(t):
@@ -163,7 +163,7 @@ def _pose_turn(t):
     TN = _mod("turn")
     dur = TN.turn_duration(180.0)
     u = min(t / dur, 1.0)
-    J = _mod("gait").gait(0.0, "natural")
+    J = _mod("body.gait").gait(0.0, "natural")
     TN.turn_legs(J, u)
     TN.turn_torso(J, u, 180.0)
     return J
@@ -172,7 +172,7 @@ def _pose_turn(t):
 def _pose_wave(t):
     GS = _mod("gesture")
     J = {k: np.asarray(v, dtype=float) for k, v in
-         _mod("gait").gait(0.0, "natural").items()}
+         _mod("body.gait").gait(0.0, "natural").items()}
     u = (t % 2.0) / 2.0
     res = GS.wave(u, None)
     for k, v in res["J"].items():

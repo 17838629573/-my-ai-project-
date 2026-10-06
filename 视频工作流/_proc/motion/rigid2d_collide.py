@@ -244,36 +244,54 @@ def _round_pair(A, B):
             out.append(_Contact(A, B, A.p + n * A.r, n, pen))
         return out
     for c, o in ((A, B), (B, A)):
-        if c.shape != "circle":
+        if c.shape != "circle" or o.shape == "circle":
             continue
-        if o.shape == "circle":
-            continue
-        loc = rot(o.th).T @ (c.p - o.p)
-        cl = np.array([float(np.clip(loc[0], -o.hw, o.hw)),
-                       float(np.clip(loc[1], -o.hh, o.hh))])
-        inside = (abs(loc[0]) < o.hw and abs(loc[1]) < o.hh)
-        depth = 0.0
-        if inside:                                   # 圆心在盒内：推向最近面
-            dx, dy = o.hw - abs(loc[0]), o.hh - abs(loc[1])
-            depth = min(dx, dy)
-            if dx < dy:
-                cl[0] = o.hw * (1.0 if loc[0] >= 0 else -1.0)
-            else:
-                cl[1] = o.hh * (1.0 if loc[1] >= 0 else -1.0)
-        q = o.p + rot(o.th) @ cl                     # 盒上最近点
-        d = c.p - q
-        dist = float(np.linalg.norm(d))
-        pen = c.r + depth - dist if inside else c.r - dist
-        if pen > 0:
-            n = d / dist if dist > 1e-9 else np.array([0.0, 1.0])
-            if inside:
-                n = -n
-            # 法线统一由 A 指向 B
-            if c is A:
-                out.append(_Contact(A, B, q, n, pen))
-            else:
-                out.append(_Contact(A, B, q, -n, pen))
+        ct = _circle_box_contact(A, B, c, o)
+        if ct is not None:
+            out.append(ct)
     return out
+
+
+def _obb_inside_fix(cl, loc, o):
+    """圆心落在 OBB 内部时，把最近点推到最近的面上，并返回该面深度。
+
+    从 _circle_box_contact 抽出（降 CCN）。原地修改 cl（numpy 数组）。
+    内部无"最近点"概念（距离处处为 0），必须改用"到各面的距离"取最小，
+    否则 pen 会退化成 c.r，_relax 会把圆心推得更深。
+    """
+    dx, dy = o.hw - abs(loc[0]), o.hh - abs(loc[1])
+    if dx < dy:
+        cl[0] = o.hw * (1.0 if loc[0] >= 0 else -1.0)
+    else:
+        cl[1] = o.hh * (1.0 if loc[1] >= 0 else -1.0)
+    return min(dx, dy)
+
+
+def _circle_box_contact(A, B, c, o):
+    """圆-盒(OBB) 单侧接触（从 _round_pair 抽出，降函数长度）。
+
+    法线统一由 A 指向 B（与 box-box 的 _sat_pick_axis 一致）。
+    d = 圆心 - 盒上最近点，即 n 天然是"盒 -> 圆"：
+      圆是 A 时该方向为 B->A，需取反；圆是 B 时已是 A->B。
+    【踩坑】修复前两个分支写反，导致圆-盒接触法向与 box-box 相反：
+      低速场景 pen<=SLOP 时 _relax 不修正故不可见；高速深度穿透
+      时 _relax 把物体推向更深处，速度翻转爆炸（vx 达 ±54 > 初速 30）。
+    """
+    loc = rot(o.th).T @ (c.p - o.p)
+    cl = np.array([float(np.clip(loc[0], -o.hw, o.hw)),
+                   float(np.clip(loc[1], -o.hh, o.hh))])
+    inside = (abs(loc[0]) < o.hw and abs(loc[1]) < o.hh)
+    depth = _obb_inside_fix(cl, loc, o) if inside else 0.0
+    q = o.p + rot(o.th) @ cl                         # 盒上最近点
+    d = c.p - q
+    dist = float(np.linalg.norm(d))
+    pen = c.r + depth - dist if inside else c.r - dist
+    if pen <= 0:
+        return None
+    n = d / dist if dist > 1e-9 else np.array([0.0, 1.0])
+    if inside:
+        n = -n
+    return _Contact(A, B, q, -n if c is A else n, pen)
 
 
 _ANCHOR = Body2(p=(0.0, 0.0), shape="circle", r=0.0, fixed=True)

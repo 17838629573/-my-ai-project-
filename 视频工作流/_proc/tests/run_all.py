@@ -118,6 +118,11 @@ def case_E28():
 
 
 
+from tests.cases_gap import (case_B12, case_B13, case_B14, case_C15,  # noqa: F401
+                             case_D23, case_E25, case_E27, case_E29,
+                             case_F30, case_F31, case_F32, case_F33,
+                             case_F34)
+
 EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": case_A3,
         "A4": case_A4, "A5": case_A5, "B8": case_B8, "B9": case_B9, "A6": case_A6, "A7": case_A7,
         "C16": case_C16, "C17": case_C17, "C18": case_C18,
@@ -125,7 +130,11 @@ EXEC = {"E28": case_E28, "A1": case_A1, "F35": case_F35, "A2": case_A2, "A3": ca
         "D22": case_D22,
         "E26": case_E26,
         "B10": case_B10, "B11": case_B11,
-        "G36": case_G36}
+        "G36": case_G36,
+        "B12": case_B12, "B13": case_B13, "B14": case_B14, "C15": case_C15,
+        "D23": case_D23, "E25": case_E25, "E27": case_E27, "E29": case_E29,
+        "F30": case_F30, "F31": case_F31, "F32": case_F32, "F33": case_F33,
+        "F34": case_F34}
 
 
 from tests.cases_crowd import case_D21, case_D24  # noqa: F401
@@ -134,26 +143,13 @@ from tests.cases_throw import case_B10, case_B11  # noqa: F401
 
 
 def main():
-    cap = set(B.CAP.keys())
+    # 用 CAP_ALL 而非 CAP：CAP 经 capbridge.normalize() 就地裁剪后只剩 POSE，
+    # 拿它判「能力是否注册」会把已实现的 rope/hinge_door/toppling 等误报成 STUB。
+    cap = set(getattr(B, "CAP_ALL", B.CAP).keys())
     rows = []
     print("已注册能力: %s\n" % ", ".join(sorted(cap)))
     for cid, grp, name, need, crits, seed in CASES:
-        miss = [c for c in need if c not in cap]
-        if miss:
-            rows.append((cid, grp, name, "STUB", "缺能力: " + ",".join(miss), ""))
-            continue
-        if cid not in EXEC:
-            rows.append((cid, grp, name, "READY", "能力齐备，待写执行代码", ""))
-            continue
-        try:
-            checks, extra = EXEC[cid]()
-            txt, ok = H.report(checks)
-            rows.append((cid, grp, name, "PASS" if ok else "FAIL",
-                         "; ".join("%s=%.4g" % c for c in checks),
-                         json.dumps(extra, ensure_ascii=False) if extra else ""))
-        except Exception as e:
-            rows.append((cid, grp, name, "ERROR", type(e).__name__ + ": " + str(e)[:60], ""))
-
+        rows.append(_run_one(cid, grp, name, need, cap))
     n = {"PASS": 0, "FAIL": 0, "STUB": 0, "READY": 0, "ERROR": 0}
     print("%-4s %-3s %-34s %-6s %s" % ("ID", "组", "名称", "状态", "实测"))
     for cid, grp, name, st, detail, extra in rows:
@@ -161,10 +157,30 @@ def main():
         print("%-4s %-3s %-34s %-6s %s" % (cid, grp, name[:34], st, detail[:70]))
     print("\nPASS %d  FAIL %d  READY %d  STUB %d  ERROR %d  合计 %d"
           % (n["PASS"], n["FAIL"], n["READY"], n["STUB"], n["ERROR"], len(rows)))
-    return rows
+    return rows, n
+
+
+def _run_one(cid, grp, name, need, cap):
+    """单条用例执行并归类（从 main 抽出，降函数长度）。"""
+    miss = [c for c in need if c not in cap]
+    if miss:
+        return (cid, grp, name, "STUB", "缺能力: " + ",".join(miss), "")
+    if cid not in EXEC:
+        return (cid, grp, name, "READY", "能力齐备，待写执行代码", "")
+    try:
+        checks, extra = EXEC[cid]()
+        txt, ok = H.report(checks)
+        return (cid, grp, name, "PASS" if ok else "FAIL",
+                "; ".join("%s=%.4g" % c for c in checks),
+                json.dumps(extra, ensure_ascii=False) if extra else "")
+    except Exception as e:
+        return (cid, grp, name, "ERROR",
+                type(e).__name__ + ": " + str(e)[:60], "")
 
 
 if __name__ == "__main__":
     import json
-    main()
+    # 门检必须有牙齿：有 FAIL/ERROR 时退出码非 0，否则 CI 与 gate.py 拿不到信号
+    _rows, _n = main()
+    sys.exit(1 if (_n["FAIL"] or _n["ERROR"]) else 0)
 

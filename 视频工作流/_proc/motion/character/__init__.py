@@ -42,6 +42,9 @@ from .body.leg import *
 from .body.gait import *
 from .body.render import *
 from .body.cloth import *
+# gait 已下沉到 body/ 且 gait() 与模块同名, 星号导入会把包属性覆盖成函数,
+# 令 importlib.import_module("motion.character.gait") 失败(迁移遗留)。
+from .body import gait as gait  # noqa: F401 取回子模块对象
 from .sit import *
 from .gesture import *
 from .prop import *

@@ -37,7 +37,7 @@ from tests.cases_throw import case_B10, case_B11  # noqa: F401
 from tests.cases_carry import case_E26  # noqa: F401
 from tests.cases_pass import case_D22  # noqa: F401
 IMPORT_ERRS = []          # 导入失败登记簿：吞掉会让能力被误报成 STUB
-for _m in ("gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "kick", "ball", "pass_ball", "climb"):
+for _m in ("body.gait", "gesture", "prop", "sit", "turn", "jump", "crouch", "run", "carry", "kick", "ball", "pass_ball", "climb"):
     try:
         __import__("motion.character." + _m)
     except Exception as _e:

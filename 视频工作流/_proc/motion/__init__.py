@@ -46,17 +46,30 @@ def init_capabilities(verbose=False):
     from . import beat as _b, capbridge as _cb
     import importlib
     del IMPORT_ERRS[:]
-    for m in ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
-              "carry", "throw", "catch", "kick", "climb", "pass_ball"):
-        try:
-            importlib.import_module(".character." + m, __name__)
-        except Exception as _e:
-            IMPORT_ERRS.append(("motion.character." + m, repr(_e)))
-    for m in ("crowd", "rigid", "rigid2d"):
-        try:
-            importlib.import_module("." + m, __name__)
-        except Exception as _e:
-            IMPORT_ERRS.append(("motion." + m, repr(_e)))
+    # 为什么改成 (包前缀, 模块名) 两张表：
+    # 上轮把 7 个形体模块下沉到 character/body/ 后，循环里仍写 ".character.gait"，
+    # 于是 gait 导入失败被登记，walk 的底层实现缺失却只表现为「子模块导入失败 1 项」。
+    # 同时 push/quadruped/roll/constraint_ext/physics_ext 五个模块**根本不在循环里**，
+    # 它们的 @capability 永不注册，外界看到的是「STUB 缺能力」——
+    # 与 climb 事故同源：函数写好了，只是没人 import 它。
+    # 出处: Python importlib 官方文档（动态导入需完整包路径）；
+    #      silent failure 归类见 IEEE Software anti-pattern。
+    for pkg, mods in ((
+        "character",
+        ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
+         "carry", "throw", "catch", "kick", "climb", "pass_ball",
+         "push", "quadruped", "roll"),
+    ), (
+        "character.body", ("gait", "leg", "joints", "proportions", "sdf", "render", "cloth"),
+    ), (
+        "", ("crowd", "rigid", "rigid2d", "constraint_ext", "physics_ext"),
+    )):
+        for m in mods:
+            _full = ("motion." + pkg + "." + m) if pkg else ("motion." + m)
+            try:
+                importlib.import_module("." + (pkg + "." + m if pkg else m), __name__)
+            except Exception as _e:
+                IMPORT_ERRS.append((_full, repr(_e)))
     if IMPORT_ERRS:
         # 不抛异常：能力表应尽力注册齐其余部分；但必须留下可读证据
         print("[motion] 子模块导入失败 %d 项（能力会被误报为 STUB）:" % len(IMPORT_ERRS))
