@@ -119,6 +119,9 @@ def case_E28():
 
 
 from tests.cases_creature import case_G37, case_G38, case_G39  # noqa: F401
+from tests.cases_mixed import case_H40  # noqa: F401
+from tests.cases_phenom import (case_P41, case_P42, case_P43,  # noqa: F401
+                                case_P44, case_P45)
 from tests.cases_gap import (case_B12, case_B13, case_B14, case_C15,  # noqa: F401
                              case_D23, case_E25, case_E27, case_E29,
                              case_F30, case_F31, case_F32, case_F33,
@@ -138,7 +141,10 @@ EXEC = {
         "B12": case_B12, "B13": case_B13, "B14": case_B14, "C15": case_C15,
         "D23": case_D23, "E25": case_E25, "E27": case_E27, "E29": case_E29,
         "F30": case_F30, "F31": case_F31, "F32": case_F32, "F33": case_F33,
-        "F34": case_F34}
+        "F34": case_F34,
+        "H40": case_H40,
+        "P41": case_P41, "P42": case_P42, "P43": case_P43,
+        "P44": case_P44, "P45": case_P45}
 
 
 

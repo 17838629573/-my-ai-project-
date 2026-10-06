@@ -15,11 +15,12 @@
   二者都不是 character 的"固定骨架 + 周期性相位"范式。
 """
 
-_MODULES = ("climb_rock", "fish_swim", "quadruped")
+_MODULES = ("climb_rock", "fish_swim", "quadruped", "bird_fly")
 
 from motion.creature.climb_rock import climb_rock  # noqa: F401
 from motion.creature.fish_swim import fish_swim, fish_strouhal  # noqa: F401
 from motion.creature.quadruped import quadruped_sim, foot_slip  # noqa: F401
+from motion.creature.bird_fly import bird_fly, beat_freq_pennycuick, strouhal  # noqa: F401
 
 
 def self_check():
