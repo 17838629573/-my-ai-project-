@@ -1,0 +1,7 @@
+# 门禁工具的第三方依赖（自造易碎品已被替换，以下均为业界成熟库）
+# 出处: import-linter (seddonym/layer-linter) —— 分层契约 "even indirectly"
+#      lizard (terryyin/lizard)               —— CCN / NLOC / length 多语言度量
+# 沙箱 pip 环境重启即丢失，跑门禁前请执行:
+#   pip install -r _proc/tools/requirements.txt
+import-linter>=2.15
+lizard>=1.17
