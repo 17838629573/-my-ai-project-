@@ -1,0 +1,113 @@
+# import-linter 分层契约
+# 依据: https://import-linter.readthedocs.io/ (layers / forbidden / independence)
+#        Kraken 大型 monolith 实践: 40+ contracts, ignore_imports 数量作为债务 burndown 指标
+# 作用: 替换本项目自造的 check.py R1(逆向依赖) / R4(上帝包) —— 后者按条目数拍脑袋,
+#       业界做法是声明式 contract + 显式 ignore_imports 债务台账。
+#
+# 运行: cd 视频工作流 && lint-imports
+# 层序从上(可依赖下方全部)到下(零依赖), 与 check.py ALLOW 表一致。
+#
+# 双包名(2026-10-06 修正): 本项目同时存在两种导入写法
+#     _proc.motion.xxx   (绝对, 从项目根 import)
+#     motion.xxx         (扁平, 因 _proc 在 sys.path 上)
+# 只在 root_packages 声明 _proc 时, grimp 只认识 _proc.motion, 扁平写法完全漏检
+# —— 实测注入 shape/_tmp_rev.py 写 "from motion import beat": 契约仍 KEPT, 而 check.py R1 报出。
+# 因此两套包名都必须登记, 否则契约是假绿。
+
+[importlinter]
+root_packages =
+    _proc
+    tools
+    tests
+    showreel
+    motion
+    scene
+    color
+    shape
+    base
+include_external_packages = True
+
+# ---- 契约1: 分层架构 (替代 R1 逆向依赖) ----
+[importlinter:contract:layers]
+name = Layered architecture: root > tools > tests > showreel > motion > scene > color > shape > base
+type = layers
+layers =
+    _proc.tools
+    _proc.tests
+    _proc.showreel
+    _proc.motion
+    _proc.scene
+    _proc.color
+    _proc.shape
+    _proc.base
+
+# ---- 契约1b: 同一层序, 扁平包名 (双包名, 见文件头说明) ----
+[importlinter:contract:flat-names]
+name = Layered architecture (flat package names)
+type = layers
+layers =
+    tools
+    tests
+    showreel
+    motion
+    scene
+    color
+    shape
+    base
+
+# ---- 契约2: base 层零依赖 (替代 R4 孤包判定) ----
+# base 是统一断言执行器等公共设施, 不得反向依赖任何上层。
+[importlinter:contract:base-pure]
+name = base layer imports nothing from upper layers
+type = forbidden
+source_modules =
+    _proc.base
+forbidden_modules =
+    _proc.tools
+    _proc.tests
+    _proc.showreel
+    _proc.motion
+    _proc.scene
+    _proc.color
+    _proc.shape
+
+# ---- 契约2b: base 层零依赖 (扁平包名) ----
+[importlinter:contract:base-pure-flat]
+name = base layer imports nothing from upper layers (flat)
+type = forbidden
+source_modules =
+    base
+forbidden_modules =
+    tools
+    tests
+    showreel
+    motion
+    scene
+    color
+    shape
+
+# ---- 契约3: shape/color 不得依赖运动与展示层 ----
+[importlinter:contract:low-layers-clean]
+name = shape/color stay below motion and showreel
+type = forbidden
+source_modules =
+    _proc.shape
+    _proc.color
+forbidden_modules =
+    _proc.motion
+    _proc.showreel
+    _proc.tests
+    _proc.tools
+
+# ---- 契约3b: shape/color (扁平包名) ----
+[importlinter:contract:low-layers-clean-flat]
+name = shape/color stay below motion and showreel (flat)
+type = forbidden
+source_modules =
+    shape
+    color
+forbidden_modules =
+    motion
+    showreel
+    tests
+    tools
