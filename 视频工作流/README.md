@@ -35,17 +35,30 @@
 
 ---
 
-## 三、规模（2026-10-05 实测）
+## 三、规模（2026-10-06 脚本实测，非记忆值）
 
 ```
-活跃文件  49 个 / 10,264 行   ← 真正参与运行
-孤立文件  47 个               ← 其中根目录 36 个 py（8,029 行）为旧链路遗留
+活跃文件  70 个         ← reach.py: 入口 11 个，可达性分析得出
+孤立文件  22 个         ← 无任何活跃入口引用
 能力表    注册 30（可直接驱动时间线 10）
-测试      PASS 21 / FAIL 0 / STUB 14 / ERROR 0（共 35 项）
-仓库体积  7.4 MB（已剔除全部视频产物）
+测试      PASS 22 / FAIL 0 / STUB 13 / ERROR 0（共 35 项）
+仓库体积  工作树 1.1 MB / GitHub 平台 136 MB（含 git 历史对象）
 ```
 
-活跃/孤立的判定用 `_proc/tools/reach.py`，从 5 个入口做可达性分析，不是眼估。
+数字来源与复核方式（A4 铁律：文档数字由脚本同步，不手填）：
+
+| 项 | 取数命令 |
+|---|---|
+| 活跃 / 孤立 | `python3 _proc/tools/reach.py` |
+| 测试成绩 | `python3 _proc/tests/run_all.py` |
+| 模块索引 | `python3 _proc/gen_index.py`（改代码后必须重跑，否则 INDEX 过期） |
+
+**体积口径说明**：三个数字都对，但统计对象不同——工作树 1.1 MB 是 `du` 当前文件；
+GitHub 平台 136 MB 含全部 git 历史对象（历史上曾推入视频产物，已从工作树删除但历史仍在）；
+此前 README 的 7.4 MB 是删除视频产物过程中的中间态，不再作为声明值。
+
+**完成度如实披露**（不藏在附录）：35 项测试中 **22 项通过、13 项 STUB（37% 未实现）**；
+注册 30 个能力中 **仅 10 个（33%）可直接驱动时间线**，注册 ≠ 可调用。
 
 ---
 
@@ -130,6 +143,16 @@ Box2D Lite 的物理层与动画层分离。
 每项都带出处（写在 `@capability(name, source, group=...)` 的 `source` 参数里），
 出处已登记的能力复用时不重搜；新能力或 STUB 转实现时必须先搜。
 
+### 7.1 能力三态（可用 / 在研 / 未接入）
+
+| 状态 | 数量 | 判定 | 成员 |
+|---|---|---|---|
+| **可用** | 10 | POSE，`(u,params)->{关节}`，时间线可直接调用 | walk run jump kick throw catch crouch reach_grab climb carry_box |
+| **在研（STUB）** | 13 | 门检显式报 `缺能力: xxx`，未实现、不降级不伪造 | toppling ccd broadphase gravity_off friction overlap_resolve 等（见 `run_all.py` 实测输出） |
+| **未接入** | 16 | 已注册但非姿态（ADDITIVE 4 / PHYS 5 / AUX 7），须经 `capbridge` 分流后才能参与合成 | wave gaze_shift finger_tap page_flip bounce rigid_body ramp stack pendulum turn brake ball high5 contact crowd_collide |
+
+**不要用注册数衡量完成度**：注册 30 ≠ 可用 30。真实可驱动时间线的只有 10 个（33%）。
+
 ---
 
 ## 八、测试体系
@@ -150,7 +173,18 @@ silhouette_gap_px  剪影纵向断裂
 mask_iou           渲染掩膜 vs 胶囊几何真值
 ```
 
-**当前**：PASS 21，FAIL 0。STUB 14 是"没做"，不是"做错了"——不伪造。
+**当前**：PASS 22 / FAIL 0 / STUB 13 / ERROR 0（共 35 项，以 `run_all.py` 实测为准）。
+STUB 是"没做"，不是"做错了"——不伪造；未实现能力在门检中显式报 `缺能力: xxx` 并计 STUB。
+
+**判据出处已按红队质控逐条复核**（2026-10-06）：
+
+| 判据 | 出处状态 |
+|---|---|
+| `penetration_m` 等 4 项 slop | 0.01 → **0.005**，对齐 Box2D v2.4.1 `b2_common.h:65` 的 `b2_linearSlop`；单点定义 `_SLOP` |
+| `jitter_px` | 撤除 SMPTE 引用（SMPTE 的 jitter 是广电时钟概念，非像素抖动），改标工程自测值 |
+| `pos_drift_m` | WorldCycle/CycleBench（港科大·武大·腾讯视频 AI 技术中心 2026-08）确为真实框架；阈值另标注为本工程自测标定 |
+| `mask_iou` | 撤除 ResiHMR 贴牌（该论文主题为残肢人群 3D 人体网格恢复，与本判据无方法论关联），改 Jaccard 1912 + 自测标定 |
+| `peak_rate_dps` | ISBS 2015 论文 Table 1 数值 414(90)°/s 真实可考；但补注样本为 U-13 青少年、任务为 5m 运球脚底半转身，仅取量级作参考上限，非生理极限 |
 
 ---
 

@@ -60,6 +60,18 @@ class Checker(object):
     ok = chk
     assert_ = chk
 
+    def eq(self, name, got, want):
+        """相等断言：失败信息里同时打出实测与期望，便于定位。"""
+        return self.chk(name, got == want, "got=%r want=%r" % (got, want))
+
+    def lt(self, name, got, bound):
+        """严格小于断言。"""
+        return self.chk(name, got < bound, "got=%r < %r" % (got, bound))
+
+    def gt(self, name, got, bound):
+        """严格大于断言。"""
+        return self.chk(name, got > bound, "got=%r > %r" % (got, bound))
+
     def note(self, text):
         """纯信息行，不参与判定，跟在断言表后面打印。"""
         self.notes.append(str(text))

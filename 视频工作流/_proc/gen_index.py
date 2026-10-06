@@ -77,8 +77,10 @@ def scan_tree():
                 continue
             p = os.path.join(dirpath, fn)
             text = open(p, encoding="utf-8").read()
+            # 存相对 ROOT 的全路径而非裸文件名：索引里带目录才可被工具按路径校验
+            rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
             by_dir.setdefault(key, []).append(
-                (fn, len(text.splitlines()), one_liner(p, text)))
+                (rel, len(text.splitlines()), one_liner(p, text)))
     return by_dir
 
 
@@ -87,8 +89,8 @@ def _tree_lines(by_dir):
     out = []
     for key in sorted(by_dir, key=lambda k: (k != "(根)", k)):
         out.append(f"### {key}/")
-        for fn, n, desc in by_dir[key]:
-            out.append(f"  - `{fn}` {n} 行{_size_flag(n)} — {desc}")
+        for rel, n, desc in by_dir[key]:
+            out.append(f"  - `{rel}` {n} 行{_size_flag(n)} — {desc}")
         out.append("")
     return out
 

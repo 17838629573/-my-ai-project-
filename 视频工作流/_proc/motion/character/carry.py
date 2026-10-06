@@ -38,6 +38,11 @@ HIP_STAND = 0.520
 R_TRUNK = 0.298
 _AU, _AF = 0.186, 0.146
 WRIST_TO_GRIP = 0.038
+# 掌球半径(米)：手-箱穿透判据的唯一定义点。
+# 曾两处各写一份: 本模块 self_check 用 0.035、tests/cases_carry 用 0.040。
+# 同一几何量两套口径 → 自检判定"分离"(-0.003)而测试判定"穿透"(+0.002)，
+# 按 A2 铁律(单点定义、多处引用)统一到这里，测试改为 from 本模块引用。
+PALM_R = 0.040
 ARM_REACH = _AU + _AF + WRIST_TO_GRIP
 SHOULDER_Z = 0.115
 HIP_Z = 0.055
@@ -413,11 +418,13 @@ if __name__ == "__main__":
         J, bx = r["J"], r["box"]
         for side in ("l", "r"):
             wri = np.array(J["wri_" + side], float) * H_M
-            pen = sphere_box_pen(wri, 0.035, bx["c"], bx["half"])
+            pen = sphere_box_pen(wri, PALM_R, bx["c"], bx["half"])
             worst = max(worst, pen)
             sh = np.array(J["sh_" + side], float) * H_M
             worst_r = max(worst_r, float(np.linalg.norm(wri - sh)))
-    chk("握持全程手不穿箱", worst < 0.01, "最大穿透 %.4f m" % worst)
+    # 阈值 0.005 与 tests/harness.py 的 penetration_m(Box2D v2.4.1
+    # b2_linearSlop)同源；此处本地声明以避免 motion→tests 反向依赖。
+    chk("握持全程手不穿箱", worst < 0.005, "最大穿透 %.4f m" % worst)
 
     # 6 臂展不超限（肩→腕关节链 ≤ _AU+_AF）
     chk("肩→腕 ≤ 臂展", worst_r <= ARM_JOINT_MAX * H_M + 1e-6,

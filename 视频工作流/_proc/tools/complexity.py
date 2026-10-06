@@ -93,8 +93,11 @@ def run(root=_PROC):
     try:
         design, hard, over_len = scan(root)
     except RuntimeError as e:   # 依赖缺失/工具未真正执行 → 报错，绝不返回 ok
-        return {"ok": False, "design": [], "hard": [str(e)], "over_len": [],
-                "counts": {"over_design": 0, "over_hard": 1, "over_len": 0,
+        # 注意: 错误信息必须走独立 "error" 字段，绝不能塞进 hard/design 列表。
+        # 历史 bug: 曾把 str(e) 塞进 hard，main() 按 dict 解包 → TypeError 崩溃，
+        # 真问题(依赖缺失)被伪装成"1 条硬闸"，且工具崩了却看不出原因。
+        return {"ok": False, "error": str(e), "design": [], "hard": [], "over_len": [],
+                "counts": {"over_design": 0, "over_hard": 0, "over_len": 0,
                            "ccn_design": CCN_DESIGN, "ccn_hard": CCN_HARD,
                            "len_design": LEN_DESIGN, "len_hard": LEN_HARD}}
     # 判定口径: 只有硬闸(CCN>20 / 长度>100)直接 FAIL。
@@ -104,6 +107,7 @@ def run(root=_PROC):
     # 新增或恶化即 FAIL。比"打印一句登记为债务却什么都没登记"严格得多。
     return {
         "ok": not hard,
+        "error": "",
         "design": design,
         "hard": hard,
         "over_len": over_len,
@@ -145,9 +149,9 @@ def self_check():
         _chk("高复杂度函数被抓到(CCN>10 进 design)", any(x["func"] == "g" for x in d2))
         _chk("CCN 值正确(11)", any(x["func"] == "g" and x["ccn"] == 11 for x in d2))
 
-    # 3) 全项目扫描不崩且能产出结果
     r = run()
     _chk("全项目扫描可执行", isinstance(r["counts"]["over_design"], int))
+    _chk("结果元素类型一致(全为dict)", _rows_are_dicts(r))
     # 4) _bak 被排除（冻结封存目录不应出现在结果里）
     _chk("_bak 已排除",
          not any("_bak" in x["file"] for x in r["design"] + r["hard"] + r["over_len"]))
@@ -161,6 +165,24 @@ def self_check():
     return ok
 
 
+def _rows_are_dicts(r):
+    """契约: 任何情况下结果列表元素必须全为 dict。
+    历史 bug: 依赖缺失时把 str(e) 塞进 hard，main() 按 dict 解包 → TypeError 崩溃，
+    真问题(依赖缺失)被伪装成"1 条硬闸"，工具崩了却看不出原因。"""
+    return all(isinstance(x, dict)
+               for x in r.get("design", []) + r.get("hard", []) + r.get("over_len", []))
+
+
+def _print_rows(title, rows, fmt, pick):
+    """打印一组问题条目。抽出是为了让 main() 保持线性（棘轮：main 曾因内联三个
+    打印块导致 CCN 12→13、长度 25→28 被判『恶化』）。"""
+    if not rows:
+        return
+    print("  [%s]" % title)
+    for x in rows:
+        print("    " + fmt % pick(x))
+
+
 def main():
     if "--self-check" in sys.argv:
         return 0 if self_check() else 1
@@ -170,21 +192,19 @@ def main():
         print(json.dumps(r, ensure_ascii=False, indent=2))
         return 0 if r["ok"] else 1
     c = r["counts"]
+    if r.get("error"):          # 依赖缺失等 → 置顶报，不伪装成问题条目
+        print("  [ERROR] %s" % r["error"])
+        return 1
     print("圈复杂度门禁 (lizard CCN)  设计值<=%d  硬闸>%d" % (c["ccn_design"], c["ccn_hard"]))
     print("  超设计值(登记为债务) %d    超硬闸(直接FAIL) %d    超长度>%d %d"
           % (c["over_design"], c["over_hard"], c["len_design"], c["over_len"]))
-    if r["hard"]:
-        print("  [硬闸] 必须拆分:")
-        for x in r["hard"]:
-            print("    %s:%d %s CCN=%d len=%d" % (x["file"], x["line"], x["func"], x["ccn"], x["length"]))
+    _print_rows("硬闸", r["hard"][:], "%s:%d %s CCN=%d len=%d",
+                lambda x: (x["file"], x["line"], x["func"], x["ccn"], x["length"]))
     if r["over_len"]:
-        print("  [长度] >%d 行:" % r["counts"]["len_design"])
-        for x in r["over_len"]:
-            print("    %s:%d %s len=%d CCN=%d" % (x["file"], x["line"], x["func"], x["length"], x["ccn"]))
-    if r["design"]:
-        print("  [设计值] 前 10:")
-        for x in r["design"][:10]:
-            print("    %s:%d %s CCN=%d len=%d" % (x["file"], x["line"], x["func"], x["ccn"], x["length"]))
+        _print_rows("长度>%d 行" % c["len_design"], r["over_len"], "%s:%d %s len=%d CCN=%d",
+                    lambda x: (x["file"], x["line"], x["func"], x["length"], x["ccn"]))
+    _print_rows("设计值 前10", r["design"][:10], "%s:%d %s CCN=%d len=%d",
+                lambda x: (x["file"], x["line"], x["func"], x["ccn"], x["length"]))
     return 0 if r["ok"] else 1
 
 

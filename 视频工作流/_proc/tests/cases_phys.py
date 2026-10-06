@@ -163,9 +163,12 @@ def case_C20():
         before = [(m1, (v1, 0.0)), (m2, (v2, 0.0))]
         pen, tk1, tk2 = 0.0, [], []
         for _ in range(2000):
-            RG.collide_pair(a, b)
+            # 顺序：积分 → 碰撞求解(含位置分离) → 测量
+            # 原顺序为「求解→积分→测量」，测到的是积分造成的穿透(一帧位移
+            # 3/240=0.0125m)，物理上不可消——穿透必须在测量前被分离掉。
             a.p += a.v * dt
             b.p += b.v * dt
+            RG.collide_pair(a, b)
             pen = max(pen, (a.r + b.r) - abs(b.p - a.p))
             tk1.append((a.p, 0.11, a.r))
             tk2.append((b.p, 0.11, b.r))

@@ -245,20 +245,41 @@ def self_check():
     return ok
 
 
+def _update():
+    """--update: 重建基线（放宽方向，须人工确认并写明归属/清零条件）。"""
+    own, why = "", ""
+    for a in sys.argv:
+        if a.startswith("--owner="):
+            own = a.split("=", 1)[1]
+        if a.startswith("--clear-when="):
+            why = a.split("=", 1)[1]
+    e = update(owner=own, clear_when=why)
+    print("基线已重建: %d 条 -> %s" % (len(e), BASELINE_PATH))
+    return 0
+
+
+def _prune():
+    """只删除"已降到阈值以下的陈旧基线项"。这是收紧方向：条目数只减不增，
+    与 --update（重建全量基线，属放宽）严格区分——不允许为消掉一两条陈旧项
+    而顺手把新增债务也一起纳入基线。"""
+    d = json.load(open(BASELINE_PATH))
+    ents = d.get("entries", d)
+    before = len(ents)
+    for b in run().get("fixed", []):
+        ents.pop(_key(b), None)
+    json.dump(d, open(BASELINE_PATH, "w"), ensure_ascii=False, indent=2)
+    print("已删除陈旧基线项: %d 条 -> %d 条（收紧，未放宽任何阈值）"
+          % (before - len(ents), len(ents)))
+    return 1 if run().get("fixed") else 0
+
+
 def main():
     if "--self-check" in sys.argv:
         return 0 if self_check() else 1
     if "--update" in sys.argv:
-        own = ""
-        why = ""
-        for a in sys.argv:
-            if a.startswith("--owner="):
-                own = a.split("=", 1)[1]
-            if a.startswith("--clear-when="):
-                why = a.split("=", 1)[1]
-        e = update(owner=own, clear_when=why)
-        print("基线已重建: %d 条 -> %s" % (len(e), BASELINE_PATH))
-        return 0
+        return _update()
+    if "--prune" in sys.argv:
+        return _prune()
     r = run()
     if "--json" in sys.argv:
         print(json.dumps(r, ensure_ascii=False, indent=2))

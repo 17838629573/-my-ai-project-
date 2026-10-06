@@ -27,6 +27,13 @@ for _p in (_ROOT, os.path.dirname(_ROOT)):
         sys.path.insert(0, _p)
 
 # name -> (阈值, 比较符, 出处)
+# 穿模容差（单点定义，多处引用——禁止复制粘贴传播，见 A2）
+# 出处：Box2D v2.4.1 源码 include/box2d/b2_common.h:65
+#       `#define b2_linearSlop (0.005f * b2_lengthUnitsPerMeter)`
+# 此为官方默认值；若本机实测穿透超过它，应修物理求解器（提高迭代/减小步长），
+# 而不是放宽本阈值——阈值定标必须先于测试，不得"跑不过→调阈值→补出处"（见 A1）
+_SLOP = 0.005
+
 CRIT = {
     # Zhang et al. 2018：s = v(2 - 2h/H)，H 取 2.5cm；动捕真值约 0.10 cm/frame
         # UE Layered Blend per Bone：additive 层不得污染下半身
@@ -34,27 +41,44 @@ CRIT = {
     "box_rest_m":       (1e-9, "<", "放箱 detach 后 owner=world，箱体底面贴合台面（carry.box_release 契约）"),
 "skate_cm_frame":   (1.0, "<", "Zhang et al.2018 foot skating s=v(2-2h/H), H=2.5cm; 动捕真值0.10cm/frame"),
     # ReinDiffuse：最低关节离地 >5cm 判 float
-    "float_m":          (0.05, "<", "ReinDiffuse(arXiv:2410.07296) Floating: 距地面最低关节>5cm"),
+    "float_m":          (0.05, "<",
+        "ReinDiffuse(arXiv:2410.07296, Han et al.) §Evaluation Metrics 原文: "
+        "'Ground floating measures the distance between the ground and the lowest joint "
+        "positions above the ground (> 5 cm)' —— 5cm 阈值出自该文正文，非自定"),
     # ReinDiffuse：双脚距离 <5cm 判 clip
-    "feet_clip_m":      (0.05, ">", "ReinDiffuse Clip: 双脚距离<5cm"),
-    # SIGGRAPH Asia 2025：penetration depth = 所有 body 对的最大值，用 GJK/EPA 求
-    "penetration_m":    (0.01, "<", "SIGGRAPH Asia2025 Penetration Estimation(GJK+EPA); Box2D linear slop=0.01"),
-    # SMPTE 引述：loop/切换点 jitter 应 <0.1px
-    "jitter_px":        (0.1, "<", "SMPTE 视频质量评估：Jitter Score <0.1px（高分辨率显示）"),
-    # 骨段-球穿模：球心到骨段的最短距离 < 半径即穿模，同一 0.01m slop
-    "seg_penetration_m": (0.01, "<",
-        "骨段(胶囊)与球最短距离 < 半径即穿模；slop 同 Box2D linear slop=0.01"),
+    "feet_clip_m":      (0.05, ">",
+        "ReinDiffuse(arXiv:2410.07296) §Evaluation Metrics 原文: "
+        "'Foot clipping measures the distance between the left and right feet when it is "
+        "less than a certain distance threshold (5 cm)' —— 5cm 阈值出自该文正文"),
+    # 穿模容差：Box2D 官方默认 b2_linearSlop = 0.005 m
+    # 出处：Box2D v2.4.1 源码 include/box2d/b2_common.h:65
+    #       `#define b2_linearSlop (0.005f * b2_lengthUnitsPerMeter)`
+    # 注意：此前误用 0.01（=官方 2 倍）并复制进 4 个判据，已按官方值统一修正。
+    "penetration_m":    (_SLOP, "<",
+        "穿模深度：Box2D 官方 b2_linearSlop=0.005m (v2.4.1 b2_common.h:65)；实测 C16 max=5.57e-4"),
+    # 工程自测值：帧图灰度平均帧间绝对差（0~255）。
+    # 注意：原引 SMPTE 属概念错用——SMPTE jitter 是广电时钟级概念(单位 UI/ps，
+    # 见 SMPTE RP184 / ST 2059)，不存在"Jitter Score <0.1px"动画像素条款。
+    "jitter_px":        (0.1, "<",
+        "工程经验值(非SMPTE)：帧图灰度平均帧间绝对差；阈值由本工程自测标定"),
+    # 骨段-球穿模：球心到骨段的最短距离 < 半径即穿模，容差同 _SLOP
+    "seg_penetration_m": (_SLOP, "<",
+        "骨段(胶囊)与球最短距离 < 半径即穿模；容差同 Box2D 官方 slop=0.005m"),
     # 帧间位移不得大于本帧应有位移的若干倍——抓时间跳变
     "frame_jump_ratio": (3.0, "<", "帧间位移/段内中位位移，比值过大即时间跳变"),
     # 长程漂移：WorldCycle（港科大&腾讯视频）RCS = 重复/级联执行时相位对齐帧漂移，
     # 长档 >381 帧；1mm 为动画可感知下限，故取 1e-3 m
-    "pos_drift_m":      (1e-6, "<", "WorldCycle RCS：长档>381帧相位对齐帧漂移；阈值取数值级：双精度1440帧累加实测9.7e-13，留6个量级余量；单精度管线实测1.7e-4会FAIL，证判据有牙齿"),
+    "pos_drift_m":      (1e-6, "<", "动机出处：WorldCycle/CycleBench（港科大·武大·腾讯视频AI技术中心, 2026-08）RCS=重复循环稳定性，长程档381帧。阈值非取自该文，为本工程自测标定：双精度1440帧累加9.7e-13留6量级余量，单精度1.7e-4会FAIL"),
     # 长程里程累积：辛积分（Velocity Verlet）误差有界振荡不漂移，显式欧拉才发散
     "mileage_rel_err":  (1e-9, "<", "GROMACS 辛积分：误差有界振荡不漂移；双精度实测2.9e-14留5量级余量，单精度5e-6会FAIL"),
     # 转角时序判据：jitter_px 是像素级(帧图灰度差)，用在角度序列上属口径错用，
     # 改用有实证上限的峰值角速度。
     "peak_rate_dps":    (460.0, "<",
-        "ISBS 2015: 运动员带球 180° 转身骨盆峰值角速度 414±90 °/s（取 +0.5SD≈460）"),
+        "【自测标定值，非取自文献】动机出处 Zago et al., ISBS 2015 Proceedings 33(1):1335-1338，"
+        "但该文样本为 10 名 U-13 亚精英球员/29 次试验/5m 运球后脚底半转身，人群与任务均与原地转身错配；"
+        "且公开渠道未能核实原文报告过 '414 (90) °/s' 骨盆峰值角速度，故不引用该数值。"
+        "460 °/s 系本工程自测标定：实测转身峰值 399.6 °/s（裕度 13%）；"
+        "定标顺序为 1020→460 收紧方向，非放宽（见 A1 铁律：阈值先定标再跑测试）"),
     # h_n = h_0 * e^(2n)，e = sqrt(h1/h0)
     "restitution_err":  (0.05, "<", "COR: e=sqrt(h1/h0), h_n=h_0*e^(2n)（UA PH125 实验手册）"),
     # 动量守恒相对误差
@@ -67,9 +91,11 @@ CRIT = {
     # 肘被动活动范围：过伸 5° → 屈曲 145°，超出即反折/超伸
     "elbow_reflex":     (0.0, "<=", "肘ROM 过伸5°~屈145°(Neumann/Kinesiology, Musculoskeletal Key)；实测=反折帧计数"),
     # 接触相浮空：跑步/跳跃触地相足底必须贴地
-    "contact_float_m":       (0.01, "<", "接触相浮空：Box2D b2_linearSlop=0.01(允许分离容差)"),
+    "contact_float_m":       (_SLOP, "<",
+        "接触相浮空：同 Box2D 官方 b2_linearSlop=0.005m (v2.4.1 b2_common.h:65)"),
     # 穿地：地面半空间穿透，容差同上
-    "ground_penetration_m":  (0.01, "<", "穿地深度：Box2D b2_linearSlop=0.01(允许穿透容差)"),
+    "ground_penetration_m":  (_SLOP, "<",
+        "穿地深度：同 Box2D 官方 b2_linearSlop=0.005m (v2.4.1 b2_common.h:65)"),
     # 抛体顶点高度 Δs = g·T_F²/8，相对误差 5%
     "flight_apex_err":       (0.05, "<", "抛体 Δs=g·T_F²/8(UA PH125 实验手册 Projectile Motion)，相对误差5%"),
     # 渲染剪影在 头顶→脚底 内的最长空行段（像素）。
@@ -80,7 +106,11 @@ CRIT = {
     # 渲染剪影纵向跨度 / 关节投影的头顶点—脚底点像素距离
     "silhouette_span_ratio": (0.90, ">", "同上：剪影须覆盖头到脚，比值过小即缺肢体"),
     # 渲染剪影 vs 胶囊几何真值掩膜的 IoU
-    "mask_iou":              (0.75, ">", "mIoU between rendered binary mask and GT body mask(ResiHMR arXiv:2604.28025)"),
+    "mask_iou":              (0.75, ">",
+        "IoU/Jaccard index（Jaccard P. 1912, New Phytologist 11:37-50, §相似度系数）；"
+        "阈值 0.75 为本工程自测标定（实测 D22 剪影 IoU=0.9357 留 25% 余量）。"
+        "撤除说明：原引 ResiHMR(arXiv:2604.28025) 主题为残肢人群单图 3D 人体网格恢复，"
+        "与本判据无方法论关联，属语义贴牌，已撤除"),
 }
 
 
