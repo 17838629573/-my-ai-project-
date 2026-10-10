@@ -1,0 +1,19 @@
+# 视频工作流（程序化动画引擎）依赖清单
+#
+# 分两段：运行依赖（跑动画/出片必需）与门禁依赖（跑质检工具链必需）。
+# 只跑动画装第一段即可；要跑 tools/gate.py 才需要第二段。
+#
+# 取值依据（非凭记忆，逐条实测）：
+#   numpy   —— _proc 下 81 处 import numpy，SDF 场/光栅化/物理求解全部依赖
+#   pillow  —— _proc/beat_demo.py、motion/character/body/render.py 等 7 处 Image/ImageDraw
+#   opencv  —— motion/run.py:28 写 mp4；用 headless 版免系统 GUI 库（libGL）依赖
+#   import-linter / lizard —— 见 _proc/tools/requirements.txt 的出处说明
+
+# ---- 运行依赖 ----
+numpy>=1.24
+pillow>=10.0
+opencv-python-headless>=4.8
+
+# ---- 门禁依赖（跑 _proc/tools/gate.py 才需要）----
+import-linter>=2.15
+lizard>=1.17

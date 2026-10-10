@@ -33,17 +33,6 @@
       "owner": "motion",
       "since": "2026-10-06"
     },
-    "motion/character/climb.py::climb": {
-      "ccn": 3,
-      "clear_when": "函数长度降到 <=50 后，棘轮自动收紧并从基线删除",
-      "due": "2026-12-05",
-      "file": "motion/character/climb.py",
-      "func": "climb",
-      "length": 66,
-      "line": 63,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
     "motion/character/jump.py::self_check": {
       "ccn": 11,
       "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
@@ -52,17 +41,6 @@
       "func": "self_check",
       "length": 29,
       "line": 131,
-      "owner": "motion",
-      "since": "2026-10-06"
-    },
-    "motion/character/run.py::run": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "motion/character/run.py",
-      "func": "run",
-      "length": 65,
-      "line": 133,
       "owner": "motion",
       "since": "2026-10-06"
     },
@@ -110,28 +88,6 @@
       "owner": "showreel",
       "since": "2026-10-06"
     },
-    "showreel/shard.py::main": {
-      "ccn": 16,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "showreel/shard.py",
-      "func": "main",
-      "length": 56,
-      "line": 88,
-      "owner": "showreel",
-      "since": "2026-10-06"
-    },
-    "tests/cases_base.py::_g36_jump_ratio": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "tests/cases_base.py",
-      "func": "_g36_jump_ratio",
-      "length": 9,
-      "line": 450,
-      "owner": "tests",
-      "since": "2026-10-06"
-    },
     "tests/cases_base.py::case_A1": {
       "ccn": 14,
       "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
@@ -140,17 +96,6 @@
       "func": "case_A1",
       "length": 44,
       "line": 9,
-      "owner": "tests",
-      "since": "2026-10-06"
-    },
-    "tests/cases_base.py::case_A2": {
-      "ccn": 17,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "tests/cases_base.py",
-      "func": "case_A2",
-      "length": 55,
-      "line": 55,
       "owner": "tests",
       "since": "2026-10-06"
     },
@@ -220,28 +165,6 @@
       "owner": "tests",
       "since": "2026-10-06"
     },
-    "tests/cases_throw.py::case_B10": {
-      "ccn": 8,
-      "clear_when": "函数长度降到 <=50 后，棘轮自动收紧并从基线删除",
-      "due": "2026-12-05",
-      "file": "tests/cases_throw.py",
-      "func": "case_B10",
-      "length": 60,
-      "line": 44,
-      "owner": "tests",
-      "since": "2026-10-06"
-    },
-    "tests/gen.py::render_case": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "tests/gen.py",
-      "func": "render_case",
-      "length": 51,
-      "line": 79,
-      "owner": "tests",
-      "since": "2026-10-06"
-    },
     "tests/run_all.py::case_E28": {
       "ccn": 17,
       "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
@@ -272,17 +195,6 @@
       "func": "main",
       "length": 33,
       "line": 276,
-      "owner": "tools",
-      "since": "2026-10-06"
-    },
-    "tools/baseline.py::self_check": {
-      "ccn": 6,
-      "clear_when": "函数长度降到 <=50 后，棘轮自动收紧并从基线删除",
-      "due": "2026-12-05",
-      "file": "tools/baseline.py",
-      "func": "self_check",
-      "length": 53,
-      "line": 193,
       "owner": "tools",
       "since": "2026-10-06"
     },
@@ -327,17 +239,6 @@
       "func": "import_list",
       "length": 43,
       "line": 74,
-      "owner": "tools",
-      "since": "2026-10-06"
-    },
-    "tools/consistency.py::run": {
-      "ccn": 17,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-05",
-      "file": "tools/consistency.py",
-      "func": "run",
-      "length": 42,
-      "line": 257,
       "owner": "tools",
       "since": "2026-10-06"
     },
@@ -494,6 +395,72 @@
       "line": 115,
       "owner": "tools",
       "since": "2026-10-06"
+    },
+    "motion/rigid2d/collide.py::collide_box_box_np": {
+      "file": "motion/rigid2d/collide.py",
+      "func": "collide_box_box_np",
+      "line": 59,
+      "ccn": 16,
+      "length": 39,
+      "owner": "motion/rigid2d/collide.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
+    },
+    "motion/rigid2d/collide.py::_sat_pick_axis": {
+      "file": "motion/rigid2d/collide.py",
+      "func": "_sat_pick_axis",
+      "line": 157,
+      "ccn": 13,
+      "length": 27,
+      "owner": "motion/rigid2d/collide.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
+    },
+    "motion/rigid2d/world.py::_pair_candidates": {
+      "file": "motion/rigid2d/world.py",
+      "func": "_pair_candidates",
+      "line": 133,
+      "ccn": 12,
+      "length": 42,
+      "owner": "motion/rigid2d/world.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
+    },
+    "motion/rigid2d/collide.py::_vertex_contain": {
+      "file": "motion/rigid2d/collide.py",
+      "func": "_vertex_contain",
+      "line": 186,
+      "ccn": 11,
+      "length": 29,
+      "owner": "motion/rigid2d/collide.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
+    },
+    "tests/cases_g36.py::_g36_jump_ratio": {
+      "file": "tests/cases_g36.py",
+      "func": "_g36_jump_ratio",
+      "line": 38,
+      "ccn": 11,
+      "length": 9,
+      "owner": "tests/cases_g36.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
+    },
+    "tools/consistency.py::declared_cases": {
+      "file": "tools/consistency.py",
+      "func": "declared_cases",
+      "line": 57,
+      "ccn": 11,
+      "length": 16,
+      "owner": "tools/consistency.py",
+      "since": "2026-10-10",
+      "due": "2026-11-15",
+      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除"
     }
   }
 }

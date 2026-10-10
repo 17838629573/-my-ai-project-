@@ -28,8 +28,13 @@ def ratio(a, b):
     return a / b
 
 
-def total(xs=[]):
+def total(xs=None):
     """对序列求和。"""
+    # 2026-10-10 修: 原为 xs=[] —— 可变默认参数，跨调用累积。
+    # canary 声明"自身不带任何缺陷"，此条使该前提失效，
+    # 会让 faultbench 把注入前已存在的缺陷误计为"注入后被抓到"。
+    if xs is None:
+        xs = []
     return sum(xs)
 
 

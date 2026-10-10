@@ -13,9 +13,11 @@
 ## 三层树
 
 ### (根)/
+  - `_canary_faultbench.py` 62 行 — 缺陷注入基准的对照样本，注入前必须全绿
   - `beat_demo.py` 78 行 — 入口脚本：走 beat 时间线出演示片
   - `check.py` 488 行 — Enforce architecture contracts: layer direction, size limits, public s
   - `formula.py` 123 行 — 公式注册表与 STUB 门禁：缺公式抛错并给搜索关键词，禁止凭记忆写近似值
+  - `gen_api.py` 189 行 — 从契约块与能力装饰器自动生成 API.md，补齐"只有契约块、无接口文档"的缺口
   - `gen_index.py` 131 行 — 从各文件顶部契约块抽取职责，自动生成 INDEX.md（文档永不与代码脱节）
   - `jumpscan.py` 46 行 · — 跳帧扫描器：逐帧量化视频帧间差，定位硬跳帧
   - `prompt2spec.py` 211 行 — 提示词 → 规格对照：逐字段判能做/降级/不能，STUB 带搜索提示
@@ -43,7 +45,7 @@
   - `motion/character/ball.py` 134 行 — 球体与碰撞（B10/C18/C20 通用）
   - `motion/character/carry.py` 442 行 — 搬运箱子（E26）：抱起 → 走 → 放下
   - `motion/character/catch.py` 170 行 — 接球（B11 / D22 通用）
-  - `motion/character/climb.py` 199 行 — 爬梯：五效应器三态循环上升，肘膝由两骨IK反解保证骨长守恒
+  - `motion/character/climb.py` 213 行 — 爬梯：五效应器三态循环上升，肘膝由两骨IK反解保证骨长守恒
   - `motion/character/crouch.py` 176 行 — 下蹲（A7）
   - `motion/character/gesture.py` 316 行 — 注视转移 / 手指敲击 / 翻页 —— 头部与手部的短促动作
   - `motion/character/jump.py` 169 行 — 原地跳跃（A3）
@@ -52,7 +54,7 @@
   - `motion/character/prop.py` 477 行 — 道具交接 —— pickup→held→release→recovery 四相位，所有权 world↔hand 显式切换
   - `motion/character/push.py` 116 行 — 推动箱体（B12）：掌为运动学驱动，箱受地面摩擦与接触约束
   - `motion/character/roll.py` 105 行 — 纯滚动（E25/球体滚动）：无滑移约束 v=ω·r + 能量守恒
-  - `motion/character/run.py` 268 行 — 跑步与急停（A2）
+  - `motion/character/run.py` 277 行 — 跑步与急停（A2）
   - `motion/character/selfcheck.py` 216 行 — 自检脚本：python -m character.selfcheck
   - `motion/character/sit.py` 263 行 — 坐下/站起动作 —— 7 关键姿态 + 三相位，输出与 gait 同构的关节字典
   - `motion/character/throw.py` 309 行 — 投掷（B10 / D22 / E27 通用）
@@ -68,14 +70,15 @@
   - `motion/character/body/sdf.py` 62 行 — SDF 场原语（胶囊/圆/椭圆/平滑并集）+ BODY_SPEC 胶囊装配清单
 
 ### motion/creature/
-  - `motion/creature/bird_fly.py` 521 行 ⚠ — 鸟飞扑翼：三位置角 + 下扑/上举不对称 + 准定常叶素法气动（升力/推力由积分真算）
+  - `motion/creature/bird_aero.py` 226 行 — 鸟翼气动与翼骨几何的纯函数真源（自 bird_fly 拆出，供其导入）
+  - `motion/creature/bird_fly.py` 345 行 — 鸟飞扑翼：三位置角 + 下扑/上举不对称 + 准定常叶素法气动（升力/推力由积分真算）
   - `motion/creature/climb_rock.py` 251 行 — 不规则支点攀岩：环境查询支点 + 两骨 IK 放置 + 三点支撑
   - `motion/creature/fish_swim.py` 190 行 — 鱼游行波推进：等弧长脊椎链 + carangiform/anguilliform 包络 + St 反解
   - `motion/creature/quadruped.py` 212 行 — 四足步态——Hildebrand 占空比β+四足相位表参数化，支撑相足端零滑移
 
 ### motion/phenom/
-  - `motion/phenom/cradle.py` 82 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
-  - `motion/phenom/fracture.py` 235 行 — 砖墙被球撞击碎裂（内聚区 bond 应变阈值失效）
+  - `motion/phenom/cradle.py` 95 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
+  - `motion/phenom/fracture.py` 242 行 — 砖墙被球撞击碎裂（内聚区 bond 应变阈值失效）
   - `motion/phenom/leaf.py` 110 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
   - `motion/phenom/turntable.py` 72 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
   - `motion/phenom/water.py` 111 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
@@ -85,7 +88,7 @@
   - `motion/rigid2d/core.py` 92 行 — 2D 刚体常量（Box2D 原文值）与几何基元（Body2/旋转/叉积）
   - `motion/rigid2d/sim.py` 162 行 — 场景仿真：stack/ramp/pendulum 三个能力 + self_check
   - `motion/rigid2d/solve.py` 124 行 — 接触求解：Contact 预处理、冲量施加、顺序冲量迭代、距离约束
-  - `motion/rigid2d/world.py` 346 行 — World：接触生成、休眠、积分与位置松弛（物理主循环）
+  - `motion/rigid2d/world.py` 359 行 — World：接触生成、休眠、积分与位置松弛（物理主循环）
 
 ### scene/
   - `scene/bgpack.py` 442 行 — 背景包：五种配方的参数表与展开，输出 geom 供人物对齐
@@ -115,34 +118,36 @@
   - `showreel/render.py` 260 行 — 分层合成——背景/远雨/物体/角色/近雨/辉光，复用既有管线不自造
   - `showreel/scene.py` 403 行 — 90 秒场景世界——多米诺/方块堆/斜坡/摆锤/墙/梯子/移动靶/绳/铰链门
   - `showreel/seam.py` 114 行 — 段内跳帧与段间接缝的流式检测，不全帧入内存
-  - `showreel/shard.py` 147 行 — 90秒长镜头分段渲染落盘再 concat，规避内存与时限
+  - `showreel/shard.py` 155 行 — 90秒长镜头分段渲染落盘再 concat，规避内存与时限
   - `showreel/timeline.py` 249 行 — 按视频帧查表渲染，背景/物体/角色/雨丝，相机不切镜
 
 ### tests/
-  - `tests/cases.py` 128 行 — 35 项测试用例声明（测试第二步：声明）
-  - `tests/cases_base.py` 489 行 — def case_A1():
+  - `tests/cases.py` 151 行 — 45 项测试用例声明（测试第二步：声明）
+  - `tests/cases_base.py` 436 行 — def case_A1():
   - `tests/cases_carry.py` 144 行 — E 组搬运用例（E26 搬运箱子）
   - `tests/cases_creature.py` 118 行 — # 契约: tests.cases_creature
   - `tests/cases_crowd.py` 207 行 — D 组多主体用例（人群碰撞 / 两人击掌）
+  - `tests/cases_g36.py` 77 行 — def _g36_series(name, kw, N, gait, gesture, layer):
   - `tests/cases_gap.py` 293 行 — # 契约: tests.cases_gap
-  - `tests/cases_mixed.py` 185 行 — # 契约: tests.cases_mixed
+  - `tests/cases_mixed.py` 228 行 — # 契约: tests.cases_mixed
   - `tests/cases_pass.py` 97 行 — D22 两人传球 用例
   - `tests/cases_phenom.py` 86 行 — # 契约: tests.cases_phenom
   - `tests/cases_phys.py` 281 行 — C 组物理用例（弹球 / 两球对撞）
-  - `tests/cases_throw.py` 152 行 — B10 扔球 / B11 接球 用例
+  - `tests/cases_throw.py` 161 行 — B10 扔球 / B11 接球 用例
   - `tests/common.py` 79 行 — 35 项用例门检与执行（测试第三步：跑）
-  - `tests/criteria.py` 202 行 — # 契约: tests.criteria
-  - `tests/gen.py` 237 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
+  - `tests/criteria.py` 205 行 — # 契约: tests.criteria
+  - `tests/gen.py` 251 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
   - `tests/gen_doc.py` 107 行 — 生成 35 项推进文档（xlsx）
   - `tests/harness.py` 369 行 — 物理与动作判据库（测试第一步：判定）
-  - `tests/run_all.py` 194 行 — if __package__ in (None, ""):
+  - `tests/run_all.py` 196 行 — if __package__ in (None, ""):
 
 ### tools/
-  - `tools/baseline.py` 312 行 — 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
+  - `tools/baseline.py` 317 行 — 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
+  - `tools/batchgate.py` 131 行 — 契约: tools/batchgate.py
   - `tools/capaudit.py` 115 行 — 能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
   - `tools/clone.py` 132 行 — 重复代码(克隆)检测工具  —— 项目瘦身第二阶段
   - `tools/complexity.py` 212 行 — 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
-  - `tools/consistency.py` 315 行 — 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
+  - `tools/consistency.py` 343 行 — 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
   - `tools/debtledger.py` 218 行 — R19 已知债务台账：显式登记、有归属、带到期日、只减不增。
   - `tools/docsync.py` 249 行 — 检测 README / INDEX 里的数字声明是否与脚本实测一致，抓"文档说一套、代码是另一套"
   - `tools/efps.py` 100 行 — 有效帧率：渲染了 N 帧不代表画面动了 N 帧
@@ -181,6 +186,5 @@
 
 ## 当前问题（check.py 实时输出）
 
-共 1 项：
+全部通过 ✅
 
-- [R2 超纲] motion/bird_fly.py 522>500

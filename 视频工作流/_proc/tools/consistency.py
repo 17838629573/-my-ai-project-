@@ -272,17 +272,9 @@ def bridge_kinds():
         return {}
 
 
-def run():
-    """返回问题列表。"""
-    ex = exec_table()
-    cf = case_funcs()
-    imp = import_list() | called_names()
-    cap = cap_registered()
-    kinds = bridge_kinds()
-    pose = {n for n, k in kinds.items() if k == "POSE"}
+def _chk_alias(ex, cf):
+    """(1) 多 ID 指向同一函数 —— F35 事故探测器；(2) 有 ID 无函数体。"""
     issues = []
-
-    # 1) 别名映射：多个用例 ID 指向同一函数 —— F35 事故的直接探测
     rev = {}
     for cid, fn in ex.items():
         rev.setdefault(fn, []).append(cid)
@@ -291,14 +283,15 @@ def run():
             issues.append("[R14 别名映射] 用例 %s 全部指向 %s —— "
                           "疑似复制粘贴假通过，需确认各自真的跑了不同数据"
                           % ("/".join(sorted(cids)), fn))
-
-    # 2) 用例 ID 有但没有对应 case_ 函数体
     for cid, fn in ex.items():
         if fn not in cf:
             issues.append("[R14 用例无实现] %s -> %s 在 run_all 里找不到该函数" % (cid, fn))
+    return issues
 
-    # 3) 已注册能力但用例里既没导入也没调用 —— climb 事故
-    impl = cap_impl_names()
+
+def _chk_unwired(cap, imp, impl, pose):
+    """(3) 注册了但无人导入或调用 —— climb 事故；(4) 签名无法驱动时间线。"""
+    issues = []
     unimported = sorted(c for c in cap
                         if c not in pose
                         and not (imp & impl.get(c, {c})))
@@ -306,23 +299,39 @@ def run():
         issues.append("[R14 注册未接线] 能力 %r 已注册，但 tests/ 下无人导入或调用 "
                       "(已查别名 %s) —— 已实现的能力会被门禁误报成 STUB"
                       % (c, "/".join(sorted(impl.get(c, {c})))))
-
-    # 4) 注册了但桥接器判定不可驱动
     if pose:
-        undrivable = sorted(c for c in cap if c in imp and c not in pose)
-        for c in undrivable:
+        for c in sorted(c for c in cap if c in imp and c not in pose):
             issues.append("[R14 注册不可驱动] 能力 %r 进了导入表，"
                           "但签名/返回格式无法被时间线驱动" % c)
-    # 5) EXEC 有执行体、但 cases.CASES 没登记 —— H40/P41-P45 事故
-    dec = declared_cases()
-    if dec:
-        for cid in sorted(set(ex) - dec):
-            issues.append("[R14 有执行体未登记] %s 在 EXEC 里挂了 case 函数，"
-                          "但 cases.CASES 没登记 —— 门检永远不会跑它，"
-                          "首次被跑就暴露 ERROR（与 climb 白写同类）" % cid)
-        for cid in sorted(dec - set(ex)):
-            issues.append("[R14 声明无执行体] %s 在 CASES 里登记，"
-                          "但 EXEC 里没有对应执行体" % cid)
+    return issues
+
+
+def _chk_declared(ex, dec):
+    """(5) EXEC 有执行体但 CASES 没登记（反之亦然）—— H40/P41-P45 事故。"""
+    if not dec:
+        return []
+    issues = []
+    for cid in sorted(set(ex) - dec):
+        issues.append("[R14 有执行体未登记] %s 在 EXEC 里挂了 case 函数，"
+                      "但 cases.CASES 没登记 —— 门检永远不会跑它，"
+                      "首次被跑就暴露 ERROR（与 climb 白写同类）" % cid)
+    for cid in sorted(dec - set(ex)):
+        issues.append("[R14 声明无执行体] %s 在 CASES 里登记，"
+                      "但 EXEC 里没有对应执行体" % cid)
+    return issues
+
+
+def run():
+    """返回问题列表：注册/用例/桥接三表交叉不一致。"""
+    ex = exec_table()
+    cf = case_funcs()
+    imp = import_list() | called_names()
+    cap = cap_registered()
+    kinds = bridge_kinds()
+    pose = {n for n, k in kinds.items() if k == "POSE"}
+    issues = _chk_alias(ex, cf)
+    issues += _chk_unwired(cap, imp, cap_impl_names(), pose)
+    issues += _chk_declared(ex, declared_cases())
     return issues
 
 

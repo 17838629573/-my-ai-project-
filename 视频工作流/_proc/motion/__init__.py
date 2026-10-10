@@ -62,6 +62,12 @@ def init_capabilities(verbose=False):
     ), (
         "creature", ("climb_rock", "fish_swim", "quadruped"),
     ), (
+        # 2026-10-10 补：phenom 五个能力（leaf_fall/fracture/water_jet/newton_cradle/turntable）
+        # 写好了、self_check 也过，但**从未在导入清单里**，@capability 永不注册 ——
+        # 与 climb 事故同源第三次复发（前两次: climb、push/quadruped/roll）。
+        # 教训: 新增子包后必须同步本表，否则能力"白写"且表现为"STUB 缺能力"。
+        "phenom", ("leaf", "fracture", "water", "cradle", "turntable"),
+    ), (
         "character.body", ("gait", "leg", "joints", "proportions", "sdf", "render", "cloth"),
     ), (
         "", ("crowd", "rigid", "rigid2d", "constraint_ext", "physics_ext"),

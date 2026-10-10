@@ -39,8 +39,15 @@ def _walk():
         dirs[:] = [d for d in dirs
                    if d not in ("__pycache__", ".git", "_bak", "_archive_文档_旧链路")]
         for f in sorted(files):
-            if f.endswith(".py"):
-                yield os.path.join(root, f)
+            if not f.endswith(".py"):
+                continue
+            # 2026-10-10: 测试夹具不算项目问题。
+            # `_canary_*` 是 faultbench 的对照样本——故意写成特定形态供注入器改造，
+            # 报它的异味等于把"测试输入"当成"产品缺陷"。
+            # `_tmp_*` / `tmp_*.py` 是各工具自检临时生成的样本。
+            if f.startswith(("_canary_", "_tmp_", "tmp_")):
+                continue
+            yield os.path.join(root, f)
 
 
 def _rel(p):

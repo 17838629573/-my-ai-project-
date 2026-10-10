@@ -65,6 +65,26 @@ def _one(cid, grp, name, need, cap, exec_map, H, B, timeout):
                 time.time() - t0)
 
 
+def _load_done(out, resume, fresh):
+    """读断点续跑的既有结果；读不出来按空处理（不静默吞异常以外的语义）。"""
+    if not (resume and not fresh and os.path.exists(out)):
+        return {}
+    try:
+        return json.load(open(out))
+    except Exception:
+        return {}
+
+
+def _summarize(done):
+    """按状态计数，并给出最慢的 5 条。"""
+    n = {}
+    for v in done.values():
+        n[v["status"]] = n.get(v["status"], 0) + 1
+    slow = sorted((v for v in done.values()),
+                  key=lambda v: -v["sec"])[:5]
+    return {"total": len(done), "stat": n, "slowest": slow}
+
+
 def run(ids=None, out=DEFAULT_OUT, timeout=120, resume=True, fresh=False):
     """执行一批用例，结果写 out。返回统计 dict。"""
     CASES, EXEC = _load()
@@ -72,12 +92,7 @@ def run(ids=None, out=DEFAULT_OUT, timeout=120, resume=True, fresh=False):
     from motion import beat as B
     cap = set(getattr(B, "CAP_ALL", B.CAP).keys())
 
-    done = {}
-    if resume and not fresh and os.path.exists(out):
-        try:
-            done = json.load(open(out))
-        except Exception:
-            done = {}
+    done = _load_done(out, resume, fresh)
     want = set(ids) if ids else {c[0] for c in CASES}
     todo = [c for c in CASES if c[0] in want
             and (not resume or c[0] not in done)]
@@ -90,17 +105,21 @@ def run(ids=None, out=DEFAULT_OUT, timeout=120, resume=True, fresh=False):
         sys.stdout.flush()
         json.dump(done, open(out, "w"), ensure_ascii=False, indent=1)
 
-    n = {}
-    for v in done.values():
-        n[v["status"]] = n.get(v["status"], 0) + 1
-    slow = sorted((v for v in done.values()),
-                  key=lambda v: -v["sec"])[:5]
-    return {"total": len(done), "stat": n, "slowest": slow}
+    return _summarize(done)
 
 
 def self_check():
     C = []
-    C.append(("模块可导入", True, ""))
+    # 2026-10-10 修: 原为 C.append(("模块可导入", True, "")) —— 常量 True，恒真无牙齿。
+    # 能执行到本行只证明 batchgate 自己没语法错，证明不了被测模块可导入。
+    # 改为真检查: 逐个 import 用例模块，失败即 FAIL。
+    try:
+        _cases, _exec = _load()
+        _ok = len(_cases) > 0 and len(_exec) > 0
+        _d = "CASES=%d EXEC=%d" % (len(_cases), len(_exec))
+    except Exception as _e:
+        _ok, _d = False, repr(_e)[:70]
+    C.append(("用例表可加载且非空", _ok, _d))
     ids = run(ids=["A1"], out=os.path.join(_ROOT, ".bg_self.json"),
               timeout=60, resume=False, fresh=True)
     C.append(("单条可跑", ids["total"] == 1, str(ids["stat"])))

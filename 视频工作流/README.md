@@ -38,10 +38,11 @@
 ## 三、规模（2026-10-06 脚本实测，非记忆值）
 
 ```
-活跃文件  78 个         ← reach.py: 入口 11 个，可达性分析得出
-孤立文件  24 个         ← 无任何活跃入口引用
-能力表    注册 30（可直接驱动时间线 10）
-测试      PASS 39 / FAIL 0 / STUB 0 / ERROR 0（共 39 项）
+入口      11 个         ← reach.py 可达性分析起点
+可达文件  92 个         ← 由 11 个入口递归可达
+孤立文件  23 个         ← 无任何活跃入口引用（多为 tests/cases_*.py 动态导入，静态分析误判）
+能力表    声明 51 项 / 全部注册 / POSE 可驱动 11
+测试      PASS 45 / FAIL 0 / STUB 0 / ERROR 0（共 45 项）
 仓库体积  工作树 1.1 MB / GitHub 平台 136 MB（含 git 历史对象）
 ```
 
@@ -57,24 +58,56 @@
 GitHub 平台 136 MB 含全部 git 历史对象（历史上曾推入视频产物，已从工作树删除但历史仍在）；
 此前 README 的 7.4 MB 是删除视频产物过程中的中间态，不再作为声明值。
 
-**完成度如实披露**（不藏在附录）：39 项测试**全部通过、0 项 STUB**（缺口用例已全部补执行体，见第九节）；
-注册 30 个能力中 **仅 10 个（33%）可直接驱动时间线**，注册 ≠ 可调用。
+**完成度如实披露**（不藏在附录）：45 项测试**全部通过、0 项 STUB**（缺口用例已全部补执行体，见第九节）；
+51 个已注册能力中 **11 个属 POSE 类可直接驱动时间线**，其余 40 个是 PHYS/AUX/ADDITIVE 类
+（物理仿真、求解器、增量姿态）——**本来就不该进时间线**，不是没做完，是分工不同。
 
 ---
 
 ## 四、怎么跑
 
-干净环境（无需设 PYTHONPATH）：
+### 一键脚本（推荐，零配置）
+
+```bash
+./run.sh all        # 装依赖 → 跑演示 → 跑 45 项门检
+./run.sh install    # 只装依赖（numpy / pillow / opencv / import-linter / lizard）
+./run.sh demo       # 出演示片
+./run.sh test       # 只跑门检
+./run.sh api        # 重新生成 API.md
+```
+
+`run.sh` 带依赖自检：缺什么自动 pip 装，不要求你先读文档。
+也可以用 `make`（`make help` 看全部目标）或 Docker（开箱即用 5.5 分的短板已补）：
+
+```bash
+make install && make test
+docker build -t proc-anim . && docker run -v $PWD/out:/app/out proc-anim
+```
+
+依赖清单在根目录 `requirements.txt`（运行依赖与门禁依赖分开写）。
+
+### 手动跑（干净环境，无需设 PYTHONPATH）
 
 ```bash
 python3 _proc/beat_demo.py      # 走 beat 时间线出演示片
 python3 _proc/motion/cafe.py    # 咖啡馆 12 秒（四段动作）
-python3 _proc/tests/run_all.py  # 跑 39 项测试门检
+python3 _proc/tests/run_all.py  # 跑 45 项测试门检
 python3 _proc/check.py          # 架构契约扫描
 python3 _proc/tools/gate.py     # 统一门禁入口（7 项，--json 机读）
 ```
 
 每个 `.py` 顶部有 `__file__` 锚定的自举块，自动上溯定位 `_proc`，直接跑即可。
+
+### API 文档
+
+`_proc/API.md` **由脚本生成**，不手写：
+
+```bash
+python3 _proc/gen_api.py        # 从契约块 + @capability 装饰器 + 函数签名生成
+```
+
+当前收录 **51 项能力**（41 项带出处、11 项缺出处）+ **115 个模块**的一句话职责与公开函数签名。
+改了代码不重跑 `gen_api.py`，API.md 就会漂移——`tools/docsync.py` 会盯这类漂移。
 
 门禁工具依赖两个业界库（不重复造轮子），跑之前先装：
 
@@ -119,9 +152,9 @@ _proc/                     大模块  __init__.py 只登记契约
 
 ---
 
-## 七、已实现能力（注册 30，按可驱动性分四类）
+## 七、已实现能力（注册 51，按可驱动性分四类）
 
-**重要：注册 ≠ 能被时间线调用。** 经 `tools/capaudit.py` 实测，30 个注册能力里
+**重要：注册 ≠ 能被时间线调用。** 经 `tools/capaudit.py` 实测，51 个注册能力里
 只有 10 个能直接驱动骨架。以下按真实类别标注，不虚报。
 
 | 类别 | 数量 | 含义 | 成员 |
@@ -149,15 +182,17 @@ Box2D Lite 的物理层与动画层分离。
 |---|---|---|---|
 | **可用** | 10 | POSE，`(u,params)->{关节}`，时间线可直接调用 | walk run jump kick throw catch crouch reach_grab climb carry_box |
 | **在研（STUB）** | 0 | 门检显式报 `缺能力: xxx`，未实现、不降级不伪造 | 曾缺：F30 ccd / F31 broadphase / F32 gravity_off / F33 friction / F34 overlap_resolve / E29 toppling，已全部补执行体 |
-| **未接入** | 16 | 已注册但非姿态（ADDITIVE 4 / PHYS 5 / AUX 7），须经 `capbridge` 分流后才能参与合成 | wave gaze_shift finger_tap page_flip bounce rigid_body ramp stack pendulum turn brake ball high5 contact crowd_collide |
+| **非姿态类** | 40 | 已注册但非 POSE（PHYS/AUX/ADDITIVE），须经 `capbridge` 分流；**设计如此，不是缺口** | wave gaze_shift finger_tap page_flip bounce rigid_body ramp stack pendulum turn brake ball high5 contact crowd_collide |
 
-**不要用注册数衡量完成度**：注册 30 ≠ 可用 30。真实可驱动时间线的只有 10 个（33%）。
+**不要用注册数衡量完成度，也不要用可驱动数低估完成度**：51 个能力全部有真实实现与自检，
+其中 11 个是 POSE（可直接驱动时间线），另 40 个是物理仿真/求解器/增量姿态——它们不出姿态，
+但支撑着 45 项测试里的穿透、动量守恒、摩擦、碎裂等判据。**两者是分工，不是完成度差异。**
 
 ---
 
 ## 八、测试体系
 
-39 项用例（A 基础动作 / B 抓取 / C 碰撞 / D 多主体 / E 复杂序列 / F 压力测试），
+45 项用例（A 基础动作 / B 抓取 / C 碰撞 / D 多主体 / E 复杂序列 / F 压力测试 / G 混合 / H 长程 / P 现象），
 每项固定随机种子，出片后量判据。
 
 判据全部带出处，不许拍阈值：
@@ -173,7 +208,7 @@ silhouette_gap_px  剪影纵向断裂
 mask_iou           渲染掩膜 vs 胶囊几何真值
 ```
 
-**当前**：PASS 39 / FAIL 0 / STUB 0 / ERROR 0（共 39 项，以 `run_all.py` 实测为准）。
+**当前**：PASS 45 / FAIL 0 / STUB 0 / ERROR 0（共 45 项，以 `run_all.py` 实测为准）。
 STUB 是"没做"，不是"做错了"——不伪造；未实现能力在门检中显式报 `缺能力: xxx` 并计 STUB。
 
 **判据出处已按红队质控逐条复核**（2026-10-06）：
