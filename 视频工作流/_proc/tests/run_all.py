@@ -70,6 +70,40 @@ def case_F35():
 
 
 
+def _e28_world(N, FPS, RUNG, CYC, H_M):
+    """逐帧爬梯世界坐标（归一化骨架 × 身高）"""
+    from motion.character.climb import climb
+    ws = []
+    for i in range(N):
+        J = climb(i / FPS, rung_sep=RUNG, cycle=CYC, body_h=H_M)
+        ws.append({k: np.array([J[k][0] * H_M, J[k][1] * H_M, J[k][2] * H_M])
+                   for k in J})
+    return ws
+
+
+def _e28_support_slip(ws, EFF, N):
+    """抓握期滑移(cm/帧)：效应器明显慢于自身中位速度的帧视为支撑/抓握态"""
+    sk = []
+    for k in EFF:
+        d = [float(np.linalg.norm(ws[i + 1][k] - ws[i][k])) for i in range(N - 1)]
+        med = float(np.median(d)) or 1e-9
+        sk += [x * 100.0 for x in d if x < 0.35 * med]
+    return sk
+
+
+def _e28_rung_gap(ws, N, RUNG):
+    """支撑相脚-横杆垂直偏差：只量支撑态，摆动相脚本就抬在两杆之间"""
+    flo = []
+    for k in ("ank_l", "ank_r"):
+        d = [abs(float(ws[i + 1][k][1] - ws[i][k][1])) for i in range(N - 1)]
+        med = float(np.median(d)) or 1e-9
+        for i in range(N - 1):
+            if d[i] < 0.35 * med:
+                y = float(ws[i][k][1])
+                flo.append(abs(y - RUNG * round(y / RUNG)))
+    return flo
+
+
 def case_E28():
     """爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
 
@@ -79,35 +113,18 @@ def case_E28():
     - 抓握期滑移沿用 Zhang et al.2018 口径 s=v(2-2h/H)（与 A1 同口径）
     - 脚踩实：支撑脚与横杆的垂直偏差，沿用 ReinDiffuse 5cm 浮空阈值
     """
-    from motion.character.climb import climb
     FPS, RUNG, CYC, NS = 24.0, 0.30, 1.4, 4
     N = int(NS * CYC * FPS)
     H_M = 1.70
     EFF = ("wri_l", "wri_r", "ank_l", "ank_r")
-    ws = []
-    for i in range(N):
-        J = climb(i / FPS, rung_sep=RUNG, cycle=CYC, body_h=H_M)
-        ws.append({k: np.array([J[k][0] * H_M, J[k][1] * H_M, J[k][2] * H_M])
-                   for k in J})
-    # 抓握期滑移：效应器明显慢于自身中位速度的帧视为"支撑/抓握态"
-    sk = []
-    for k in EFF:
-        d = [float(np.linalg.norm(ws[i + 1][k] - ws[i][k])) for i in range(N - 1)]
-        med = float(np.median(d)) or 1e-9
-        sk += [x * 100.0 for x in d if x < 0.35 * med]
-    skate = float(np.max(sk)) if sk else 0.0
-    # 脚踩实：只量"支撑相"的脚-横杆垂直偏差。
+    ws = _e28_world(N, FPS, RUNG, CYC, H_M)
+    # 抓握期滑移 / 脚踩实：两处都用同一支撑态筛选（速度<0.35×中位）。
     # 口径修正：爬梯摆动相脚本就抬在两横杆之间（偏差≈RUNG/2=0.15m），
     # 若把摆动相算进去，判据量的是"脚该抬多高"而非"脚有没有踩实"，
-    # 属口径错用。故用与 skate 相同的支撑态筛选（速度<0.35×中位）。
-    flo = []
-    for k in ("ank_l", "ank_r"):
-        d = [abs(float(ws[i + 1][k][1] - ws[i][k][1])) for i in range(N - 1)]
-        med = float(np.median(d)) or 1e-9
-        for i in range(N - 1):
-            if d[i] < 0.35 * med:
-                y = float(ws[i][k][1])
-                flo.append(abs(y - RUNG * round(y / RUNG)))
+    # 属口径错用。
+    sk = _e28_support_slip(ws, EFF, N)
+    skate = float(np.max(sk)) if sk else 0.0
+    flo = _e28_rung_gap(ws, N, RUNG)
     # 时间连续性：效应器平均高度序列的帧间跳变
     cen = [float(np.mean([ws[i][k][1] for k in EFF])) for i in range(N)]
     disp = [abs(cen[i + 1] - cen[i]) for i in range(N - 1)]

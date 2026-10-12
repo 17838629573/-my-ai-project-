@@ -56,6 +56,42 @@ def _inside_obb(q, b):
     return abs(d[0]) <= b.hw + 1e-9 and abs(d[1]) <= b.hh + 1e-9
 
 
+def _sat_axes(A, B):
+    """4 条候选轴：A 两根 + B 两根（OBB 边法线）"""
+    return [rot(A.th) @ np.array([1.0, 0.0]), rot(A.th) @ np.array([0.0, 1.0]),
+            rot(B.th) @ np.array([1.0, 0.0]), rot(B.th) @ np.array([0.0, 1.0])]
+
+
+def _sat_pick(VA, VB, A, B, axes):
+    """SAT 选轴：任一轴分离即返回 None；否则返回(最小重叠量, 该轴)"""
+    best, bx = None, None
+    for ax in axes:
+        pa = np.array([float(np.dot(v, ax)) for v in VA])
+        pb = np.array([float(np.dot(v, ax)) for v in VB])
+        ov = float(min(pa.max(), pb.max()) - max(pa.min(), pb.min()))
+        if ov <= 0.0:
+            return None                                # 找到分离轴
+        if best is None or ov < best:
+            best, bx = ov, ax
+    if float(np.dot(B.p - A.p, bx)) < 0.0:
+        bx = -bx                                       # 法线统一由 A 指向 B
+    return best, bx
+
+
+def _contact_candidates(A, B, VA, VB, bx):
+    """接触点 = 嵌进对方体内的顶点，按穿透深度取最深的 2 个"""
+    a_hi = max(float(np.dot(v, bx)) for v in VA)
+    b_lo = min(float(np.dot(v, bx)) for v in VB)
+    cand = []
+    for ai, v in enumerate(VA):
+        if _inside_obb(v, B):
+            cand.append((float(np.dot(v, bx)) - b_lo, v, ("A", ai)))
+    for bi, v in enumerate(VB):
+        if _inside_obb(v, A):
+            cand.append((float(a_hi - np.dot(v, bx)), v, ("B", bi)))
+    return cand
+
+
 def collide_box_box_np(A, B):
     """OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
 
@@ -68,28 +104,11 @@ def collide_box_box_np(A, B):
       否则同一接触面会出现互相矛盾的修正量导致抖动。
     """
     VA, VB = A.verts(), B.verts()
-    axes = [rot(A.th) @ np.array([1.0, 0.0]), rot(A.th) @ np.array([0.0, 1.0]),
-            rot(B.th) @ np.array([1.0, 0.0]), rot(B.th) @ np.array([0.0, 1.0])]
-    best, bx = None, None
-    for ax in axes:
-        pa = np.array([float(np.dot(v, ax)) for v in VA])
-        pb = np.array([float(np.dot(v, ax)) for v in VB])
-        ov = float(min(pa.max(), pb.max()) - max(pa.min(), pb.min()))
-        if ov <= 0.0:
-            return []                                  # 找到分离轴
-        if best is None or ov < best:
-            best, bx = ov, ax
-    if float(np.dot(B.p - A.p, bx)) < 0.0:
-        bx = -bx                                       # 法线统一由 A 指向 B
-    a_hi = max(float(np.dot(v, bx)) for v in VA)
-    b_lo = min(float(np.dot(v, bx)) for v in VB)
-    cand = []
-    for ai, v in enumerate(VA):
-        if _inside_obb(v, B):
-            cand.append((float(np.dot(v, bx)) - b_lo, v, ("A", ai)))
-    for bi, v in enumerate(VB):
-        if _inside_obb(v, A):
-            cand.append((float(a_hi - np.dot(v, bx)), v, ("B", bi)))
+    picked = _sat_pick(VA, VB, A, B, _sat_axes(A, B))
+    if picked is None:
+        return []                                      # 找到分离轴
+    best, bx = picked
+    cand = _contact_candidates(A, B, VA, VB, bx)
     if not cand:
         return []
     cand.sort(key=lambda t: -t[0])

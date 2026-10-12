@@ -19,3 +19,6 @@ _archive_旧链路/
 # refcheck 联网缓存（运行时生成）
 .refcache/
 .refcache.json
+
+# faultbench 临时 canary（异常退出会残留，不该入库）
+_canary_faultbench*

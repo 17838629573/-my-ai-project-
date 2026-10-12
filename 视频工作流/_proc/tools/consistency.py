@@ -54,21 +54,76 @@ def exec_table():
     return out
 
 
+def _is_cases_assign(node):
+    """是否 `CASES = [ ... ]` 这类赋值。"""
+    if not isinstance(node, ast.Assign):
+        return False
+    if not isinstance(node.value, (ast.List, ast.Tuple)):
+        return False
+    for tgt in node.targets:
+        if isinstance(tgt, ast.Name) and tgt.id == "CASES":
+            return True
+    return False
+
+
+def _elt_id(el):
+    """CASES 里一个 (id, ...) 元组的用例 ID。"""
+    if not isinstance(el, (ast.Tuple, ast.List)):
+        return None
+    if not el.elts:
+        return None
+    if not isinstance(el.elts[0], ast.Constant):
+        return None
+    return str(el.elts[0].value)
+
+
+def _cases_ids(node):
+    """单个 Assign 节点里登记的用例 ID。"""
+    if not _is_cases_assign(node):
+        return ()
+    out = []
+    for el in node.value.elts:
+        v = _elt_id(el)
+        if v is not None:
+            out.append(v)
+    return tuple(out)
+
+
+def _iter_py():
+    """全项目 .py 文件（跳过 __pycache__ / _bak）。"""
+    for dirpath, _dn, files in os.walk(ROOT):
+        if "__pycache__" in dirpath or "_bak" in dirpath:
+            continue
+        for fn in sorted(files):
+            if fn.endswith(".py"):
+                yield os.path.join(dirpath, fn)
+
+
+def _deco_cap_name(node):
+    """一个 FunctionDef 上 @capability("name", ...) 的能力名，没有则 None。"""
+    if not isinstance(node, ast.FunctionDef):
+        return None
+    for d in node.decorator_list:
+        if not isinstance(d, ast.Call):
+            continue
+        fname = getattr(d.func, "id", None) or getattr(d.func, "attr", None)
+        if fname != "capability":
+            continue
+        if not d.args:
+            continue
+        a = d.args[0]
+        if not isinstance(a, ast.Constant):
+            continue
+        return str(a.value)
+    return None
+
 def declared_cases():
     """tests/cases.py 里 CASES 登记的用例 ID 集合（门检真正遍历的那张表）。"""
     p = os.path.join(ROOT, "tests", "cases.py")
     tree = _parse(p)
     out = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
-            continue
-        for tgt in node.targets:
-            if isinstance(tgt, ast.Name) and tgt.id == "CASES" \
-               and isinstance(node.value, (ast.List, ast.Tuple)):
-                for el in node.value.elts:
-                    if isinstance(el, (ast.Tuple, ast.List)) and el.elts \
-                       and isinstance(el.elts[0], ast.Constant):
-                        out.add(str(el.elts[0].value))
+        out.update(_cases_ids(node))
     return out
 
 
@@ -89,6 +144,69 @@ def case_funcs():
     return out
 
 
+def _tests_trees():
+    """解析 tests/ 下全部用例文件；语法坏文件登记进 _SYNTAX_ERRS（不静默）。"""
+    tdir = os.path.join(ROOT, "tests")
+    trees = []
+    for fn in sorted(os.listdir(tdir)):
+        if not fn.endswith(".py"):
+            continue
+        try:
+            trees.append(_parse(os.path.join(tdir, fn)))
+        except SyntaxError as e:
+            _SYNTAX_ERRS.append("tests/%s: %s" % (fn, e))
+    return trees
+
+
+def _alias_names(node):
+    """from x import a,b（取原名）/ import x.y（取末段）抽出的名字。"""
+    from_import = isinstance(node, ast.ImportFrom)
+    out = set()
+    for a in node.names:
+        name = a.name
+        if not from_import:
+            name = name.split(".")[-1]
+        out.add(name)
+    return out
+
+
+def _add_dynamic(names, node):
+    """__import__("motion.character.gait") / import_module(...) 的模块末段名。"""
+    f = getattr(node.func, "id", None)
+    if f not in ("__import__", "import_module"):
+        return
+    if not node.args:
+        return
+    a = node.args[0]
+    if not isinstance(a, ast.Constant):
+        return
+    if not isinstance(a.value, str):
+        return
+    names.add(a.value.split(".")[-1])
+
+
+def _import_names(tree):
+    """单棵树里的导入名：静态 from/import + 动态 __import__。"""
+    names = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.ImportFrom) or isinstance(n, ast.Import):
+            names |= _alias_names(n)
+        elif isinstance(n, ast.Call):
+            _add_dynamic(names, n)
+    return names
+
+
+def _string_names(tree):
+    """字符串元组/列表（动态导入的遍历源）里的模块末段名。"""
+    names = set()
+    for n in ast.walk(tree):
+        if not isinstance(n, (ast.Tuple, ast.List)):
+            continue
+        for e in n.elts:
+            if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                names.add(e.value.split(".")[-1])
+    return names
+
 def import_list():
     """tests/ 下所有用例文件导入的模块名集合。
 
@@ -100,37 +218,15 @@ def import_list():
       1. from x.y import z        （静态）
       2. __import__("motion.character.gait")   （循环动态导入）
       3. 字符串元组 ("gait","run",...) 供上面循环遍历
+
+    拆分为 _tests_trees / _import_names / _alias_names / _add_dynamic /
+    _string_names 五个小函数，主函数 CCN<=2（原 20）。
     """
-    tdir = os.path.join(ROOT, "tests")
-    trees = []
-    for fn in sorted(os.listdir(tdir)):
-        if fn.endswith(".py"):
-            try:
-                trees.append(_parse(os.path.join(tdir, fn)))
-            except SyntaxError as e:
-                # 不静默：语法坏的文件若被跳过，后续"未接线"判定会假阴性
-                _SYNTAX_ERRS.append("tests/%s: %s" % (fn, e))
+    trees = _tests_trees()
     names = set()
     for tree in trees:
-        for n in ast.walk(tree):
-            if isinstance(n, ast.ImportFrom):
-                for a in n.names:
-                    names.add(a.name)
-            elif isinstance(n, ast.Import):
-                for a in n.names:
-                    names.add(a.name.split(".")[-1])
-            elif isinstance(n, ast.Call):
-                f = getattr(n.func, "id", None)
-                if f in ("__import__", "import_module") and n.args:
-                    a = n.args[0]
-                    if isinstance(a, ast.Constant) and isinstance(a.value, str):
-                        names.add(a.value.split(".")[-1])
-        # 字符串元组 / 列表（动态导入的遍历源）
-        for n in ast.walk(tree):
-            if isinstance(n, (ast.Tuple, ast.List)):
-                for e in n.elts:
-                    if isinstance(e, ast.Constant) and isinstance(e.value, str):
-                        names.add(e.value.split(".")[-1])
+        names |= _import_names(tree)
+        names |= _string_names(tree)
     return names
 
 
@@ -231,29 +327,15 @@ def _cap_names(node, nm):
 def cap_registered():
     """AST 扫描 @capability 装饰器登记的能力名（不 import，避免导入不全）。"""
     names = set()
-    for dirpath, _dn, files in os.walk(ROOT):
-        if "__pycache__" in dirpath or "_bak" in dirpath:
+    for p in _iter_py():
+        try:
+            tree = _parse(p)
+        except SyntaxError:
             continue
-        for fn in files:
-            if not fn.endswith(".py"):
-                continue
-            p = os.path.join(dirpath, fn)
-            try:
-                tree = _parse(p)
-            except SyntaxError:
-                continue
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.FunctionDef):
-                    continue
-                for d in node.decorator_list:
-                    call = d if isinstance(d, ast.Call) else None
-                    if call is None:
-                        continue
-                    fname = getattr(call.func, "id", None) or getattr(call.func, "attr", None)
-                    if fname == "capability" and call.args:
-                        a = call.args[0]
-                        if isinstance(a, ast.Constant):
-                            names.add(str(a.value))
+        for node in ast.walk(tree):
+            nm = _deco_cap_name(node)
+            if nm:
+                names.add(nm)
     return names
 
 
@@ -342,11 +424,11 @@ def self_check():
     print("  EXEC 用例 %d 个   注册能力 %d 项" % (len(ex), len(cap_registered())))
     if not issues:
         print("  无交叉不一致")
-        return 0
+        return True
     for s in issues:
         print("  " + s)
-    return 1
+    return False
 
 
 if __name__ == "__main__":
-    sys.exit(self_check())
+    sys.exit(0 if self_check() else 1)

@@ -31,6 +31,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 import tools.debtledger as _dl
+import tools.capsrc as _cs
 
 # 允许的依赖方向：只有上层可依赖下层（R1）
 ALLOW = {
@@ -95,6 +96,7 @@ def node_of(path):
 
 
 _SYNTAX_ERRS = []   # 语法错误收集器：绝不静默吞掉
+_ONLY_FILES = False   # 定向扫描模式：不跑包级全局检查（计数不完整会假阳性）
 
 def edges(path):
     """返回该文件 import 到的 (pkg, module) 节点集合。"""
@@ -313,41 +315,6 @@ def _scan_file(f, graph):
     return pkg, row, out
 
 
-def _caps_without_source(path):
-    """用 AST 取 @capability 的名字与出处。
-
-    不用正则：装饰器既有位置参数也有 source= 关键字，还有跨行写法，
-    正则会漏掉后两种，导致无出处的能力静默通过。
-    """
-    try:
-        tree = ast.parse(open(path, encoding="utf-8").read())
-    except SyntaxError as e:
-        _SYNTAX_ERRS.append(f"[R0 语法错误] {path}:{getattr(e,'lineno','?')} {e.msg}")
-        return []
-    out = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for d in node.decorator_list:
-            if not isinstance(d, ast.Call):
-                continue
-            fn = d.func
-            if not (isinstance(fn, ast.Name) and fn.id == "capability"):
-                continue
-            name = d.args[0].value if d.args and isinstance(
-                d.args[0], ast.Constant) else "?"
-            source = ""
-            if len(d.args) > 1 and isinstance(d.args[1], ast.Constant):
-                source = str(d.args[1].value)
-            for kw in d.keywords:
-                if kw.arg == "source" and isinstance(kw.value, ast.Constant):
-                    source = str(kw.value.value)
-            if len(source.strip()) < MIN_SOURCE:
-                out.append("[R11 能力无出处] %s (%s)"
-                           % (name, os.path.basename(path)))
-    return out
-
-
 def _check_provenance():
     """R11：已登记的能力与公式必须带出处，缺出处说明是凭记忆写的。
 
@@ -356,7 +323,10 @@ def _check_provenance():
     """
     out = []
     for f in walk_py():
-        out += _caps_without_source(f)
+        caps, serr = _cs.caps_without_source(f, MIN_SOURCE)
+        if serr:
+            _SYNTAX_ERRS.append(serr)
+        out += caps
     reg = os.path.join(ROOT, "FORMULA_REGISTRY.json")
     if os.path.exists(reg):
         with open(reg, encoding="utf-8") as fh:
@@ -454,17 +424,23 @@ def _direct_member_counts():
     return out
 
 
-def main():
-    """编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。"""
-    files = list(walk_py())
-    graph = {node_of(f): {f"{p}.{m}" for p, m in edges(f)} for f in files}
-    counts = _direct_member_counts()
-    problems, rows = [], []
+def _build_graph(files):
+    """建「文件节点 → 依赖目标集合」的图。"""
+    return {node_of(f): {f"{p}.{m}" for p, m in edges(f)} for f in files}
+
+
+def _scan_files(files, graph):
+    """逐文件扫描，返回 (rows, problems)。"""
+    rows, problems = [], []
     for f in files:
-        pkg, row, out = _scan_file(f, graph)
+        _pkg, row, out = _scan_file(f, graph)
         rows.append(row)
         problems += out
-    # 入度: 有多少个其他包依赖它（判断原子层 vs 孤包）
+    return rows, problems
+
+
+def _rdep_counts(graph):
+    """反向入度：有多少个其他顶层包依赖它（判断原子层 vs 孤包）。"""
     rdep = {}
     for _f, deps in graph.items():
         src = node_of(_f).split(".")[0]
@@ -472,12 +448,36 @@ def main():
             tgt = d.split(".")[0]
             if tgt != src:
                 rdep.setdefault(tgt, set()).add(src)
-    rdep = {k: len(v) for k, v in rdep.items()}
+    return {k: len(v) for k, v in rdep.items()}
+
+
+def _pkg_problems(counts, rdep):
+    """包粒度与全局一致性检查。
+
+    定向扫描时包计数/入度天然不完整，跑这些只会报假阳性，故由调用方
+    在非定向模式下才调用。
+    """
+    return (_check_pkg_counts(counts, rdep) + _check_layer_exhaustive(counts)
+            + _check_importable()
+            + _check_provenance()
+            + _check_judge_power() + _check_cross_consistency())
+
+
+def main(files=None):
+    """编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。
+
+    files: 只扫指定文件（相对路径列表）。为 None 时扫全项目。
+    2026-10-11 加：faultbench 每条缺陷都要跑一次全项目扫描，14 条 ×3 探针
+    远超单批时限，而它只关心 canary 一个文件的命中。定向扫描把单条从
+    数十秒降到亚秒，也让"只检查改动文件"成为本工具的正式能力。
+    """
+    if files is None:
+        files = list(walk_py())
+    graph = _build_graph(files)
+    rows, problems = _scan_files(files, graph)
     problems = _SYNTAX_ERRS + problems        # R0 置顶：坏文件绝不当"零问题"
-    problems += (_check_pkg_counts(counts, rdep) + _check_layer_exhaustive(counts)
-                 + _check_importable()
-                 + _check_provenance()
-                 + _check_judge_power() + _check_cross_consistency())
+    if not _ONLY_FILES:
+        problems += _pkg_problems(_direct_member_counts(), _rdep_counts(graph))
     _report(rows, problems)
     # 未到期的已知债务不算失败（否则债务等于没豁免）；到期/陈旧/新增问题才算
     _d, fresh, overdue, stale = _dl.split_debt(problems)
@@ -485,4 +485,8 @@ def main():
 
 
 if __name__ == "__main__":
+    _f = [a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--files=")]
+    if _f:
+        _ONLY_FILES = True
+        sys.exit(main([s for s in _f[0].split(",") if s.strip()]))
     sys.exit(main())

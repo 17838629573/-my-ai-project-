@@ -54,33 +54,51 @@ def init_capabilities(verbose=False):
     # 与 climb 事故同源：函数写好了，只是没人 import 它。
     # 出处: Python importlib 官方文档（动态导入需完整包路径）；
     #      silent failure 归类见 IEEE Software anti-pattern。
-    for pkg, mods in ((
-        "character",
-        ("sit", "gesture", "prop", "turn", "jump", "crouch", "run",
-         "carry", "throw", "catch", "kick", "climb", "pass_ball",
-         "push", "roll"),
-    ), (
-        "creature", ("climb_rock", "fish_swim", "quadruped"),
-    ), (
-        # 2026-10-10 补：phenom 五个能力（leaf_fall/fracture/water_jet/newton_cradle/turntable）
-        # 写好了、self_check 也过，但**从未在导入清单里**，@capability 永不注册 ——
-        # 与 climb 事故同源第三次复发（前两次: climb、push/quadruped/roll）。
-        # 教训: 新增子包后必须同步本表，否则能力"白写"且表现为"STUB 缺能力"。
-        "phenom", ("leaf", "fracture", "water", "cradle", "turntable"),
-    ), (
-        "character.body", ("gait", "leg", "joints", "proportions", "sdf", "render", "cloth"),
-    ), (
-        "", ("crowd", "rigid", "rigid2d", "constraint_ext", "physics_ext"),
-    )):
-        for m in mods:
-            _full = ("motion." + pkg + "." + m) if pkg else ("motion." + m)
-            try:
-                importlib.import_module("." + (pkg + "." + m if pkg else m), __name__)
-            except Exception as _e:
-                IMPORT_ERRS.append((_full, repr(_e)))
+    # 为什么改成自动遍历而不是继续维护显式清单：
+    # 显式清单要手工同步，一旦新增模块忘加进来，@capability 就永不注册，
+    # 外界看到的是「STUB 缺能力」而非「没人 import 它」——这是「白写」类事故的
+    # 机制性根因，本项目已复发五次（climb、push/quadruped/roll、phenom、
+    # H40/P41-P45 未登记进 CASES、本次默认路径只注册 1/51）。
+    # 修补清单只能救一次，自动遍历才能根治：pkgutil.walk_packages 发现全部子模块，
+    # 新增模块无需改任何清单即可注册。
+    # 出处: Python 官方 pkgutil 文档（walk_packages 递归遍历包内所有模块）；
+    #      silent failure 归类见 IEEE Software anti-pattern。
+    import pkgutil
+    _seen = set()
+    # 必须按 name 排序而非直接 sorted(namedtuple)：ModuleInfo 含 module_finder
+    # 字段，直接比较会撞 TypeError（FileFinder 不可比较）。
+    for _mi in sorted(pkgutil.walk_packages(__path__, __name__ + "."),
+                      key=lambda _m: _m.name):
+        _seen.add(_mi.name)
+        try:
+            importlib.import_module(_mi.name)
+        except Exception as _e:
+            IMPORT_ERRS.append((_mi.name, repr(_e)))
+    # 为什么不保留「清单反向校验」：曾试图用旧清单检查是否有模块被删/改名，
+    # 但 walk_packages 不把子包本身（如 motion.rigid2d）作为模块 yield，
+    # 于是 12 个包级条目被误报成「未被发现」——校验本身成了噪音源。
+    # 而噪音比缺失更危险：真失败会淹没在 12 条假失败里。
+    # 既然已自动遍历，清单连同其校验一并移除，不留第二处需要同步的地方。
     if IMPORT_ERRS:
         # 不抛异常：能力表应尽力注册齐其余部分；但必须留下可读证据
         print("[motion] 子模块导入失败 %d 项（能力会被误报为 STUB）:" % len(IMPORT_ERRS))
         for _n, _e in IMPORT_ERRS:
             print("   %s -> %s" % (_n, _e))
     return _cb.normalize(_b.CAP, _b.CAP_SRC, _b.CAP_GROUP, verbose=verbose)
+
+
+# ---- 导入即注册 ----
+# 为什么不要求调用方显式调 init_capabilities()：
+# 2026-10-11 实测 `import motion` 后 CAP 只注册 1/51 —— 51 个能力全部写好、
+# self_check 全过，但默认路径下拿不到 40 个。README 却写着「全部注册」。
+# 与 climb 事故同源第六次：能力存在，只是没人 import。
+# 改为导入包即自动注册，调用方无需知道有这张表。
+# 出处: Python 官方 pkgutil 文档；silent failure 见 IEEE Software anti-pattern。
+_AUTO_INIT_ERR = None
+if not os.environ.get("MOTION_NO_AUTOINIT"):
+    try:
+        init_capabilities()
+    except Exception as _e:      # 绝不静默：登记并打印，供门禁捕获
+        _AUTO_INIT_ERR = repr(_e)
+        IMPORT_ERRS.append(("init_capabilities(自动)", _AUTO_INIT_ERR))
+        print("[motion] 自动注册失败（能力会被误报为 STUB）: %s" % _AUTO_INIT_ERR)

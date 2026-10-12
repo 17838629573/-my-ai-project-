@@ -132,8 +132,8 @@ def self_check():
         print("           实测 %g  阈值 %s %g   %s" % (val, op, thr, why))
     for name, label, why in sk:
         print("    [跳过] %-20s %s (%s)" % (name, label, why))
-    return 0 if not s else 1
+    return not s
 
 
 if __name__ == "__main__":
-    sys.exit(self_check())
+    sys.exit(0 if self_check() else 1)

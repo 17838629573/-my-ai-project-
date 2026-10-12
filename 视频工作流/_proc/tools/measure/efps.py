@@ -84,12 +84,12 @@ def self_check():
     ok2 = any(L >= 10 for _s, L in runs)  # 应抓到长度 10 的静止段
     print("eFPS 自检: n=%d unique=%d dup=%.2f 静止段=%s -> %s"
           % (n, u, dup, runs, "PASS" if (ok1 and ok2) else "FAIL"))
-    return 0 if (ok1 and ok2) else 1
+    return bool(ok1 and ok2)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        sys.exit(self_check())
+        sys.exit(0 if self_check() else 1)
     paths = []
     for a in sys.argv[1:]:
         paths.extend(collect(a))

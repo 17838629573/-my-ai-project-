@@ -129,6 +129,41 @@ def _walk_py():
                 yield os.path.join(dp, fn)
 
 
+def _deco_name(deco):
+    """@capability("名字", ...) 的第一个位置参数；不是就返回 None。"""
+    if not isinstance(deco, ast.Call):
+        return None
+    if not isinstance(deco.func, ast.Name):
+        return None
+    if deco.func.id != "capability" or not deco.args:
+        return None
+    if not isinstance(deco.args[0], ast.Constant):
+        return None
+    return str(deco.args[0].value)
+
+
+def _deco_source(deco):
+    """出处：位置第二参数优先，其次 source= 关键字；都没有就是空串。"""
+    if len(deco.args) > 1 and isinstance(deco.args[1], ast.Constant):
+        return str(deco.args[1].value)
+    for kw in deco.keywords:
+        if kw.arg == "source" and isinstance(kw.value, ast.Constant):
+            return str(kw.value.value)
+    return ""
+
+
+def _cap_from_deco(deco):
+    """单个装饰器：是 @capability(...) 就返回 (名字, 出处)，否则 None。
+
+    出处在 @capability(...) 里是第三位之后的可选项，位置写法与关键字写法
+    都可能遇到，两种都认，避免换个写法就整条能力查不到出处。
+    """
+    name = _deco_name(deco)
+    if name is None:
+        return None
+    return (name, _deco_source(deco))
+
+
 def _caps_in_tree(tree):
     """从 AST 取 @capability 的 (名字, 出处)。
 
@@ -140,20 +175,9 @@ def _caps_in_tree(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for d in node.decorator_list:
-            if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Name)):
-                continue
-            if d.func.id != "capability" or not d.args:
-                continue
-            if not isinstance(d.args[0], ast.Constant):
-                continue
-            name = str(d.args[0].value)
-            source = ""
-            if len(d.args) > 1 and isinstance(d.args[1], ast.Constant):
-                source = str(d.args[1].value)
-            for kw in d.keywords:
-                if kw.arg == "source" and isinstance(kw.value, ast.Constant):
-                    source = str(kw.value.value)
-            got.append((name, source))
+            pair = _cap_from_deco(d)
+            if pair:
+                got.append(pair)
     return got
 
 
@@ -174,6 +198,18 @@ def load_caps():
     return out, ("; ".join(errs) if errs else "")
 
 
+def _hints_from_dict(node):
+    """MISSING_HINT 字典 → 提示条目列表（键与值都要是常量才认）。"""
+    got = []
+    for k, v in zip(node.keys, node.values):
+        if isinstance(k, ast.Constant) and isinstance(v, ast.Constant):
+            got.append({"kind": "capability", "id": str(k.value),
+                        "name": str(k.value), "status": "STUB",
+                        "source": "", "hint": str(v.value),
+                        "note": "未实现", "group": "角色能力"})
+    return got
+
+
 def _missing_hints():
     """MISSING_HINT：未实现能力的搜索提示，静态取，不靠 import。"""
     path = os.path.join(ROOT, "motion", "beat.py")
@@ -190,14 +226,7 @@ def _missing_hints():
             continue
         if not isinstance(node.value, ast.Dict):
             return []
-        got = []
-        for k, v in zip(node.value.keys, node.value.values):
-            if isinstance(k, ast.Constant) and isinstance(v, ast.Constant):
-                got.append({"kind": "capability", "id": str(k.value),
-                            "name": str(k.value), "status": "STUB",
-                            "source": "", "hint": str(v.value),
-                            "note": "未实现", "group": "角色能力"})
-        return got
+        return _hints_from_dict(node.value)
     return []
 
 
@@ -260,34 +289,50 @@ def _fmt_hit(s, it):
                ("\n        提示: " + it["hint"]) if it.get("hint") else ""))
 
 
-def run(query, top=6):
-    """主流程：本地命中达阈值 → INTERNAL；否则 → WEB_NEEDED。"""
-    hits, warn = search(query, top)
-    if warn:
-        print("  ! " + warn)
-    print("查询: %r" % query)
-    if hits and hits[0][0] >= HIT_MIN:
-        print("判定: INTERNAL（本地前置库命中，无需联网）")
-        for s, it in hits:
-            if s >= HIT_MIN:
-                print(_fmt_hit(s, it))
-        return 0
-    if hits and hits[0][0] >= AMBIG_MIN:
-        print("判定: AMBIGUOUS（有本地候选但未达 %.2f，先确认再用联网）" % HIT_MIN)
-        print("  本地候选（很可能已经够用，先逐条看）：")
-        for s, it in hits[:top]:
+def _say_internal(hits):
+    """本地命中达阈值：打印候选并返回 0。"""
+    print("判定: INTERNAL（本地前置库命中，无需联网）")
+    for s, it in hits:
+        if s >= HIT_MIN:
             print(_fmt_hit(s, it))
-        print("\n  确认这些都不是所需后，才用下列词联网：")
-        print("    %s" % " / ".join(sorted(_tokens(query))[:8]))
-        return 2
+    return 0
+
+
+def _say_ambiguous(hits, top, toks):
+    """有候选但未达阈值：先让人确认，返回 2。"""
+    print("判定: AMBIGUOUS（有本地候选但未达 %.2f，先确认再用联网）" % HIT_MIN)
+    print("  本地候选（很可能已经够用，先逐条看）：")
+    for s, it in hits[:top]:
+        print(_fmt_hit(s, it))
+    print("\n  确认这些都不是所需后，才用下列词联网：")
+    print("    %s" % toks)
+    return 2
+
+
+def _say_web(hits, toks):
+    """本地无有效候选：才允许联网，返回 1。"""
     print("判定: WEB_NEEDED（本地无有效候选，才允许联网搜）")
     if hits:
         print("  弱相关（仅供参考，不足以替代联网检索）：")
         for s, it in hits[:3]:
             print(_fmt_hit(s, it))
     print("\n  建议搜索词:")
-    print("    %s" % " / ".join(sorted(_tokens(query))[:8]))
+    print("    %s" % toks)
     return 1
+
+
+def run(query, top=6):
+    """主流程：本地命中达阈值 → INTERNAL；否则 → WEB_NEEDED。"""
+    hits, warn = search(query, top)
+    if warn:
+        print("  ! " + warn)
+    print("查询: %r" % query)
+    toks = " / ".join(sorted(_tokens(query))[:8])
+    if hits and hits[0][0] >= HIT_MIN:
+        return _say_internal(hits)
+    if hits and hits[0][0] >= AMBIG_MIN:
+        return _say_ambiguous(hits, top, toks)
+    return _say_web(hits, toks)
 
 
 def panel():

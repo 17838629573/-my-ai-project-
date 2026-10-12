@@ -35,15 +35,16 @@
 
 ---
 
-## 三、规模（2026-10-06 脚本实测，非记忆值）
+## 三、规模（2026-10-11 脚本实测，非记忆值）
 
 ```
 入口      11 个         ← reach.py 可达性分析起点
 可达文件  92 个         ← 由 11 个入口递归可达
-孤立文件  23 个         ← 无任何活跃入口引用（多为 tests/cases_*.py 动态导入，静态分析误判）
+孤立文件  23 个         ← 无任何活跃入口引用（多为 tests/cases_*.py 动态导入，静态分析误判；
+                        另含 _proc/_canary_faultbench.py，是缺陷注入基准的对照样本，设计上不被引擎入口引用）
 能力表    声明 51 项 / 全部注册 / POSE 可驱动 11
 测试      PASS 45 / FAIL 0 / STUB 0 / ERROR 0（共 45 项）
-仓库体积  工作树 1.1 MB / GitHub 平台 136 MB（含 git 历史对象）
+仓库体积  1.34 MB（仅 _proc 目录，排除产物与字节码，口径见 tools/docsync.py）/ GitHub 平台 136 MB（含 git 历史对象）
 ```
 
 数字来源与复核方式（A4 铁律：文档数字由脚本同步，不手填）：
@@ -93,7 +94,7 @@ python3 _proc/beat_demo.py      # 走 beat 时间线出演示片
 python3 _proc/motion/cafe.py    # 咖啡馆 12 秒（四段动作）
 python3 _proc/tests/run_all.py  # 跑 45 项测试门检
 python3 _proc/check.py          # 架构契约扫描
-python3 _proc/tools/gate.py     # 统一门禁入口（7 项，--json 机读）
+python3 _proc/tools/gate.py     # 统一门禁入口（14 项，--json 机读）
 ```
 
 每个 `.py` 顶部有 `__file__` 锚定的自举块，自动上溯定位 `_proc`，直接跑即可。
@@ -106,8 +107,12 @@ python3 _proc/tools/gate.py     # 统一门禁入口（7 项，--json 机读）
 python3 _proc/gen_api.py        # 从契约块 + @capability 装饰器 + 函数签名生成
 ```
 
-当前收录 **51 项能力**（41 项带出处、11 项缺出处）+ **115 个模块**的一句话职责与公开函数签名。
+当前收录 **51 项能力**（40 项带出处、11 项缺出处）+ **117 个模块**的一句话职责与公开函数签名。
 改了代码不重跑 `gen_api.py`，API.md 就会漂移——`tools/docsync.py` 会盯这类漂移。
+
+`gen_api.py` 自带一道硬检查：**同名能力被 `@capability` 注册多次会直接非零退出**并列出落点
+（曾实际发生：`motion/phenom/leaf.py` 里私有函数 `_leaf_load` 与 `leaf_fall_sim` 抢同一个能力名，
+导致一条出处静默丢失）。私有辅助函数不应带能力装饰器。
 
 门禁工具依赖两个业界库（不重复造轮子），跑之前先装：
 
@@ -154,12 +159,12 @@ _proc/                     大模块  __init__.py 只登记契约
 
 ## 七、已实现能力（注册 51，按可驱动性分四类）
 
-**重要：注册 ≠ 能被时间线调用。** 经 `tools/capaudit.py` 实测，51 个注册能力里
-只有 10 个能直接驱动骨架。以下按真实类别标注，不虚报。
+**重要：注册 ≠ 能被时间线调用。** 经 `tools/measure/capaudit.py` 实测，51 个注册能力里
+只有 11 个能直接驱动骨架。以下按真实类别标注，不虚报。
 
 | 类别 | 数量 | 含义 | 成员 |
 |---|---|---|---|
-| **POSE** | 10 | 姿态函数 `(u,params)->{关节}`，可直接串时间线 | walk run jump kick throw catch crouch reach_grab climb carry_box |
+| **POSE** | 11 | 姿态函数 `(u,params)->{关节}`，可直接串时间线 | walk run jump kick throw catch crouch reach_grab climb climb_rock carry_box |
 | **ADDITIVE** | 4 | 增量 `{"J":delta}`，须叠加到基础姿态，**不可**当绝对姿态混合 | wave gaze_shift finger_tap page_flip |
 | **PHYS** | 5 | 物理仿真，返回轨迹/标量，与角色动画不同层 | bounce rigid_body ramp stack pendulum |
 | **AUX** | 11 | 求解器/群体函数/道具轨迹/状态名，不是姿态 | turn brake ball high5 contact crowd_collide multi_actor carry_prop prop_release box_release pass_ball |
@@ -180,7 +185,7 @@ Box2D Lite 的物理层与动画层分离。
 
 | 状态 | 数量 | 判定 | 成员 |
 |---|---|---|---|
-| **可用** | 10 | POSE，`(u,params)->{关节}`，时间线可直接调用 | walk run jump kick throw catch crouch reach_grab climb carry_box |
+| **可用** | 11 | POSE，`(u,params)->{关节}`，时间线可直接调用 | walk run jump kick throw catch crouch reach_grab climb climb_rock carry_box |
 | **在研（STUB）** | 0 | 门检显式报 `缺能力: xxx`，未实现、不降级不伪造 | 曾缺：F30 ccd / F31 broadphase / F32 gravity_off / F33 friction / F34 overlap_resolve / E29 toppling，已全部补执行体 |
 | **非姿态类** | 40 | 已注册但非 POSE（PHYS/AUX/ADDITIVE），须经 `capbridge` 分流；**设计如此，不是缺口** | wave gaze_shift finger_tap page_flip bounce rigid_body ramp stack pendulum turn brake ball high5 contact crowd_collide |
 

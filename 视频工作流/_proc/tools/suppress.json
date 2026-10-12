@@ -9,10 +9,10 @@
   },
   {
     "id": "S2",
-    "rule": "capaudit 23个不可用",
-    "target": "ADDITIVE/PHYS/AUX 三类共20个",
-    "reason": "wave 等返回 {J:delta} 是 additive 增量、bounce/stack 等是物理仿真、turn/brake 等是求解器——三类本就不产出姿态，属设计如此。capaudit 直接调 CAP 表导致误判；正确口径应走 capbridge.normalize 分流。",
+    "rule": "capaudit 误报能力不可用（ADDITIVE/PHYS/AUX 三类被判为不可用）",
+    "target": "capaudit.run() 返回的不可用列表",
+    "reason": "wave/gaze_shift/finger_tap/page_flip 返回 {J:delta} 为 ADDITIVE 增量、bounce/stack/pendulum/ramp/rigid_body 为 PHYS 物理仿真、turn/brake/contact 等为 AUX 求解器——三类本就不产出绝对姿态。capaudit 早期直接扫 CAP 全表导致误判 20~23 个不可用；现口径改为只审计 POSE 类（capbridge.normalize 分流后），非姿态能力不进入该审计，故不可用列表应恒为空。本条为“口径修正后现象消失”的回归守卫：若 capaudit 再次报出不可用，即真回归。",
     "expect": "absent",
-    "repro": "import sys; sys.path.insert(0,'.')\nfrom motion import beat, capbridge\nfor m in ('sit','gesture','prop','turn','jump','crouch','run','carry','throw','catch','kick','climb','pass_ball'):\n    try: __import__('motion.character.'+m)\n    except Exception: pass\nfor m in ('motion.crowd','motion.rigid','motion.rigid2d','motion.rigid2d_sim'):\n    try: __import__(m)\n    except Exception: pass\nout = capbridge.normalize(beat.CAP, getattr(beat,'CAP_SRC',{}), getattr(beat,'CAP_GROUP',{}), verbose=False)\nnames = lambda k: [x[0] if isinstance(x,tuple) else x for x in out[k]]\nA,PH,AU = names('ADDITIVE'), names('PHYS'), names('AUX')\nbad = [n for n in ('wave','gaze_shift','finger_tap','page_flip') if n not in A]\nbad += [n for n in ('bounce','pendulum','ramp','rigid_body','stack') if n not in PH]\nbad += [n for n in ('turn','brake','ball','high5','contact','multi_actor','carry_prop','prop_release','box_release','pass_ball','crowd_collide') if n not in AU]\nprint('正确口径下未被正确归类:', bad)\nprint('OBSERVED=', 'absent' if not bad else 'present')"
+    "repro": "import sys, os\nsys.path.insert(0, os.path.join(os.getcwd(), '_proc'))\nfrom tools.measure import capaudit\nok_names, bad = capaudit.run()\nprint('可驱动=', len(ok_names), '不可用=', len(bad), bad)\nprint('OBSERVED=', 'absent' if not bad else 'present')\n"
   }
 ]

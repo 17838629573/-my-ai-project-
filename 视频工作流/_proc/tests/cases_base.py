@@ -6,6 +6,26 @@
 from .common import *          # noqa: F401,F403  常量
 from .common import _world, _align_n   # 下划线名不随 * 导出，必须显式
 
+def _a1_leg_skates(W, N):
+    """按腿分段量滑步峰值：跨换脚比较位移会把"换脚"误判成跳变
+
+    注：原实现另算了每腿的 frame_jump_ratio(jumps) 但从未使用（死变量），
+    拆分时删除，不影响任何判据。
+    """
+    skates = []
+    for side, lo, hi in (("l", 0.0, 0.5), ("r", 0.5, 1.0)):
+        seg = []
+        for i in range(N):
+            ph = i / N
+            if not (lo <= ph < hi):
+                continue
+            f = W[i]["heel_" + side]
+            seg.append((f[0], f[2], f[1]))
+        m, mx = H.skate_cm_frame(seg)
+        skates.append(mx)
+    return skates
+
+
 def case_A1():
     """直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性"""
     from motion.character.body.gait import gait
@@ -18,20 +38,7 @@ def case_A1():
     # 按腿分段：左腿支撑 ph∈[0,0.5)，右腿 ph∈[0.5,1)
     # 跨换脚比较位移会把"换脚"误判成跳变
     lows = []
-    skates = []
-    jumps = []
-    for side, lo, hi in (("l", 0.0, 0.5), ("r", 0.5, 1.0)):
-        seg = []
-        for i in range(N):
-            ph = i / N
-            if not (lo <= ph < hi):
-                continue
-            f = W[i]["heel_" + side]
-            seg.append((f[0], f[2], f[1]))
-        m, mx = H.skate_cm_frame(seg)
-        skates.append(mx)
-        d = [abs(seg[i + 1][0] - seg[i][0]) for i in range(len(seg) - 1)]
-        jumps.append(H.frame_jump_ratio(d))
+    skates = _a1_leg_skates(W, N)
     for w in W:
         lows.append(min(v[1] for v in w.values()))
 
@@ -128,6 +135,23 @@ def case_A2():
          "制动距离_m": round(BRAW[-1]["d"], 3)}
 
 
+def _a3_states(hips, air, dt):
+    """腾空段逐帧状态：中点差分求速度，供机械能守恒判定"""
+    st = []
+    for k in range(1, len(air) - 1):
+        i = air[k]
+        v = (hips[air[k + 1]] - hips[air[k - 1]]) / (2 * dt)
+        st.append((1.0, (0.0, v), hips[i]))
+    return st
+
+
+def _a3_air_metrics(hips, air, N):
+    """腾空升高（起跳帧→顶点）与逐帧髋部位移"""
+    apex = max(hips[i] for i in air) - hips[air[0]]
+    disp = [abs(hips[i + 1] - hips[i]) for i in range(N - 1)]
+    return apex, disp
+
+
 def case_A3():
     """原地跳跃：下蹲→蹬伸→腾空（严格抛物线）→落地缓冲→回升
 
@@ -150,13 +174,8 @@ def case_A3():
     hips = [Jd["pelvis"][1] * H_M for Jd in RAW]
     dt = Jm.T_TOTAL / (N - 1)
     air = [i for i in range(N) if flight[i]]
-    st = []
-    for k in range(1, len(air) - 1):
-        i = air[k]
-        v = (hips[air[k + 1]] - hips[air[k - 1]]) / (2 * dt)
-        st.append((1.0, (0.0, v), hips[i]))
-    apex = max(hips[i] for i in air) - hips[air[0]]   # 起跳帧→顶点
-    disp = [abs(hips[i + 1] - hips[i]) for i in range(N - 1)]
+    st = _a3_states(hips, air, dt)
+    apex, disp = _a3_air_metrics(hips, air, N)       # apex: 起跳帧→顶点
     return [
         ("contact_float_m", H.contact_float_m(hgt, [not f for f in flight])),
         ("flight_apex_err", H.flight_apex_err(apex, Jm.FT)),
@@ -167,6 +186,44 @@ def case_A3():
     ], {"腾空帧数": len(air), "最高离地_m": round(max(hgt), 4),
          "实测升高_m": round(apex, 5),
          "理论升高_m": round(9.80665 * Jm.FT ** 2 / 8, 5)}
+
+
+def _a7_obj_at(C, q, obj, carry):
+    """抓稳后物体跟随肩（肩→物方向固定、距离恒定）；未抓稳时停在原位"""
+    if carry is None:
+        return obj
+    sh = np.array(C.crouch(q, with_arms=False)["chest"][:2])
+    sh[1] -= 0.02
+    return list(sh + carry[0] * carry[1])
+
+
+def _a7_grasp(C, Jd, obj, arm, k, n1, n2, carry):
+    """伸手末帧建立抓握：记下肩→物单位方向与距离，之后恒持"""
+    if carry is not None or arm < 1.0 or k < n1 + n2 - 1:
+        return carry
+    sh = np.array(Jd["sh_r"][:2])
+    d = np.array(obj) - sh
+    L0 = float(np.linalg.norm(d))
+    return (d / L0, L0)
+
+
+def _a7_hgt(RAW):
+    """以全程最低关节为基准的高度序列"""
+    g0 = min(min(a[1] for a in Jd.values()) for Jd in RAW)
+    return [(min(a[1] for a in Jd.values()) - g0) * H_M for Jd in RAW]
+
+
+def _a7_scan(C, seq, RAW, objs):
+    """逐帧量手物穿透；臂展只在伸手/持物帧量（站立时物体在地≠拉长手臂）"""
+    pen, reach = [], []
+    for (q, arm), Jd, ob in zip(seq, RAW, objs):
+        w = np.array(Jd["wri_r"][:2])
+        pen.append((float(np.linalg.norm(w - np.array(ob))),
+                    C.WRIST_TO_GRIP, C.OBJ_R_N))
+        if arm >= 1.0:
+            reach.append(H.arm_reach(np.array(Jd["sh_r"][:2]) * H_M,
+                                     np.array(ob) * H_M, H_M))
+    return pen, reach
 
 
 def case_A7():
@@ -186,28 +243,13 @@ def case_A7():
     RAW, objs = [], []
     carry = None                               # 抓稳后：肩→物方向固定，距离恒定
     for k, (q, arm) in enumerate(seq):
-        if carry is not None:
-            sh = np.array(C.crouch(q, with_arms=False)["chest"][:2])
-            sh[1] -= 0.02
-            obj = list(sh + carry[0] * carry[1])
+        obj = _a7_obj_at(C, q, obj, carry)
         Jd = C.reach_pose(q, obj[0], obj[1], C.OBJ_R_N, arm=arm)
         RAW.append(Jd)
         objs.append(tuple(obj))
-        if arm >= 1.0 and k >= n1 + n2 - 1 and carry is None:
-            sh = np.array(Jd["sh_r"][:2])
-            d = np.array(obj) - sh
-            L0 = float(np.linalg.norm(d))
-            carry = (d / L0, L0)
-    g0 = min(min(a[1] for a in Jd.values()) for Jd in RAW)
-    hgt = [(min(a[1] for a in Jd.values()) - g0) * H_M for Jd in RAW]
-    pen, reach = [], []
-    for (q, arm), Jd, ob in zip(seq, RAW, objs):
-        w = np.array(Jd["wri_r"][:2])
-        pen.append((float(np.linalg.norm(w - np.array(ob))),
-                    C.WRIST_TO_GRIP, C.OBJ_R_N))
-        if arm >= 1.0:                         # 只在伸手/持物帧量臂展（站立时物体在地面≠拉长手臂）
-            reach.append(H.arm_reach(np.array(Jd["sh_r"][:2]) * H_M,
-                                     np.array(ob) * H_M, H_M))
+        carry = _a7_grasp(C, Jd, obj, arm, k, n1, n2, carry)
+    hgt = _a7_hgt(RAW)
+    pen, reach = _a7_scan(C, seq, RAW, objs)
     heel = [(Jd["heel_l"][0] * H_M, Jd["heel_l"][2] * H_M, 0.0) for Jd in RAW]
     skate_mean, skate_max = H.skate_cm_frame(heel, fps=FPS)
     return [

@@ -35,9 +35,9 @@ TOOLS = [
     ("契约检查", "check.py", False),
     ("判据变异", "tools/mutate.py", True),
     ("三表一致", "tools/consistency.py", False),
-    ("有效帧率", "tools/efps.py", False),
+    ("有效帧率", "tools/measure/efps.py", False),
     ("豁免复现", "tools/repro.py", False),
-    ("能力审计", "tools/capaudit.py", False),
+    ("能力审计", "tools/measure/capaudit.py", False),
     ("代码异味", "tools/smell.py", False),
     ("圈复杂度", "tools/complexity.py", False),
     ("债务棘轮", "tools/baseline.py", False),
@@ -45,7 +45,8 @@ TOOLS = [
     ("文档漂移", "tools/docsync.py", True),
     ("出处核验", "tools/refcheck.py", True),
     ("阈值溯源", "tools/provenance.py", False),
-    ("动作质量", "tools/motionqual.py", False),
+    ("动作质量", "tools/measure/motionqual.py", False),
+    ("缺陷注入", "tools/faultbench.py", True),
 ]
 
 _DEF_RE = re.compile(r"^\s*def\s+([A-Za-z_]\w*)", re.M)
@@ -111,9 +112,8 @@ def _parse_issues(out):
     return issues
 
 
-def main(argv):
-    as_json = "--json" in argv
-    quick = "--quick" in argv
+def _collect(quick):
+    """按顺序跑各登记工具，收集结果列表。"""
     results = []
     for name, rel, slow in TOOLS:
         if quick and slow:
@@ -121,40 +121,60 @@ def main(argv):
                             "skipped": True, "issues": []})
             continue
         rc, out = _run(rel)
-        ok = (rc == 0)
         issues = _parse_issues(out) if rel == "check.py" else []
-        results.append({"tool": name, "path": rel, "ok": ok, "rc": rc,
-                        "skipped": False, "issues": issues,
-                        "tail": out.strip().splitlines()[-3:] if out else []})
-    bad = [r for r in results if r["ok"] is False]
-    overall = 1 if bad else 0
+        tail = out.strip().splitlines()[-3:] if out else []
+        results.append({"tool": name, "path": rel, "ok": rc == 0, "rc": rc,
+                        "skipped": False, "issues": issues, "tail": tail})
+    return results
 
-    if as_json:
-        print(json.dumps({"ok": overall == 0, "results": results},
-                         ensure_ascii=False, indent=2))
-        return overall
 
+def _flag(r):
+    if r.get("skipped"):
+        return "SKIP"
+    return "PASS" if r["ok"] else "FAIL"
+
+
+def _loc_of(it):
+    loc = it["file"] or ""
+    if it["line"]:
+        loc = "%s:%d" % (loc, it["line"])
+    return loc
+
+
+def _print_one(r):
+    """打印单个工具的结果行（失败时附带前 8 条问题与输出尾三行）。"""
+    print("  [%s] %-8s %s" % (_flag(r), r["tool"], r["path"]))
+    if r["ok"] is not False:
+        return
+    for it in r["issues"][:8]:
+        print("        - [%s] %s %s" % (it["rule"], _loc_of(it), it["msg"]))
+    for tl in r.get("tail", []):
+        print("        | %s" % tl)
+
+
+def _print_human(results, bad):
     print("=" * 62)
     print("统一自检 gate —— %d 项" % len(results))
     print("=" * 62)
     for r in results:
-        if r.get("skipped"):
-            flag = "SKIP"
-        else:
-            flag = "PASS" if r["ok"] else "FAIL"
-        print("  [%s] %-8s %s" % (flag, r["tool"], r["path"]))
-        if r["ok"] is False:
-            for it in r["issues"][:8]:
-                loc = it["file"] or ""
-                if it["line"]:
-                    loc = "%s:%d" % (loc, it["line"])
-                print("        - [%s] %s %s" % (it["rule"], loc, it["msg"]))
-            for tl in r.get("tail", []):
-                print("        | %s" % tl)
+        _print_one(r)
     print("-" * 62)
-    print("结论: %s（失败 %d 项）" % ("OK" if overall == 0 else "有问题", len(bad)))
+    print("结论: %s（失败 %d 项）" % ("OK" if not bad else "有问题", len(bad)))
     if bad:
-        print("下一步: 先修 CRITICAL/真问题；声称假阳性须附最小复现（tools/repro.py）")
+        print("下一步: 先修 CRITICAL/真问题；"
+              "声称假阳性须附最小复现（tools/repro.py）")
+
+def main(argv):
+    """统一入口：跑全部工具，机读 --json / 快跑 --quick。"""
+    as_json = "--json" in argv
+    results = _collect("--quick" in argv)
+    bad = [r for r in results if r["ok"] is False]
+    overall = 1 if bad else 0
+    if as_json:
+        print(json.dumps({"ok": overall == 0, "results": results},
+                         ensure_ascii=False, indent=2))
+        return overall
+    _print_human(results, bad)
     return overall
 
 

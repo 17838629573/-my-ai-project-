@@ -204,6 +204,22 @@ def main():
     if not caps:
         print("失败：未抽到任何能力，抽取器失效")
         return 1
+    # 同名能力被 @capability 注册多次：装饰器是"登记"而非"覆盖"，
+    # 重复注册会让 CAP_SRC 只保留其中一条出处，另一条静默丢失
+    # （曾实际发生：motion/phenom/leaf.py 的 _leaf_load 与 leaf_fall_sim 同名）。
+    # 私有辅助函数不应带装饰器，故此处必须报出而非静默去重。
+    seen = {}
+    dup = []
+    for c in caps:
+        if c["name"] in seen:
+            dup.append((c["name"], seen[c["name"]], c["file"]))
+        else:
+            seen[c["name"]] = c["file"]
+    if dup:
+        print("失败：同名能力重复注册 %d 处" % len(dup))
+        for n, f1, f2 in dup:
+            print("  [重复] %s  首次: %s  重复: %s" % (n, f1, f2))
+        return 1
     return 0
 
 

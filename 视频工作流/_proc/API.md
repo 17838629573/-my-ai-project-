@@ -3,7 +3,7 @@
 > 由 `gen_api.py` 从契约块与 `@capability` 装饰器抽取，**改代码后需重跑**。
 > 人工编辑会在下次生成时被覆盖；要长期保留的说明请写进各文件的契约块。
 
-## 一、能力索引（52 项）
+## 一、能力索引（51 项）
 
 能力名可直接喂给 `beat.Timeline`；出处写在 `source` 参数里，空出处需先补再调用。
 
@@ -65,12 +65,11 @@
 |---|---|---|
 | `walk` | **缺出处** | `motion/beat.py:298` |
 
-### phenom（6）
+### phenom（5）
 
 | 能力 | 出处 | 落点 |
 |---|---|---|
 | `fracture` | GAUGE(arXiv:2608.05948) Wall Breaking; 内聚区断裂(Dugdale 1960/Barenblatt 1962) | `motion/phenom/fracture.py:207` |
-| `leaf_fall` | Wang & Pesavento 2004 PRL; Andersen/Pesavento/Wang 2005 JFM: 升力∝v·ω耦合项 | `motion/phenom/leaf.py:28` |
 | `leaf_fall` | Andersen et al. 2005 JFM 薄片下落双稳态(flutter/tumbling) 准稳态气动模型 | `motion/phenom/leaf.py:73` |
 | `newton_cradle` | GAUGE(arXiv:2608.05948) Newton's Cradle; 等质量弹性碰撞⇒速度交换 | `motion/phenom/cradle.py:52` |
 | `turntable` | GAUGE(arXiv:2608.05948) Turntable; 非惯性系离心力mω²r与科氏力-2mω×v | `motion/phenom/turntable.py:28` |
@@ -129,7 +128,7 @@
 | `turn` | **缺出处** | `motion/character/turn.py:359` |
 | `wave` | **缺出处** | `motion/character/gesture.py:168` |
 
-## 二、模块公开面（115 个模块）
+## 二、模块公开面（117 个模块）
 
 只列顶层公开函数（下划线开头为内部实现，不承诺稳定）。
 
@@ -141,9 +140,9 @@
 - `circumference(r)`　`L19`　—　圆周长：C = 2 * pi * r。
 - `ratio(a, b)`　`L24`　—　比值，b 为 0 时返回 None 而非抛异常。
 - `total(xs)`　`L31`　—　对序列求和。
-- `mean(xs)`　`L41`　—　算术平均，空列表返回 None。
-- `clamp(v, lo, hi)`　`L48`　—　把 v 限制在 [lo, hi] 区间内。
-- `self_check()`　`L57`　—　自检：返回 (名称, 是否通过) 列表。
+- `mean(xs)`　`L36`　—　算术平均，空列表返回 None。
+- `clamp(v, lo, hi)`　`L43`　—　把 v 限制在 [lo, hi] 区间内。
+- `self_check()`　`L52`　—　自检：返回 (名称, 是否通过) 列表。
 
 ### `base/assertrun.py`
 
@@ -155,11 +154,11 @@
 
 （缺一句话职责）
 
-- `walk_py()`　`L78`
-- `pkg_of(path)`　`L86`
-- `node_of(path)`　`L91`　—　节点名 pkg.module，用于传递依赖分析。
-- `edges(path)`　`L99`　—　返回该文件 import 到的 (pkg, module) 节点集合。
-- `main()`　`L457`　—　编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。
+- `walk_py()`　`L79`
+- `pkg_of(path)`　`L87`
+- `node_of(path)`　`L92`　—　节点名 pkg.module，用于传递依赖分析。
+- `edges(path)`　`L100`　—　返回该文件 import 到的 (pkg, module) 节点集合。
+- `main()`　`L426`　—　编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。
 
 ### `color/paint.py`
 
@@ -619,10 +618,10 @@ yaw 连续转身 + 原地换步 —— 让人物真的"转过去"而不是镜像
 
 碰撞检测：SAT 盒-盒、地面、圆-线段（含参考面裁剪）
 
-- `collide_box_box_np(A, B)`　`L59`　—　OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
-- `collide_box_box(A, B)`　`L100`　—　OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
-- `collide_ground(b, gy, n=0.0)`　`L218`　—　半空间 y >= gy：所有低于平面的支撑点（出处[3] 顶点法）
-- `collide_seg(body, seg)`　`L340`　—　物体 vs 静态线段。返回 [(接触点, 法线A→B, 穿透)]
+- `collide_box_box_np(A, B)`　`L95`　—　OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
+- `collide_box_box(A, B)`　`L119`　—　OBB-OBB 接触流形：SAT 选轴 + 顶点包含法（出处[3] Box2D）。
+- `collide_ground(b, gy, n=0.0)`　`L237`　—　半空间 y >= gy：所有低于平面的支撑点（出处[3] 顶点法）
+- `collide_seg(body, seg)`　`L359`　—　物体 vs 静态线段。返回 [(接触点, 法线A→B, 穿透)]
 
 ### `motion/rigid2d/core.py`
 
@@ -925,15 +924,15 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 （缺一句话职责）
 
-- `case_A1()`　`L9`　—　直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性
-- `case_A2()`　`L99`　—　跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
-- `case_A3()`　`L131`　—　原地跳跃：下蹲→蹬伸→腾空（严格抛物线）→落地缓冲→回升
-- `case_A7()`　`L172`　—　下蹲捡物：蹲下→伸手接触地面物体→拿起到手中→站起（物体随手上升）
-- `case_A4()`　`L224`　—　转身180：头-躯干-脚顺序自然，无瞬间翻转
-- `case_A5()`　`L256`　—　挥手：抬右臂 → 掌摆动，肩肘腕联动，肘不反折、臂不超伸
-- `case_A6()`　`L281`　—　踢球：抬腿踢中球 → 球飞出；接触为接触非穿透、动量守恒、支撑脚不浮空
-- `case_B8()`　`L331`　—　拿杯子：手伸向杯子→手指闭合(attach)→杯固定在手中→移动时不掉落
-- `case_B9()`　`L398`　—　放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
+- `case_A1()`　`L29`　—　直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性
+- `case_A2()`　`L106`　—　跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
+- `case_A3()`　`L155`　—　原地跳跃：下蹲→蹬伸→腾空（严格抛物线）→落地缓冲→回升
+- `case_A7()`　`L229`　—　下蹲捡物：蹲下→伸手接触地面物体→拿起到手中→站起（物体随手上升）
+- `case_A4()`　`L266`　—　转身180：头-躯干-脚顺序自然，无瞬间翻转
+- `case_A5()`　`L298`　—　挥手：抬右臂 → 掌摆动，肩肘腕联动，肘不反折、臂不超伸
+- `case_A6()`　`L323`　—　踢球：抬腿踢中球 → 球飞出；接触为接触非穿透、动量守恒、支撑脚不浮空
+- `case_B8()`　`L373`　—　拿杯子：手伸向杯子→手指闭合(attach)→杯固定在手中→移动时不掉落
+- `case_B9()`　`L440`　—　放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
 
 ### `tests/cases_carry.py`
 
@@ -1067,18 +1066,18 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 （缺一句话职责）
 
 - `case_F35()`　`L28`　—　超长视频 60s：累积误差漂移（RCS 相位漂移 + 里程累加漂移）
-- `case_E28()`　`L73`　—　爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
-- `main()`　`L155`
+- `case_E28()`　`L107`　—　爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
+- `main()`　`L172`
 
 ### `tools/baseline.py`
 
 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
 
-- `diff(current, baseline, today)`　`L83`　—　比对当前扫描结果与基线。
-- `run(today)`　`L135`　—　返回 {"ok":bool, "counts":{...}, "new":[...], ...}
-- `update(today, owner, clear_when)`　`L160`　—　重建基线。只应在人工确认后调用（--update）。
-- `self_check()`　`L193`　—　自检 7 项：新增FAIL/恶化FAIL/修复报陈旧/变好收紧/逾期升FAIL/移动非新增/依赖缺失必报错。
-- `main()`　`L281`
+- `diff(current, baseline, today)`　`L122`　—　比对当前扫描结果与基线。
+- `run(today)`　`L148`　—　返回 {"ok":bool, "counts":{...}, "new":[...], ...}
+- `update(today, owner, clear_when)`　`L173`　—　重建基线。只应在人工确认后调用（--update）。
+- `self_check()`　`L206`　—　自检 7 项：新增FAIL/恶化FAIL/修复报陈旧/变好收紧/逾期升FAIL/移动非新增/依赖缺失必报错。
+- `main()`　`L318`
 
 ### `tools/batchgate.py`
 
@@ -1086,6 +1085,14 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 - `run(ids, out, timeout, resume, fresh)`　`L88`　—　执行一批用例，结果写 out。返回统计 dict。
 - `self_check()`　`L111`
+
+### `tools/capsrc.py`
+
+R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力。
+
+- `cap_source_of(d)`　`L14`　—　从 @capability(...) 调用节点取 (名字, 出处)；非该装饰器返回 None。
+- `caps_without_source(path, min_source)`　`L36`　—　返回 (问题列表, 语法错误串)。语法错误串为空表示解析正常。
+- `self_check()`　`L61`　—　自检：三种装饰器写法都要取到出处，缺失的必须报出。
 
 ### `tools/clone.py`
 
@@ -1098,25 +1105,25 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
 
-- `scan(root, ccn_design, ccn_hard)`　`L48`
-- `run(root)`　`L91`　—　返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}
-- `self_check()`　`L126`　—　自检 4 项：CCN 判定准、高复杂度抓得到、低复杂度不误报、_bak 被排除。
-- `main()`　`L186`
+- `scan(root, ccn_design, ccn_hard)`　`L79`
+- `run(root)`　`L108`　—　返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}
+- `self_check()`　`L178`　—　自检 4 项：CCN 判定准、高复杂度抓得到、低复杂度不误报、_bak 被排除。
+- `main()`　`L210`
 
 ### `tools/consistency.py`
 
 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
 
 - `exec_table()`　`L41`　—　从 run_all.py 抽 EXEC 字典：{用例ID: 函数名}。
-- `declared_cases()`　`L57`　—　tests/cases.py 里 CASES 登记的用例 ID 集合（门检真正遍历的那张表）。
-- `case_funcs()`　`L75`　—　tests/ 下所有 case_XX 函数名（含 cases_*.py 里定义的）。
-- `import_list()`　`L92`　—　tests/ 下所有用例文件导入的模块名集合。
-- `called_names()`　`L137`　—　tests/ 下实际被调用的函数名集合（含 obj.method 的方法名）。
-- `cap_impl_names()`　`L166`　—　{能力名: 该能力可能被调用到的名字集合}。
-- `cap_registered()`　`L231`　—　AST 扫描 @capability 装饰器登记的能力名（不 import，避免导入不全）。
-- `bridge_kinds()`　`L260`　—　capbridge 的分类结果 {能力名: POSE/ADDITIVE/PHYS/AUX}。
-- `run()`　`L275`　—　返回问题列表。
-- `self_check()`　`L329`
+- `declared_cases()`　`L120`　—　tests/cases.py 里 CASES 登记的用例 ID 集合（门检真正遍历的那张表）。
+- `case_funcs()`　`L130`　—　tests/ 下所有 case_XX 函数名（含 cases_*.py 里定义的）。
+- `import_list()`　`L210`　—　tests/ 下所有用例文件导入的模块名集合。
+- `called_names()`　`L233`　—　tests/ 下实际被调用的函数名集合（含 obj.method 的方法名）。
+- `cap_impl_names()`　`L262`　—　{能力名: 该能力可能被调用到的名字集合}。
+- `cap_registered()`　`L327`　—　AST 扫描 @capability 装饰器登记的能力名（不 import，避免导入不全）。
+- `bridge_kinds()`　`L342`　—　capbridge 的分类结果 {能力名: POSE/ADDITIVE/PHYS/AUX}。
+- `run()`　`L406`　—　返回问题列表：注册/用例/桥接三表交叉不一致。
+- `self_check()`　`L420`
 
 ### `tools/debtledger.py`
 
@@ -1130,32 +1137,24 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 检测 README / INDEX 里的数字声明是否与脚本实测一致，抓"文档说一套、代码是另一套"
 
-- `run(skip_slow, verbose)`　`L141`
-- `self_check()`　`L190`　—　自检：造一个必然失配的文档，验证工具真能报警（不静默跳过）。
-- `main()`　`L231`
-
-### `tools/efps.py`
-
-有效帧率：渲染了 N 帧不代表画面动了 N 帧
-
-- `scan(paths)`　`L41`　—　paths: 有序图片路径列表。返回 (n, unique, dup_ratio, runs)。
-- `collect(target)`　`L63`
-- `self_check()`　`L70`　—　自检：造一段"一半帧静止"的合成序列，验证工具能抓到。
+- `run(skip_slow, verbose)`　`L197`
+- `self_check()`　`L208`　—　自检：造一个必然失配的文档，验证工具真能报警（不静默跳过）。
+- `main()`　`L249`
 
 ### `tools/faultbench.py`
 
 缺陷注入基准：注入已知代码缺陷，实测工具矩阵能否检出，量化召回率并暴露盲区
 
-- `baseline()`　`L198`　—　干净基线的表现：必须全绿，否则基准本身不可信。
-- `run()`　`L206`
-- `self_check()`　`L231`　—　自检：基准本身必须可信——干净基线全绿、且能抓到大多数人造缺陷。
-- `main(argv)`　`L253`
+- `baseline()`　`L229`　—　干净基线的表现：必须全绿，否则基准本身不可信。
+- `run()`　`L270`
+- `self_check()`　`L286`　—　自检：基准本身必须可信——干净基线全绿、且能抓到大多数人造缺陷。
+- `main(argv)`　`L340`
 
 ### `tools/gate.py`
 
 统一自检入口：一键跑全部长期工具，汇总退出码，支持 --json 机器可读输出
 
-- `main(argv)`　`L114`
+- `main(argv)`　`L166`　—　统一入口：跑全部工具，机读 --json / 快跑 --quick。
 
 ### `tools/layers.py`
 
@@ -1165,7 +1164,22 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 - `self_check()`　`L74`　—　自检 3 项：配置在、CLI 能跑、解析出契约结果。
 - `main()`　`L90`
 
-### `tools/motionqual.py`
+### `tools/measure/capaudit.py`
+
+能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
+
+- `run()`　`L130`　—　执行审计并打印结果；返回 (可驱动列表, 不可用列表)。
+- `self_check()`　`L164`　—　自检：走 capbridge 正确口径后，POSE 类应全部可驱动，不可用为 0。
+
+### `tools/measure/efps.py`
+
+有效帧率：渲染了 N 帧不代表画面动了 N 帧
+
+- `scan(paths)`　`L41`　—　paths: 有序图片路径列表。返回 (n, unique, dup_ratio, runs)。
+- `collect(target)`　`L63`
+- `self_check()`　`L70`　—　自检：造一段"一半帧静止"的合成序列，验证工具能抓到。
+
+### `tools/measure/motionqual.py`
 
 补齐业界动作质量指标中我们缺失的那几项（稳定性/抖动/自穿透/接触/步态/游动）
 
@@ -1196,23 +1210,23 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 （缺一句话职责）
 
 - `load_formula()`　`L101`　—　前置库源 1：公式注册表（65 条）。
-- `load_caps()`　`L160`　—　前置库源 2：能力表出处（源码静态扫 @capability）与搜索提示。
-- `load_docs()`　`L204`　—　前置库源 3：docs/ 下的踩坑记录，按二级标题切块。
-- `index_all()`　`L233`　—　汇总三个源，附带导入失败的可见警告。
-- `search(query, top=6)`　`L241`　—　本地检索：按覆盖率排序，返回 (命中项, 最高分, 警告)。
-- `run(query, top=6)`　`L263`　—　主流程：本地命中达阈值 → INTERNAL；否则 → WEB_NEEDED。
-- `panel()`　`L293`　—　面板：前置库现有条目按组统计，缺口一目了然。
-- `main()`　`L313`　—　命令行入口：查询 / --panel / --json。
+- `load_caps()`　`L184`　—　前置库源 2：能力表出处（源码静态扫 @capability）与搜索提示。
+- `load_docs()`　`L233`　—　前置库源 3：docs/ 下的踩坑记录，按二级标题切块。
+- `index_all()`　`L262`　—　汇总三个源，附带导入失败的可见警告。
+- `search(query, top=6)`　`L270`　—　本地检索：按覆盖率排序，返回 (命中项, 最高分, 警告)。
+- `run(query, top=6)`　`L324`　—　主流程：本地命中达阈值 → INTERNAL；否则 → WEB_NEEDED。
+- `panel()`　`L338`　—　面板：前置库现有条目按组统计，缺口一目了然。
+- `main()`　`L358`　—　命令行入口：查询 / --panel / --json。
 
 ### `tools/provenance.py`
 
 核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
 
-- `check_selfconsistency(crit)`　`L57`　—　crit: [(name, thr, src)]，默认从 harness.CRIT 读。返回 (issues, compared, uncompared)。
-- `check_harking(relpath)`　`L150`　—　返回 (issues, n_commits, note)。
-- `run(crit)`　`L171`
-- `self_check()`　`L179`
-- `main()`　`L201`
+- `check_selfconsistency(crit)`　`L98`　—　crit: [(name, thr, src)]，默认从 harness.CRIT 读。返回 (issues, compared, uncompared)。
+- `check_harking(relpath)`　`L167`　—　返回 (issues, n_commits, note)。
+- `run(crit)`　`L188`
+- `self_check()`　`L196`
+- `main()`　`L218`
 
 ### `tools/reach.py`
 
@@ -1245,7 +1259,7 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 代码异味检查：补 faultbench 实测暴露的 8 类静态盲区（静默异常/判据恒真/自检空转等）
 
-- `check_file(path)`　`L240`　—　对单个文件跑全部 S 规则，返回问题列表。
-- `collect(target)`　`L266`　—　扫全项目（或指定目录）的代码异味。
-- `self_check()`　`L279`　—　自检：造一个含各类异味的样本，验证规则真能抓到。
-- `main(argv)`　`L322`
+- `check_file(path)`　`L268`　—　对单个文件跑全部 S 规则，返回问题列表。
+- `collect(target)`　`L294`　—　扫全项目（或指定目录）的代码异味。
+- `self_check()`　`L307`　—　自检：造一个含各类异味的样本，验证规则真能抓到。
+- `main(argv)`　`L355`

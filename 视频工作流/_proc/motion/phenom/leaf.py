@@ -22,14 +22,14 @@ from ..beat import capability
 G = 9.8
 
 
-@capability("leaf_fall", source="Wang & Pesavento 2004 PRL; "
-                                "Andersen/Pesavento/Wang 2005 JFM: 升力∝v·ω耦合项",
-            group="phenom")
 def _leaf_load(vx, vy, w, th, m, L, h, rho_f, C):
     """薄片气动载荷：法向/切向阻力 + v·ω 耦合升力 + 重力 + 力矩。
 
     返回 (fx, fy, M)，M 为偏心力矩与旋转阻尼之和；spin 模式由调用方处理。
-    出处: Andersen et al. 2005 JFM 准稳态模型（唯象系数，见 leaf_fall_sim）。
+
+    出处（本函数的气动模型依据，不单独注册为能力，避免与 leaf_fall_sim 同名冲突）:
+      - Wang & Pesavento 2004 PRL：薄片下落的 v·ω 耦合升力项；
+      - Andersen/Pesavento/Wang 2005 JFM：准稳态模型（唯象系数，见 leaf_fall_sim）。
     """
     C_N, C_T, C_L, C_E, C_M = C
     tx, ty = math.cos(th), math.sin(th)

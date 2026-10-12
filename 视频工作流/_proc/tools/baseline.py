@@ -80,6 +80,45 @@ def _due_date(kind, today):
     return d.isoformat()
 
 
+def _dedup(current):
+    """同一 (file, func) 可能被 CCN 与长度两维各报一次，取更严重的一条。"""
+    cur = {}
+    for item in current:
+        k = _key(item)
+        if k not in cur or (item.get("ccn", 0), item.get("length", 0)) > (
+                cur[k].get("ccn", 0), cur[k].get("length", 0)):
+            cur[k] = item
+    return cur
+
+
+def _worse_dims(item, b):
+    """比基线变差的维度（ccn / length），供分类使用。"""
+    return [{"file": item["file"], "func": item["func"], "dim": dim,
+             "now": item[dim], "baseline": b[dim], "line": item["line"]}
+            for dim in ("ccn", "length") if item.get(dim, 0) > b.get(dim, 0)]
+
+
+def _classify(item, b, today, res):
+    """把一条当前项按与基线的关系归入 new/worse/overdue/tightened/stable。"""
+    worse = _worse_dims(item, b)
+    res["worse"].extend(worse)
+    if worse:
+        return
+    changed = (item.get("ccn", 0) < b.get("ccn", 0)
+               or item.get("length", 0) < b.get("length", 0))
+    due = b.get("due")
+    if due and due < today:
+        res["overdue"].append({"file": item["file"], "func": item["func"],
+                               "due": due, "owner": b.get("owner", ""),
+                               "clear_when": b.get("clear_when", "")})
+    elif changed:
+        res["tightened"].append({
+            "file": item["file"], "func": item["func"],
+            "from_ccn": b.get("ccn", 0), "to_ccn": item.get("ccn", 0),
+            "from_len": b.get("length", 0), "to_len": item.get("length", 0)})
+    else:
+        res["stable"].append(item)
+
 def diff(current, baseline, today):
     """比对当前扫描结果与基线。
 
@@ -91,41 +130,15 @@ def diff(current, baseline, today):
       stable     与基线一致，豁免中
       overdue    超过到期日仍未清零 → 升为真问题，FAIL
     """
-    res = {"new": [], "worse": [], "fixed": [], "tightened": [], "stable": [], "overdue": []}
-    cur = {}
-    for item in current:
-        # 同一 (file, func) 可能被 CCN 与长度两个维度各报一次，取更严重的一条
-        k = _key(item)
-        if k not in cur or (item.get("ccn", 0), item.get("length", 0)) > (
-                cur[k].get("ccn", 0), cur[k].get("length", 0)):
-            cur[k] = item
-
+    res = {"new": [], "worse": [], "fixed": [], "tightened": [],
+           "stable": [], "overdue": []}
+    cur = _dedup(current)
     for k, item in cur.items():
         b = baseline.get(k)
         if b is None:
             res["new"].append(item)
             continue
-        for dim in ("ccn", "length"):
-            if item.get(dim, 0) > b.get(dim, 0):
-                res["worse"].append({
-                    "file": item["file"], "func": item["func"], "dim": dim,
-                    "now": item[dim], "baseline": b[dim], "line": item["line"]})
-        if any(x["file"] == item["file"] and x["func"] == item["func"] for x in res["worse"]):
-            continue
-        changed = (item.get("ccn", 0) < b.get("ccn", 0)
-                   or item.get("length", 0) < b.get("length", 0))
-        due = b.get("due")
-        if due and due < today:
-            res["overdue"].append({"file": item["file"], "func": item["func"],
-                                   "due": due, "owner": b.get("owner", ""),
-                                   "clear_when": b.get("clear_when", "")})
-        elif changed:
-            res["tightened"].append({"file": item["file"], "func": item["func"],
-                                     "from_ccn": b.get("ccn", 0), "to_ccn": item.get("ccn", 0),
-                                     "from_len": b.get("length", 0), "to_len": item.get("length", 0)})
-        else:
-            res["stable"].append(item)
-
+        _classify(item, b, today, res)
     for k, b in baseline.items():
         if k not in cur:
             res["fixed"].append(b)
@@ -278,17 +291,8 @@ def _prune():
     return 1 if run().get("fixed") else 0
 
 
-def main():
-    if "--self-check" in sys.argv:
-        return 0 if self_check() else 1
-    if "--update" in sys.argv:
-        return _update()
-    if "--prune" in sys.argv:
-        return _prune()
-    r = run()
-    if "--json" in sys.argv:
-        print(json.dumps(r, ensure_ascii=False, indent=2))
-        return 0 if r["ok"] else 1
+def _print_report(r):
+    """人读输出：总览计数 + 各类明细（与拆分前逐行一致）。"""
     c = r["counts"]
     print("复杂度债务棘轮 (Betterer 语义)  今天 %s" % r.get("today", ""))
     print("  新增 %d   恶化 %d   逾期 %d   硬闸 %d   稳定 %d   待收紧 %d   陈旧 %d"
@@ -310,6 +314,19 @@ def main():
             print("    %s::%s ccn %s->%s len %s->%s"
                   % (x["file"], x["func"], x["from_ccn"], x["to_ccn"],
                      x["from_len"], x["to_len"]))
+
+def main():
+    if "--self-check" in sys.argv:
+        return 0 if self_check() else 1
+    if "--update" in sys.argv:
+        return _update()
+    if "--prune" in sys.argv:
+        return _prune()
+    r = run()
+    if "--json" in sys.argv:
+        print(json.dumps(r, ensure_ascii=False, indent=2))
+        return 0 if r["ok"] else 1
+    _print_report(r)
     return 0 if r["ok"] else 1
 
 

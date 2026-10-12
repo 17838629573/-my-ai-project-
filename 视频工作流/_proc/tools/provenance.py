@@ -53,18 +53,54 @@ def _roots():
     return None
 
 
-# ---------------------------------------------------------------- A. 出处自洽
+def _load_crit():
+    """从 tests.harness.CRIT 读 [(name, thr, src)]；读不到返回 (issues,0,[])。"""
+    sys.path.insert(0, _PROC)
+    try:
+        from tests.harness import CRIT
+    except Exception as e:
+        return (["[R22 探针失效] 无法读取 harness.CRIT：%s" % e], 0, [])
+    return [(name, v[0], v[2] if len(v) > 2 else "")
+            for name, v in (CRIT or {}).items()]
+
+
+def _declared_vals(src):
+    """出处文本里声称的数值集合（多个值无法判定，交给调用方计未比对）。"""
+    anchor = _ANCHOR_NUM_RE.search(src)
+    if anchor:
+        return set([float(anchor.group(1))])
+    hits = _CONST_RE.findall(src)
+    return set(float(v) for _, v in hits if _is_num(v))
+
+
+def _to_float(v):
+    """阈值转 float，转不了返回 None（不抛异常打断溯源）。"""
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+def _check_one(name, thr, src):
+    """单条判据溯源：返回 ("cmp", issue_or_None) 或 ("unc", None)。"""
+    vals = _declared_vals(src)
+    if len(vals) != 1:
+        return ("unc", None)
+    declared = vals.pop()
+    thr_f = _to_float(thr)
+    if thr_f is None:
+        return ("unc", None)
+    if abs(declared - thr_f) > 1e-12:
+        return ("cmp", "[R22 出处自相矛盾] 判据 %s 阈值 = %s，"
+                "但它的出处里自己写的是 %s —— 两处必有一错"
+                % (name, thr, declared))
+    return ("cmp", None)
+
 def check_selfconsistency(crit=None):
     """crit: [(name, thr, src)]，默认从 harness.CRIT 读。返回 (issues, compared, uncompared)。"""
     if crit is None:
-        sys.path.insert(0, _PROC)
-        try:
-            from tests.harness import CRIT
-        except Exception as e:
-            return (["[R22 探针失效] 无法读取 harness.CRIT：%s" % e], 0, [])
-        crit = []
-        for name, v in (CRIT or {}).items():
-            crit.append((name, v[0], v[2] if len(v) > 2 else ""))
+        crit = _load_crit()
+        if isinstance(crit, tuple):
+            return crit
     if not crit:
         return (["[R22 探针失效] harness.CRIT 为空，无法溯源"], 0, [])
 
@@ -74,32 +110,13 @@ def check_selfconsistency(crit=None):
         if not any(a in src for a in _ANCHOR):
             uncompared.append(name)
             continue
-        hits = _CONST_RE.findall(src)
-        # 优先信"锚点名自己带的值"（如 #define b2_linearSlop 0.005 / slop=0.005），
-        # 这样 b2_common.h:65 这类行号不会把取值搅浑
-        anchor = _ANCHOR_NUM_RE.search(src)
-        if anchor:
-            vals = set([float(anchor.group(1))])
-        elif hits:
-            # 只信"单一明确声明"的：多处数值无法判断哪个是声称值，计入未比对
-            vals = set(float(v) for _, v in hits if _is_num(v))
+        state, issue = _check_one(name, thr, src)
+        if state == "cmp":
+            compared += 1
+            if issue:
+                issues.append(issue)
         else:
-            vals = set()
-        if len(vals) != 1:
             uncompared.append(name)
-            continue
-        declared = vals.pop()
-        compared += 1
-        try:
-            thr_f = float(thr)
-        except Exception:
-            uncompared.append(name)
-            compared -= 1
-            continue
-        if abs(declared - thr_f) > 1e-12:
-            issues.append(
-                "[R22 出处自相矛盾] 判据 %s 阈值 = %s，但它的出处里自己写的是 %s —— 两处必有一错"
-                % (name, thr, declared))
     return issues, compared, uncompared
 
 

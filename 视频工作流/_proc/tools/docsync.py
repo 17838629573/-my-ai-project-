@@ -89,8 +89,10 @@ def _index_entries(text):
 # ---------------------------------------------------------------- 探针表
 # id / 文档 / 声称值正则 / 实测方式 / 是否耗时
 PROBES = [
-    dict(id="活跃文件数", doc="README.md",
-         pat=r"活跃文件\s+(\d+)\s*个",
+    # 注：README 措辞已由「活跃文件 N 个」改为三口径「入口/可达/孤立」，
+    # 探针须同步文档措辞（文档改口径是合法变更，不是漂移）。
+    dict(id="可达文件数", doc="README.md",
+         pat=r"可达文件\s+(\d+)",
          cmd="tools/reach.py", grab=r"可达文件\s+(\d+)", slow=False),
     dict(id="孤立文件数", doc="README.md",
          pat=r"孤立文件\s+(\d+)\s*个",
@@ -104,6 +106,15 @@ PROBES = [
     dict(id="工作树体积 MB", doc="README.md",
          pat=r"工作树\s+([\d.]+)\s*MB",
          cmd=None, grab=None, slow=False, tol=0.35),
+    # 2026-10-11 补：README 里 POSE 可驱动数出现三处（规模段、类别表、三态表），
+    # 曾出现两处写 10、两处写 11 的自相矛盾，而本工具只查 PASS/STUB/体积，
+    # 完全没覆盖能力数 —— 文档内部打架也照样报 OK。
+    # pat 故意写得能同时命中「POSE 可驱动 11」与「| **POSE** | 11 |」两种写法：
+    # _claims_of 返回全部声明值，任一与实测不符即报漂移，自相矛盾因此无处可藏。
+    dict(id="POSE 可驱动", doc="README.md",
+         pat=r"POSE\*{0,2}[^\n]{0,12}?(\d+)",
+         cmd="tools/measure/capaudit.py", grab=r"POSE 可驱动\s+(\d+)",
+         slow=False),
 ]
 
 # INDEX 行: "  - `path` 123 行 — 描述"
@@ -138,50 +149,57 @@ def _probe_index():
     return issues
 
 
+def _claims_of(pb, src):
+    """从文档里提取该探针的声明值（体积类保留小数，其余取整）。"""
+    return [int(float(x)) if pb["id"] != "工作树体积 MB" else float(x)
+            for x in re.findall(pb["pat"], src)]
+
+
+def _measure(pb, cache):
+    """跑命令取实测真值；返回 (值 or None, 问题列表)。"""
+    if pb["cmd"] is None:                      # 体积不走命令
+        return round(_du_mb(os.path.join(_ROOT, "_proc")), 2), []
+    if pb["cmd"] not in cache:
+        cache[pb["cmd"]] = _run(pb["cmd"])
+    out = cache[pb["cmd"]]
+    if out is None:
+        return None, ["[R20 实测失败] %s 跑超时/报错，无法取得「%s」真值"
+                      % (pb["cmd"], pb["id"])]
+    g = re.search(pb["grab"], out)
+    if not g:
+        return None, ["[R20 实测失败] %s 输出中未找到 /%s/ ，"
+                      "输出格式变了，无法校验「%s」"
+                      % (pb["cmd"], pb["grab"], pb["id"])]
+    return float(g.group(1)), []
+
+
+def _probe_one(pb, cache, skip_slow):
+    """单条探针：返回 (实测值 or None, 问题列表)。"""
+    src = _read(pb["doc"])
+    if src is None:
+        return None, ["[R20 探针失效] %s 不存在" % pb["doc"]]
+    claims = _claims_of(pb, src)
+    if not claims:
+        return None, ["[R20 探针失效] %s 中未匹配到「%s」的声明值——"
+                      "文档措辞变了，探针需同步，不得静默通过"
+                      % (pb["doc"], pb["id"])]
+    if pb["slow"] and skip_slow:
+        return None, []
+    actual, errs = _measure(pb, cache)
+    if errs:
+        return None, errs
+    tol = pb.get("tol", 0)
+    out = ["[R20 文档漂移] %s 声称「%s」= %s，脚本实测 = %s"
+           % (pb["doc"], pb["id"], c, actual)
+           for c in set(claims) if abs(c - actual) > tol]
+    return actual, out
+
 def run(skip_slow=False, verbose=True):
     issues = []
     cache = {}
     for pb in PROBES:
-        src = _read(pb["doc"])
-        if src is None:
-            issues.append("[R20 探针失效] %s 不存在" % pb["doc"])
-            continue
-        claims = [int(float(x)) if pb["id"] != "工作树体积 MB" else float(x)
-                  for x in re.findall(pb["pat"], src)]
-        if not claims:
-            issues.append(
-                "[R20 探针失效] %s 中未匹配到「%s」的声明值——文档措辞变了，探针需同步，不得静默通过"
-                % (pb["doc"], pb["id"]))
-            continue
-
-        if pb["slow"] and skip_slow:
-            continue
-
-        # 实测
-        if pb["cmd"] is None:  # 体积
-            actual = round(_du_mb(os.path.join(_ROOT, "_proc")), 2)
-        else:
-            if pb["cmd"] not in cache:
-                cache[pb["cmd"]] = _run(pb["cmd"])
-            out = cache[pb["cmd"]]
-            if out is None:
-                issues.append("[R20 实测失败] %s 跑超时/报错，无法取得「%s」真值" % (pb["cmd"], pb["id"]))
-                continue
-            g = re.search(pb["grab"], out)
-            if not g:
-                issues.append(
-                    "[R20 实测失败] %s 输出中未找到 /%s/ ，输出格式变了，无法校验「%s」"
-                    % (pb["cmd"], pb["grab"], pb["id"]))
-                continue
-            actual = float(g.group(1))
-
-        tol = pb.get("tol", 0)
-        for c in set(claims):
-            if abs(c - actual) > tol:
-                issues.append(
-                    "[R20 文档漂移] %s 声称「%s」= %s，脚本实测 = %s"
-                    % (pb["doc"], pb["id"], c, actual))
-
+        _, errs = _probe_one(pb, cache, skip_slow)
+        issues.extend(errs)
     if not skip_slow or True:
         issues.extend(_probe_index())
     return issues

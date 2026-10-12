@@ -13,11 +13,10 @@
 ## 三层树
 
 ### (根)/
-  - `_canary_faultbench.py` 62 行 — 缺陷注入基准的对照样本，注入前必须全绿
   - `beat_demo.py` 78 行 — 入口脚本：走 beat 时间线出演示片
-  - `check.py` 488 行 — Enforce architecture contracts: layer direction, size limits, public s
+  - `check.py` 492 行 — Enforce architecture contracts: layer direction, size limits, public s
   - `formula.py` 123 行 — 公式注册表与 STUB 门禁：缺公式抛错并给搜索关键词，禁止凭记忆写近似值
-  - `gen_api.py` 189 行 — 从契约块与能力装饰器自动生成 API.md，补齐"只有契约块、无接口文档"的缺口
+  - `gen_api.py` 227 行 — 从契约块与能力装饰器自动生成 API.md，补齐"只有契约块、无接口文档"的缺口
   - `gen_index.py` 131 行 — 从各文件顶部契约块抽取职责，自动生成 INDEX.md（文档永不与代码脱节）
   - `jumpscan.py` 46 行 · — 跳帧扫描器：逐帧量化视频帧间差，定位硬跳帧
   - `prompt2spec.py` 211 行 — 提示词 → 规格对照：逐字段判能做/降级/不能，STUB 带搜索提示
@@ -84,7 +83,7 @@
   - `motion/phenom/water.py` 111 行 — 常见物理现象能力族（leaf_fall/fracture/water_jet/newton_cradle/turntable）
 
 ### motion/rigid2d/
-  - `motion/rigid2d/collide.py` 360 行 — 碰撞检测：SAT 盒-盒、地面、圆-线段（含参考面裁剪）
+  - `motion/rigid2d/collide.py` 379 行 — 碰撞检测：SAT 盒-盒、地面、圆-线段（含参考面裁剪）
   - `motion/rigid2d/core.py` 92 行 — 2D 刚体常量（Box2D 原文值）与几何基元（Body2/旋转/叉积）
   - `motion/rigid2d/sim.py` 162 行 — 场景仿真：stack/ramp/pendulum 三个能力 + self_check
   - `motion/rigid2d/solve.py` 124 行 — 接触求解：Contact 预处理、冲量施加、顺序冲量迭代、距离约束
@@ -123,7 +122,7 @@
 
 ### tests/
   - `tests/cases.py` 151 行 — 45 项测试用例声明（测试第二步：声明）
-  - `tests/cases_base.py` 436 行 — def case_A1():
+  - `tests/cases_base.py` 478 行 — def _a1_leg_skates(W, N):
   - `tests/cases_carry.py` 144 行 — E 组搬运用例（E26 搬运箱子）
   - `tests/cases_creature.py` 118 行 — # 契约: tests.cases_creature
   - `tests/cases_crowd.py` 207 行 — D 组多主体用例（人群碰撞 / 两人击掌）
@@ -139,29 +138,37 @@
   - `tests/gen.py` 251 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
   - `tests/gen_doc.py` 107 行 — 生成 35 项推进文档（xlsx）
   - `tests/harness.py` 369 行 — 物理与动作判据库（测试第一步：判定）
-  - `tests/run_all.py` 196 行 — if __package__ in (None, ""):
+  - `tests/run_all.py` 213 行 — if __package__ in (None, ""):
 
 ### tools/
-  - `tools/baseline.py` 317 行 — 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
-  - `tools/batchgate.py` 131 行 — 契约: tools/batchgate.py
-  - `tools/capaudit.py` 115 行 — 能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
+  - `tools/baseline.py` 334 行 — 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
+  - `tools/batchgate.py` 150 行 — 契约: tools/batchgate.py
+  - `tools/capsrc.py` 85 行 — R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力。
   - `tools/clone.py` 132 行 — 重复代码(克隆)检测工具  —— 项目瘦身第二阶段
-  - `tools/complexity.py` 212 行 — 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
-  - `tools/consistency.py` 343 行 — 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
+  - `tools/complexity.py` 259 行 — 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
+  - `tools/consistency.py` 434 行 — 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
   - `tools/debtledger.py` 218 行 — R19 已知债务台账：显式登记、有归属、带到期日、只减不增。
-  - `tools/docsync.py` 249 行 — 检测 README / INDEX 里的数字声明是否与脚本实测一致，抓"文档说一套、代码是另一套"
-  - `tools/efps.py` 100 行 — 有效帧率：渲染了 N 帧不代表画面动了 N 帧
-  - `tools/faultbench.py` 287 行 — 缺陷注入基准：注入已知代码缺陷，实测工具矩阵能否检出，量化召回率并暴露盲区
-  - `tools/gate.py` 162 行 — 统一自检入口：一键跑全部长期工具，汇总退出码，支持 --json 机器可读输出
+  - `tools/docsync.py` 267 行 — 检测 README / INDEX 里的数字声明是否与脚本实测一致，抓"文档说一套、代码是另一套"
+  - `tools/faultbench.py` 461 行 — 缺陷注入基准：注入已知代码缺陷，实测工具矩阵能否检出，量化召回率并暴露盲区
+  - `tools/gate.py` 182 行 — 统一自检入口：一键跑全部长期工具，汇总退出码，支持 --json 机器可读输出
   - `tools/layers.py` 108 行 — 分层契约门禁——包装 import-linter，替代自造的 R1(逆向依赖)/R4(上帝包)
-  - `tools/motionqual.py` 399 行 — 补齐业界动作质量指标中我们缺失的那几项（稳定性/抖动/自穿透/接触/步态/游动）
   - `tools/mutate.py` 139 行 — 判据效力变异测试：给判据注入必错的坏输入，仍判 PASS 即判据无牙齿
-  - `tools/presearch.py` 326 行 — 本地前置检索：先查项目前置库，未达阈值才建议联网搜（不静默跳过）。
-  - `tools/provenance.py` 223 行 — 核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
+  - `tools/presearch.py` 371 行 — 本地前置检索：先查项目前置库，未达阈值才建议联网搜（不静默跳过）。
+  - `tools/provenance.py` 240 行 — 核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
   - `tools/reach.py` 152 行 — 从活跃入口出发的 import 可达性分析（SCARF 的 Survey 阶段）。
   - `tools/refcheck.py` 472 行 — 核验收工判据/文档里引用的 arXiv 与 DOI 是否真实存在、标题是否与判据语义相关，抓"贴牌引用"
   - `tools/repro.py` 151 行 — 假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
-  - `tools/smell.py` 329 行 — 代码异味检查：补 faultbench 实测暴露的 8 类静态盲区（静默异常/判据恒真/自检空转等）
+  - `tools/smell.py` 499 行 — 代码异味检查：补 faultbench 实测暴露的 8 类静态盲区（静默异常/判据恒真/自检空转等）
+
+### tools/corpus/
+  - `tools/corpus/faultcorpus.py` 122 行 — faultbench 的缺陷语料——干净基线样本 + 14 条注入器定义
+  - `tools/corpus/probe_sample.py` 65 行 — smell 规则的探针样本源码——一段刻意写满异味的合规外形代码
+  - `tools/corpus/smell_selfcheck.py` 64 行 — smell 规则的自检语料与驱动——证明 8 条规则真有牙齿，不是写了没接线
+
+### tools/measure/
+  - `tools/measure/capaudit.py` 178 行 — 能力可驱动性审计：注册进 CAP 不等于能被时间线驱动
+  - `tools/measure/efps.py` 100 行 — 有效帧率：渲染了 N 帧不代表画面动了 N 帧
+  - `tools/measure/motionqual.py` 399 行 — 补齐业界动作质量指标中我们缺失的那几项（稳定性/抖动/自穿透/接触/步态/游动）
 
 ## 契约规则与出处（不凭记忆，逐条可查）
 

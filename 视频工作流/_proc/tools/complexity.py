@@ -45,14 +45,43 @@ LEN_HARD = 100
 EXCLUDE_DIRS = {"__pycache__", "_bak", ".git", "_archive_文档_旧链路"}
 
 
-def scan(root=_PROC, ccn_design=CCN_DESIGN, ccn_hard=CCN_HARD):
-    if lizard is None:
-        raise RuntimeError("lizard 未安装: pip install -r tools/requirements.txt")
-    """扫描全部 .py，返回 (超设计值列表, 超硬闸列表)。
+def _fn_items(info, rel):
+    """一个文件的函数指标 → item 列表（lizard 字段口径集中在这里）。"""
+    items = []
+    for f in info.function_list:
+        items.append({
+            "file": rel.replace("\\", "/"),
+            "func": f.name,
+            # lizard FunctionInfo 字段: start_line / parameter_count(int) / length(nloc)
+            "line": f.start_line,
+            "ccn": f.cyclomatic_complexity,
+            "length": f.length,
+            "params": int(f.parameter_count or 0),
+        })
+    return items
 
-    每项: dict(file, func, line, ccn, length, params)
-    """
+
+def _bucket(items, ccn_design, ccn_hard):
+    """按阈值分桶：硬闸 / 超设计值 / 超长度。"""
     over_design, over_hard, over_len = [], [], []
+    for item in items:
+        if item["ccn"] > ccn_hard:
+            over_hard.append(item)
+        elif item["ccn"] > ccn_design:
+            over_design.append(item)
+        if item["length"] > LEN_HARD:
+            over_hard.append(item)
+        elif item["length"] > LEN_DESIGN:
+            over_len.append(item)
+    return over_design, over_hard, over_len
+
+
+def _walk_py(root, only):
+    """产出待扫描的 .py 路径（sorted）。
+
+    only: 路径子串，只扫匹配的文件（faultbench 每条缺陷只需 canary 的结果）。
+    独立成生成器：scan 里再套一层过滤会让 CCN 到 11（设计值上限 10）。
+    """
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
         for fn in sorted(filenames):
@@ -60,38 +89,44 @@ def scan(root=_PROC, ccn_design=CCN_DESIGN, ccn_hard=CCN_HARD):
                 continue
             path = os.path.join(dirpath, fn)
             rel = os.path.relpath(path, root)
-            try:
-                info = lizard.analyze_file(path)
-            except Exception:
-                continue  # 语法错误由 check.py R0 负责上报，这里不重复
-            for f in info.function_list:
-                item = {
-                    "file": rel.replace("\\", "/"),
-                    "func": f.name,
-                    # lizard FunctionInfo 字段: start_line / parameter_count(int) / length(nloc)
-                    "line": f.start_line,
-                    "ccn": f.cyclomatic_complexity,
-                    "length": f.length,
-                    "params": int(f.parameter_count or 0),
-                }
-                if item["ccn"] > ccn_hard:
-                    over_hard.append(item)
-                elif item["ccn"] > ccn_design:
-                    over_design.append(item)
-                if item["length"] > LEN_HARD:
-                    over_hard.append(item)
-                elif item["length"] > LEN_DESIGN:
-                    over_len.append(item)
+            if only and only not in rel and only not in fn:
+                continue
+            yield path, rel
+
+
+def scan(root=_PROC, ccn_design=CCN_DESIGN, ccn_hard=CCN_HARD, only=None):
+    """扫描 .py，返回 (超设计值列表, 超硬闸列表, 超长度列表)。
+
+    每项: dict(file, func, line, ccn, length, params)
+    """
+    if lizard is None:
+        raise RuntimeError("lizard 未安装: pip install -r tools/requirements.txt")
+    over_design, over_hard, over_len = [], [], []
+    for path, rel in _walk_py(root, only):
+        try:
+            info = lizard.analyze_file(path)
+        except Exception:
+            continue  # 语法错误由 check.py R0 负责上报，这里不重复
+        d, h, l = _bucket(_fn_items(info, rel), ccn_design, ccn_hard)
+        over_design.extend(d)
+        over_hard.extend(h)
+        over_len.extend(l)
     over_hard.sort(key=lambda x: -max(x["ccn"], x["length"]))
     over_design.sort(key=lambda x: -x["ccn"])
     over_len.sort(key=lambda x: -x["length"])
     return over_design, over_hard, over_len
 
 
-def run(root=_PROC):
-    """返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}"""
+def run(root=_PROC, only=None):
+    """返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}
+
+    only: 路径子串，只扫匹配的文件（faultbench 提速用）。
+    2026-10-11 补：scan 早有 only 参数，但 run/main 没透传，
+    导致 faultbench 每条缺陷都要全项目扫描——工具能力写了却没接线，
+    与 climb/H40/phenom 是同一类「有实现没入口」的病，只是发生在参数层。
+    """
     try:
-        design, hard, over_len = scan(root)
+        design, hard, over_len = scan(root, only=only)
     except RuntimeError as e:   # 依赖缺失/工具未真正执行 → 报错，绝不返回 ok
         # 注意: 错误信息必须走独立 "error" 字段，绝不能塞进 hard/design 列表。
         # 历史 bug: 曾把 str(e) 塞进 hard，main() 按 dict 解包 → TypeError 崩溃，
@@ -123,9 +158,43 @@ def run(root=_PROC):
     }
 
 
+def _sc_thresholds(chk):
+    """阈值分档用例：线性不报、高 CCN 进 design、长线性进长度桶。
+
+    三个用例必须分置不同临时目录：同目录会被同一次 scan 一起扫到，互相污染。
+    """
+    import tempfile
+    src_linear = "def f(a):\n    b = a + 1\n    return b\n"
+    src_high = "def g(a):\n" + "".join(
+        "    if a == %d:\n        return %d\n" % (i, i) for i in range(10)
+    ) + "    return -1\n"
+    with tempfile.TemporaryDirectory() as td1, tempfile.TemporaryDirectory() as td2:
+        open(os.path.join(td1, "lin.py"), "w").write(src_linear)
+        open(os.path.join(td2, "hi.py"), "w").write(src_high)
+        d1, h1, _ = scan(td1)
+        d2, _, _ = scan(td2)
+        chk("线性函数不报(over_design=0, over_hard=0)", len(d1) == 0 and len(h1) == 0)
+        chk("高复杂度函数被抓到(CCN>10 进 design)", any(x["func"] == "g" for x in d2))
+        chk("CCN 值正确(11)", any(x["func"] == "g" and x["ccn"] == 11 for x in d2))
+    with tempfile.TemporaryDirectory() as td3:
+        src_long = "def h(a):\n" + "".join(
+            "    b%d = a + %d\n" % (i, i) for i in range(60)) + "    return b0\n"
+        open(os.path.join(td3, "long.py"), "w").write(src_long)
+        d3, _, l3 = scan(td3)
+        chk("长但线性的函数按长度报出而非CCN债务",
+            any(x["func"] == "h" for x in l3) and not any(x["func"] == "h" for x in d3))
+
+
+def _sc_project(chk, r):
+    """全项目扫描的形态检查：类型一致、_bak 已排除。"""
+    chk("全项目扫描可执行", isinstance(r["counts"]["over_design"], int))
+    chk("结果元素类型一致(全为dict)", _rows_are_dicts(r))
+    chk("_bak 已排除",
+        not any("_bak" in x["file"] for x in r["design"] + r["hard"] + r["over_len"]))
+
+
 def self_check():
     """自检 4 项：CCN 判定准、高复杂度抓得到、低复杂度不误报、_bak 被排除。"""
-    import tempfile
     ok = True
 
     def _chk(name, cond):
@@ -133,35 +202,8 @@ def self_check():
         print(("PASS " if cond else "FAIL ") + name)
         ok = ok and bool(cond)
 
-    # 1) 线性函数 CCN 应为 1，且不触发任何阈值
-    src_linear = "def f(a):\n    b = a + 1\n    return b\n"
-    # 2) 高复杂度函数应被抓到（10 个分支 → CCN 11）
-    src_high = "def g(a):\n" + "".join(
-        "    if a == %d:\n        return %d\n" % (i, i) for i in range(10)
-    ) + "    return -1\n"
-    # 两个用例必须分置不同目录：同目录会被同一次 scan 一起扫到，导致互相污染
-    with tempfile.TemporaryDirectory() as td1, tempfile.TemporaryDirectory() as td2:
-        open(os.path.join(td1, "lin.py"), "w").write(src_linear)
-        open(os.path.join(td2, "hi.py"), "w").write(src_high)
-        d1, h1, l1 = scan(td1)
-        d2, h2, l2 = scan(td2)
-        _chk("线性函数不报(over_design=0, over_hard=0)", len(d1) == 0 and len(h1) == 0)
-        _chk("高复杂度函数被抓到(CCN>10 进 design)", any(x["func"] == "g" for x in d2))
-        _chk("CCN 值正确(11)", any(x["func"] == "g" and x["ccn"] == 11 for x in d2))
-
-    r = run()
-    _chk("全项目扫描可执行", isinstance(r["counts"]["over_design"], int))
-    _chk("结果元素类型一致(全为dict)", _rows_are_dicts(r))
-    # 4) _bak 被排除（冻结封存目录不应出现在结果里）
-    _chk("_bak 已排除",
-         not any("_bak" in x["file"] for x in r["design"] + r["hard"] + r["over_len"]))
-    # 5) 长度维度: 60 行线性函数应被报为长度问题(原 R3 口径), 且不进 CCN 债务
-    with tempfile.TemporaryDirectory() as td3:
-        src_long = "def h(a):\n" + "".join("    b%d = a + %d\n" % (i, i) for i in range(60)) + "    return b0\n"
-        open(os.path.join(td3, "long.py"), "w").write(src_long)
-        d3, h3, l3 = scan(td3)
-        _chk("长但线性的函数按长度报出而非CCN债务",
-             any(x["func"] == "h" for x in l3) and not any(x["func"] == "h" for x in d3))
+    _sc_thresholds(_chk)
+    _sc_project(_chk, run())
     return ok
 
 
@@ -186,7 +228,12 @@ def _print_rows(title, rows, fmt, pick):
 def main():
     if "--self-check" in sys.argv:
         return 0 if self_check() else 1
-    r = run()
+    # --files=子串：只扫匹配的文件（faultbench 每条缺陷只需 canary 的结果）
+    only = None
+    for a in sys.argv[1:]:
+        if a.startswith("--files="):
+            only = a.split("=", 1)[1]
+    r = run(only=only)
     if "--json" in sys.argv:
         import json
         print(json.dumps(r, ensure_ascii=False, indent=2))
