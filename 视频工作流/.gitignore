@@ -20,5 +20,14 @@ _archive_旧链路/
 .refcache/
 .refcache.json
 
+# import-linter 磁盘缓存（运行时生成，含 CACHEDIR.TAG）
+.import_linter_cache/
+.import_linter_cache.json
+
+# 门禁分批运行状态（运行时生成）
+.batchgate.json
+.bg_full.json
+.bg_self.json
+
 # faultbench 临时 canary（异常退出会残留，不该入库）
 _canary_faultbench*
