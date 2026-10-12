@@ -154,9 +154,11 @@ def run(today=None):
     try:
         design, hard, over_len = complexity.scan()
     except RuntimeError as e:
-        return {"ok": False, "error": str(e),
+        # 依赖缺失 ≠ 有硬闸违规。归因必须准确: 否则会把"没装 lizard"
+        # 显示成"硬闸 1 必须拆分", 误导人去拆本来合规的代码。
+        return {"ok": False, "error": str(e), "dep_missing": True,
                 "counts": {"new": 0, "worse": 0, "fixed": 0, "tightened": 0,
-                           "stable": 0, "overdue": 0, "hard": 1}}
+                           "stable": 0, "overdue": 0, "hard": 0}}
     current = list(design) + list(over_len)
     baseline = _load()
     d = diff(current, baseline, today)
@@ -295,6 +297,11 @@ def _print_report(r):
     """人读输出：总览计数 + 各类明细（与拆分前逐行一致）。"""
     c = r["counts"]
     print("复杂度债务棘轮 (Betterer 语义)  今天 %s" % r.get("today", ""))
+    if r.get("dep_missing"):
+        # 铁律一: 未验证不等于通过, 也不等于违规 —— 结论必须标为无效
+        print("  [依赖缺失 结论无效] %s" % r.get("error", ""))
+        print("  安装后重跑: pip install -r tools/requirements.txt")
+        return
     print("  新增 %d   恶化 %d   逾期 %d   硬闸 %d   稳定 %d   待收紧 %d   陈旧 %d"
           % (c["new"], c["worse"], c["overdue"], c["hard"],
              c["stable"], c["tightened"], c["fixed"]))
