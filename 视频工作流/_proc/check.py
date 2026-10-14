@@ -31,7 +31,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 import tools.debtledger as _dl
-import tools.capsrc as _cs
+import tools.scan.capsrc as _cs
 
 # 允许的依赖方向：只有上层可依赖下层（R1）
 ALLOW = {

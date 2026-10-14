@@ -1,6 +1,6 @@
 """重复代码(克隆)检测工具  —— 项目瘦身第二阶段
 
-契约: proc/tools/clone
+契约: proc/tools/scan/clone
   输入: 项目根目录(默认 _proc)、最小行数、最小token数
   输出: 克隆组清单 [{hash, n, lines, members:[(file,func,lineno)]}]
         按"可节省行数"降序

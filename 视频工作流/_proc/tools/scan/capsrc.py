@@ -1,4 +1,4 @@
-# 契约: proc/tools/capsrc
+# 契约: proc/tools/scan/capsrc
 #   一句话: R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力。
 #   完整契约见 tools/__init__.py
 #   依据: 装饰器既有位置参数也有 source= 关键字，还有跨行写法，

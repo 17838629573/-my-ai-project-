@@ -33,6 +33,8 @@ _ROOT = os.path.dirname(_PROC)
 
 sys.path.insert(0, _PROC)
 
+import anchors  # 外部锚点注册表（R22-A2），见 tools/anchors.py
+
 # 出处里"自己声明了某个上游常量数值"的可信锚点
 _ANCHOR = ("Box2D", "b2_", "linearSlop", "官方", "默认", "源码", "slop",
            "默认值", "官方源码")
@@ -187,10 +189,16 @@ def check_harking(relpath="tests/harness.py"):
 
 def run(crit=None):
     issues, compared, uncompared = check_selfconsistency(crit)
+    # A2: 外部锚点比对 —— 把"出处里自己写了数值"之外的判据也拿业界公开数值对齐
+    e_iss, e_cmp, e_unc, _detail = anchors.compare(crit)
+    issues.extend(e_iss)
+    compared += e_cmp
+    # 同一条可能两边都算已比对（内部自洽 + 外部对齐），去重后计入
+    uncompared = sorted(set(uncompared) & set(e_unc))
     h, ncommits, note = check_harking()
     issues.extend(h)
     return issues, dict(compared=compared, uncompared=uncompared,
-                        commits=ncommits, note=note)
+                        compared_external=e_cmp, commits=ncommits, note=note)
 
 
 def self_check():

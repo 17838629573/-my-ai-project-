@@ -141,7 +141,7 @@ def _run_check():
 def _run_smell():
     """跑代码异味检查，返回命中 canary 的条数。"""
     try:
-        p = subprocess.run([sys.executable, "tools/smell.py",
+        p = subprocess.run([sys.executable, "tools/scan/smell.py",
                             "--files=" + os.path.basename(CANARY)], cwd=_PROC,
                            timeout=300, stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT)

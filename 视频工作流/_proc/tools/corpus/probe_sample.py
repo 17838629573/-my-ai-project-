@@ -8,7 +8,7 @@
 #   依赖: 无（纯数据）
 #   约束: 覆盖 S01/S02/S03/S04/S05/S08 各一；S06/S07 不进此样本
 #         （硬编码路径与浮点相等会与其余规则互相污染命中判定）
-#   校验入口: python3 tools/smell.py --self-check
+#   校验入口: python3 tools/scan/smell.py --self-check
 # -*- coding: utf-8 -*-
 """规则探针样本 —— 纯数据，与驱动分离。
 

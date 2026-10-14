@@ -5,7 +5,7 @@
 #         faultbench 实测：规则未接线时（float_eq）自检会用替身正则自我证明。
 #   输入: 无（自带探针样本）
 #   输出: self_check() -> bool；命中明细打印到 stdout
-#   依赖: tools.smell.check_file
+#   依赖: tools.scan.smell.check_file
 #   约束: 探针文件无条件回收（finally）；命中判定只认规则编号前缀
 #   校验入口: python3 tools/smell_selfcheck.py
 # -*- coding: utf-8 -*-
@@ -31,7 +31,7 @@ _EXPECT = ("S01", "S02", "S03", "S04", "S05", "S08")
 
 def _probe_hits():
     """写探针样本 → 跑规则 → 无条件回收，返回命中列表。"""
-    from tools import smell
+    from tools.scan import smell
     p = probe_sample.write_to(probe_sample.probe_path(_PROC))
     try:
         return smell.check_file(p)

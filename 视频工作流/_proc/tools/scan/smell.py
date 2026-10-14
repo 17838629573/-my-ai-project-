@@ -1,4 +1,4 @@
-# 契约: proc/tools/smell
+# 契约: proc/tools/scan/smell
 #   一句话: 代码异味检查：补 faultbench 实测暴露的 8 类静态盲区（静默异常/判据恒真/自检空转等）
 #   完整契约见 tools/__init__.py
 #   依据: faultbench(R18) 实测召回率仅 43%，8 类缺陷静态全漏；

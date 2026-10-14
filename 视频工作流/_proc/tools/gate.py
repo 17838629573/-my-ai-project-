@@ -38,7 +38,7 @@ TOOLS = [
     ("有效帧率", "tools/measure/efps.py", False),
     ("豁免复现", "tools/repro.py", False),
     ("能力审计", "tools/measure/capaudit.py", False),
-    ("代码异味", "tools/smell.py", False),
+    ("代码异味", "tools/scan/smell.py", False),
     ("圈复杂度", "tools/complexity.py", False),
     ("债务棘轮", "tools/baseline.py", False),
     ("分层契约", "tools/layers.py", False),

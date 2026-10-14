@@ -5,9 +5,9 @@
 #         NASA/JPL「无断言的自检等于没自检」。
 #   输入: 无
 #   输出: faultcorpus.BASE/FAULTS；smell_selfcheck.self_check()
-#   依赖: faultcorpus 无依赖；smell_selfcheck 依赖 tools.smell.check_file
+#   依赖: faultcorpus 无依赖；smell_selfcheck 依赖 tools.scan.smell.check_file
 #   约束: 注入器为纯函数 src->new_src；探针文件无条件回收
-#   校验入口: python3 tools/smell.py --self-check
+#   校验入口: python3 tools/scan/smell.py --self-check
 # -*- coding: utf-8 -*-
 """语料层 —— 与跑测/扫描逻辑分离。
 

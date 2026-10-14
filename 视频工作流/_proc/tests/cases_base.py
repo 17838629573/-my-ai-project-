@@ -5,6 +5,7 @@
 # -*- coding: utf-8 -*-
 from .common import *          # noqa: F401,F403  常量
 from .common import _world, _align_n   # 下划线名不随 * 导出，必须显式
+from tools.measure.motionqual import foot_skate_ratio
 
 def _a1_leg_skates(W, N):
     """按腿分段量滑步峰值：跨换脚比较位移会把"换脚"误判成跳变
@@ -50,13 +51,28 @@ def case_A1():
     fa = [(w["heel_l"][0], w["heel_l"][2]) for w in W]
     fb = [(w["heel_r"][0], w["heel_r"][2]) for w in W]
 
+    # 打滑帧占比：业界按 ratio 报告（Motion Toolbox good<0.40），与均值互补。
+    # 左右腿支撑相不同，不能合成一个帧级接触序列——必须逐腿算再合并计数。
+    # up_axis=1：_world 输出 (x=前进, h=高度, z=侧向)，竖直轴是 index 1
+    nc_t, ns_t = 0, 0
+    for side, lo, hi in (("l", 0.0, 0.5), ("r", 0.5, 1.0)):
+        cs = [(lo <= i / N < hi) for i in range(N)]
+        _r, _nc, _ns = foot_skate_ratio(
+            W, ["heel_" + side], contact_seq=cs, thresh_m=0.01, up_axis=1)
+        nc_t += _nc
+        ns_t += _ns
+    skate_ratio = (ns_t / float(nc_t)) if nc_t else None
+
     return [
         ("skate_cm_frame", skate_mean),
+        ("foot_skate_ratio", 1.0 if skate_ratio is None else skate_ratio),
         ("float_m", H.float_m(lows)),
         ("feet_clip_m", H.feet_clip_m(fa, fb)),
         ("frame_jump_ratio", H.frame_jump_ratio(disp)),
     ], {"帧数": N, "周期行程_m": CYCLE, "skate_max_cm": round(skate_max, 4),
-         "最坏帧最低关节_m": round(max(lows), 4)}
+         "最坏帧最低关节_m": round(max(lows), 4),
+         "打滑帧占比": (None if skate_ratio is None else round(skate_ratio, 4)),
+         "接触帧数": nc_t, "打滑帧数": ns_t}
 
 
 def _A2_collect(RAW, BRAW, NR, SPS):

@@ -17,6 +17,9 @@
     3. 骨级自穿透 PeneBone   —— 我们只有"骨 vs 球"，没有"骨 vs 骨"
     4. 接触质量 F1           —— 我们只有穿透/贴合，没有接触的精确率召回率
     5. 步态三变量 / 游动波长 —— 只在注释里写了，没有可测的判据
+    6. 振幅比 A* = A/L ∈ [0.1, 0.3]   —— Saadat 2017：光有 St 判不了高效游动
+    7. 打滑帧占比 foot_skate_ratio     —— 业界按 ratio 报告，我们只有均值
+    8. 稳定余量 bos_margin             —— 我们只测"越界多远"，测不了"离翻倒多近"
 
   本工具只做"测量"，不拍阈值。阈值一律登记进 tests/harness.CRIT，
   遵循 A1 铁律：先从独立来源定标，再跑测试；禁止先跑后调。
@@ -333,67 +336,124 @@ def strouhal(freq_hz, amp_m, speed_mps):
     return freq_hz * (2.0 * amp_m) / speed_mps
 
 
+# ------------------------------------------------- 6 振幅比 A* / 打滑帧占比 / 稳定余量
+# 这三项是"业界有、我们此前没有"的真缺口（见 tools/anchors.GAPS），本轮补齐。
+# 口径一律先查原文定标（A1），不沿用我们自己猜的定义。
+
+
+def amp_ratio(amp_pp_m, body_len_m):
+    """振幅比 A* = A / L。
+
+    出处: Saadat et al. 2017《On the rules for aquatic locomotion》
+         PhysRevFluids 2, 083102：St 单独不足以判定高效游动，需附加 A* ∈ [0.1, 0.3]。
+         论文原文 "A* (=A/L)"，与 "St(=fA/U)" 共用同一个 A。
+
+    口径（关键，已核实）: 该 A 是**峰峰振幅** A_p-p，不是单边振幅。
+         Arellano《Biomechanics and Medicine in Swimming》: "St = A_p-p·f/U, where
+         A_p-p is the tail-beat peak-to-peak amplitude"；
+         机器人鱼文献同口径: "A is peak-to-peak stroke amplitude of the tail tip"。
+         中文报道亦为"来回摆动的距离"在体长 1/10~3/10 之间，即峰峰。
+         —— 若误用单边振幅，A* 会小一半，判据口径即错。
+
+    参数: amp_pp_m 尾端峰峰振幅（米）；单边振幅请先乘 2。
+    """
+    if body_len_m <= 0:
+        return None
+    return amp_pp_m / body_len_m
+
+
+def foot_skate_ratio(frames, foot_joints, contact_seq=None,
+                     thresh_m=0.01, contact_thresh=0.02, up_axis=2):
+    """打滑帧占比：业界按 ratio 报告，而不是只报均值。
+
+    出处: Motion Toolbox evaluation config —— foot_skating_joint 按 ratio 评估，
+         good < 0.40，moderate < 0.60（越小越好）。
+         与其均值口径（我们的 skate_cm_frame）互补：均值会被少数极端帧拉偏，
+         占比能回答"有多少帧在滑"，业界主流按占比报告。
+
+    口径: 分母取**接触帧**（与 CHOIS 的 contact-based 定义一致：只在
+         足端贴地期间才谈得上打滑）。位移取**世界坐标**下的足端水平位移——
+         必须相对地面，不能相对身体（相对身体会把"整体前进"误判成滑步，
+         我们此前在四足步态上踩过这个坑）。
+         thresh_m 为单帧打滑判定阈值，取项目现役 skate_cm_frame=1.0cm/frame；
+         注意该值经锚点比对被标为动捕真值(0.10cm/frame)的 10 倍，属偏离项，
+         故本函数只用它做"单帧是否打滑"的口径，占比阈值 0.40 才是外部来源。
+
+    返回: (ratio, n_contact, n_skate)；无接触帧时 ratio 为 None（不是 0.0——
+          0.0 会被误读成"零打滑"，实际是"没得测"）。
+
+    up_axis（关键，显式声明）: 竖直轴下标。本模块内部（zmp_series/_demo_frames）
+          约定 (x, y, z) 中 **z 为上**，故默认 up_axis=2。但项目内另有
+          (x=前进, h=高度, z=侧向) 的世界坐标约定（tests/common._world），
+          那里竖直轴是 index 1。两处口径不一致，必须显式传参，禁止靠猜——
+          猜错会把"抬脚高度变化"当成水平滑移（我们此前在混合场景里因坐标口径
+          不一致踩过 NaN 污染，属同类病）。
+    """
+    n = len(frames)
+    if n < 2:
+        return (None, 0, 0)
+    horiz = [a for a in (0, 1, 2) if a != up_axis]
+    n_contact = 0
+    n_skate = 0
+    for i in range(1, n):
+        if contact_seq is not None:
+            if i >= len(contact_seq) or not contact_seq[i]:
+                continue
+        elif all(frames[i][j][up_axis] > contact_thresh for j in foot_joints):
+            continue
+        n_contact += 1
+        slide = False
+        for j in foot_joints:
+            if j not in frames[i] or j not in frames[i - 1]:
+                continue
+            dx = frames[i][j][horiz[0]] - frames[i - 1][j][horiz[0]]
+            dz = frames[i][j][horiz[1]] - frames[i - 1][j][horiz[1]]
+            if math.sqrt(dx * dx + dz * dz) > thresh_m:
+                slide = True
+                break
+        if slide:
+            n_skate += 1
+    if n_contact == 0:
+        return (None, 0, 0)
+    return (n_skate / float(n_contact), n_contact, n_skate)
+
+
+def bos_margin(frames, joints, masses, feet, contact_thresh=0.02, g=9.80665):
+    """稳定余量：ZMP 到支撑区间最近边的有符号距离（区间内为正，越界为负）。
+
+    出处: 人形/bipedal 导航与步行的通行做法——ZMP 不仅要落在支撑多边形内，
+         还要留有稳定余量(stability margin)，业界常用 0.05~0.10 m。
+         我们原有的 bos_dist_m 只在**越界**时累加距离，测的是"越界多远"，
+         在区间内恒为 0 —— 那不是余量，无法回答"离翻倒还有多近"。
+
+    返回: (min_margin, mean_margin)；无贴地足的帧不参与统计。
+    """
+    n = len(frames)
+    if n == 0:
+        return (None, None)
+    zmps = zmp_series(frames, joints, masses, g=g)
+    margins = []
+    for i, f in enumerate(frames):
+        xs = [f[j][0] for j in feet if f[j][2] <= contact_thresh]
+        if not xs:
+            continue
+        lo, hi = min(xs), max(xs)
+        mid = 0.5 * (lo + hi)
+        half = 0.5 * (hi - lo)
+        zx = zmps[i]
+        # 到最近边的距离：中心距 - 半宽，正=在内且有余量，负=已越界
+        margins.append(half - abs(zx - mid))
+    if not margins:
+        return (None, None)
+    return (min(margins), sum(margins) / float(len(margins)))
+
+
 # ---------------------------------------------------------------- 自检
 
-
-def _demo_frames(n=40, wobble=0.0):
-    """构造可解析的演示骨架序列：整体匀速前进 + 可选抖动。"""
-    out = []
-    for i in range(n):
-        x = 0.01 * i
-        w = wobble * (1.0 if i % 2 else -1.0)
-        out.append({
-            "hip": (x, 0.0, 0.90),
-            "chest": (x, 0.0, 1.30 + w),
-            "head": (x, 0.0, 1.60 + w),
-            "lfoot": (x - 0.2, 0.0, 0.02),
-            "rfoot": (x + 0.2, 0.0, 0.02),
-        })
-    return out
-
-
 def self_check():
-    """自检: 每条指标都要能"测出已知答案"，否则等于没有牙齿。"""
-    import os
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__)))))
-    from base.assertrun import Checker
-    C = Checker("tools/motionqual")
-    JN = ["hip", "chest", "head", "lfoot", "rfoot"]
-    MS = [0.40, 0.35, 0.10, 0.075, 0.075]
-    FT = ["lfoot", "rfoot"]
+    """转发到 tools.corpus.motionqual_selfcheck（样本与驱动已分文件）。
 
-    C.eq("seg_seg 相交距离", round(seg_seg_dist(
-        (0, 0, 0), (1, 0, 0), (0.5, -0.5, 0), (0.5, 0.5, 0)), 9), 0.0)
-    C.eq("seg_seg 平行距离", round(seg_seg_dist(
-        (0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0)), 9), 1.0)
-
-    still = _demo_frames(40, 0.0)
-    o0, d0 = zmp_stability(still, JN, MS, FT)
-    C.eq("ZMP 匀速直行 越界率", o0, 0.0)
-    C.eq("ZMP 匀速直行 BoSDist", d0, 0.0)
-
-    j_clean = jitter_accel(still, JN)
-    j_wob = jitter_accel(_demo_frames(40, 0.05), JN)
-    C.lt("抖动 匀速应≈0", j_clean, 1e-9)
-    C.gt("抖动 加抖应>0", j_wob, 0.0)
-    C.gt("抖动 单调性", j_wob, j_clean)
-
-    far = [{"a": (0, 0, 0), "b": (1, 0, 0), "c": (0, 1, 0), "d": (1, 1, 0)}]
-    C.eq("PeneBone 分离无穿透", pene_bone(far, [("a", "b"), ("c", "d")]), 0.0)
-    near = [{"a": (0, 0, 0), "b": (1, 0, 0), "c": (0, 0.01, 0), "d": (1, 0.01, 0)}]
-    C.gt("PeneBone 重叠应为正", pene_bone(near, [("a", "b"), ("c", "d")]), 0.0)
-
-    gt = [True] * 5 + [False] * 5
-    C.eq("接触F1 完全一致", round(contact_f1(gt, gt)["f1"], 9), 1.0)
-    C.eq("接触F1 全错", round(contact_f1([False] * 10, gt)["f1"], 9), 0.0)
-
-    C.eq("占空比 半程", duty_factor([True] * 5 + [False] * 5), 0.5)
-    # 注意: 不能用 "x or 兜底值"，0.0 是合法答案且是假值，会被误替换
-    _rp = relative_phase(gt, gt)
-    C.eq("相对相位 同相", 9.0 if _rp is None else round(_rp, 9), 0.0)
-
-    C.eq("Strouhal 2Hz*5cm/0.5mps", round(strouhal(2.0, 0.05, 0.5), 9), 0.4)
-    C.note("St 0.2~0.4 出自 Triantafyllou 1993 / trout 实测 0.19~0.22")
-    return C.report()
+    为什么延迟 import: 自检语料反过来依赖本模块，模块级 import 会成环。
+    """
+    from tools.corpus.motionqual_selfcheck import self_check as _sc
+    return _sc()

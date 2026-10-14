@@ -24,6 +24,7 @@ from motion.creature.climb_rock import _effectors, ORDER
 
 from motion.creature.quadruped import (quadruped_sim, foot_slip,
                                           GAIT_TABLE, GAIT_NAMES)
+from tools.measure.motionqual import amp_ratio, foot_skate_ratio
 import tests.harness as H
 
 
@@ -84,11 +85,17 @@ def case_G38():
     d = np.linalg.norm(np.diff(arr, axis=0), axis=1).max(axis=1)
     fjr = H.frame_jump_ratio(d)
     st = float(meta0["strouhal"])
+    # 振幅比 A* = A/L：A 用**峰峰**振幅（meta["tail_amp"] 是单边，故乘 2）
+    # 出处 Saadat 2017 —— St 单独判不了高效游动，必须附加 A* ∈ [0.1, 0.3]
+    amp_pp = 2.0 * float(meta0["tail_amp"])
+    ar = amp_ratio(amp_pp, body_len)
 
     checks = [("seg_len_err", seg_err), ("strouhal_lo", st),
-              ("strouhal_hi", st), ("frame_jump_ratio", fjr)]
+              ("strouhal_hi", st), ("frame_jump_ratio", fjr),
+              ("amp_ratio_lo", ar), ("amp_ratio_hi", ar)]
     meta = {"模式": meta0["mode"], "St": st, "体长_m": body_len,
-            "段长误差": seg_err}
+            "段长误差": seg_err,
+            "尾摆峰峰_m": amp_pp, "A*": round(ar, 4) if ar else ar}
     return checks, meta
 
 

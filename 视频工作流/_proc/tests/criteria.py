@@ -138,6 +138,25 @@ CRIT = {
     "wave_len_ratio": (0.5, ">",
         "鱼类行波：体波波长/体长；鲹科巡航约 1 个体长量级，"
         "低于 0.5 说明行波未成形（出处 Triantafyllou 1993）"),
+    # ---- 以下 3 项由 tools/motionqual.py 测量（业界缺口补齐，2026-10 新增）----
+    # 这三项此前登记在 tools/anchors.GAPS：业界有明确数值、而我们尚未建立判据。
+    # 口径先查原文定标（A1），不沿用猜测定义。
+    "amp_ratio_lo": (0.1, ">=",
+        "Saadat et al. 2017《On the rules for aquatic locomotion》PhysRevFluids 2, 083102："
+        "A* = A/L ∈ [0.1, 0.3]，St 单独不足以判定高效游动，需附加 A*（下界）。"
+        "注意：A 为**峰峰**振幅(A_p-p)，与 St=fA/U 共用同一个 A；误用单边会小一半"),
+    "amp_ratio_hi": (0.3, "<=",
+        "同上上界；论文并指出多数快速水生生物巡航时尾摆幅度约为体长的 20%"),
+    "foot_skate_ratio": (0.40, "<",
+        "Motion Toolbox evaluation config：foot_skating_joint 按打滑帧占比评估，"
+        "good < 0.40 / moderate < 0.60（越小越好）。分母取接触帧（CHOIS contact-based 定义）；"
+        "单帧判定阈值沿用项目现役 skate_cm_frame=1.0cm/frame（该值经锚点比对标为偏离项）。"
+        "口径注意：本项量的是接触期足端水平位移，与 skate_cm_frame 的 Zhang 2018 "
+        "高度加权公式 s=v(2-2h/H) 不是同一量，两者数值不可直接比较"),
+    "bos_margin_m": (0.0, ">",
+        "稳定余量：ZMP 到支撑区间最近边的有符号距离（内正外负）。业界 bipedal 步行"
+        "要求 ZMP 不仅落在支撑多边形内，还需留 0.05~0.10 m 余量；"
+        "本项登记下界 0（不越界），余量数值另行报告，不拍 0.05 以免与实测口径混用"),
     # ---- 以下 4 项由 tests/cases_mixed.py 测量（H40 混合场景，2026-10 新增）----
     "nan_count": (0, "<=",
         "IEEE 754：NaN 参与任何算术均传播为 NaN，一旦出现即静默污染整条轨迹。"
