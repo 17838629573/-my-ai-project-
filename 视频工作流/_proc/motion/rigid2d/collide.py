@@ -173,27 +173,30 @@ def _obb_verts(B_):
             (px - x1 - x2, py - y1 + y2))
 
 
+def _proj_range(V, axx, axy):
+    """顶点集沿单轴的投影区间 (min, max) —— 与内联版逐值等价。
+
+    原实现用 `if pr < lo: ... elif pr > hi:`；因一个数不可能同时既小于
+    当前 min 又大于当前 max，elif 与两个独立 if 数值等价，拆出后结果不变。
+    """
+    v = V[0]
+    lo = hi = v[0] * axx + v[1] * axy
+    for v in V[1:]:
+        pr = v[0] * axx + v[1] * axy
+        if pr < lo:
+            lo = pr
+        elif pr > hi:
+            hi = pr
+    return lo, hi
+
+
 def _sat_pick_axis(VA, VB, axes):
     """SAT 四轴投影：任一轴分离 → pen=-1；否则返回最小重叠轴 (pen,nx,ny)。"""
     best = -1.0
     bxx = bxy = 0.0
     for axx, axy in axes:
-        v = VA[0]
-        amin = amax = v[0] * axx + v[1] * axy
-        for v in VA[1:]:
-            pr = v[0] * axx + v[1] * axy
-            if pr < amin:
-                amin = pr
-            elif pr > amax:
-                amax = pr
-        v = VB[0]
-        bmin = bmax = v[0] * axx + v[1] * axy
-        for v in VB[1:]:
-            pr = v[0] * axx + v[1] * axy
-            if pr < bmin:
-                bmin = pr
-            elif pr > bmax:
-                bmax = pr
+        amin, amax = _proj_range(VA, axx, axy)
+        bmin, bmax = _proj_range(VB, axx, axy)
         ov = (amax if amax < bmax else bmax) - (amin if amin > bmin else bmin)
         if ov <= 0.0:
             return -1.0, 0.0, 0.0

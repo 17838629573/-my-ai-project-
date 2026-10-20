@@ -94,24 +94,32 @@ def trajectory(p0, v0, t_end, dt, e=E_GROUND):
     return np.array(T), np.array(P)
 
 
-def self_check():
-    r = []
+def _sc_impact(r):
+    """碰撞三条: 动量守恒 / 恢复系数复原 / 不增能。"""
     M = strike_mass()
     n = np.array([1.0, 0.0])
     vf = np.array([12.0, 1.0])
     vfa, vb = impact(vf, n)
     p1 = M * vf
     p2 = M * vfa + M_BALL * vb
-    r.append(("碰撞动量守恒", np.linalg.norm(p2 - p1) / np.linalg.norm(p1) < 1e-12,
-              "err=%.2e" % (np.linalg.norm(p2 - p1) / np.linalg.norm(p1))))
+    err = np.linalg.norm(p2 - p1) / np.linalg.norm(p1)
+    r.append(("碰撞动量守恒", err < 1e-12, "err=%.2e" % err))
     e_meas = float(np.dot(vb - vfa, n) / np.dot(vf, n))
     r.append(("恢复系数复原", abs(e_meas - E_FOOT) < 1e-12, "%.6f" % e_meas))
     ke0 = 0.5 * M * float(np.dot(vf, vf))
     ke1 = 0.5 * M * float(np.dot(vfa, vfa)) + 0.5 * M_BALL * float(np.dot(vb, vb))
     r.append(("碰撞不增能", ke1 <= ke0 + 1e-9, "%.3f→%.3f J" % (ke0, ke1)))
+
+
+def _sc_series(r):
+    """反弹高度序列: h_n = ε^{2n} h_0。"""
     hs = bounce_series(1.0, 0.65, 4)
     ok = all(abs(hs[k] - 0.65 ** (2 * k)) < 1e-12 for k in range(4))
     r.append(("反弹 h_n=ε^{2n}h_0", ok, " ".join("%.4f" % h for h in hs)))
+
+
+def _sc_trajectory(r):
+    """弹道两条: 不穿地 + 峰高逐次衰减。"""
     _, P = trajectory([0.0, R_BALL], [6.0, 6.0], 3.0, 1.0 / 60.0)
     r.append(("不穿地", P[:, 1].min() >= R_BALL - 1e-6, "min y=%.4f" % P[:, 1].min()))
     peaks = []
@@ -122,6 +130,13 @@ def self_check():
     mono = all(b < a for a, b in zip(peaks, peaks[1:])) and len(peaks) >= 2
     r.append(("峰高逐次衰减", mono and len(peaks) >= 2,
               "peaks=%s" % ", ".join("%.3f" % p for p in peaks[:4])))
+
+
+def self_check():
+    r = []
+    _sc_impact(r)
+    _sc_series(r)
+    _sc_trajectory(r)
     ok = True
     for n_, ok_, s in r:
         print(("PASS " if ok_ else "FAIL ") + n_ + "  " + s)

@@ -56,6 +56,35 @@ def mod_name(relpath):
     return r.replace("/", ".").replace(".__init__", "")
 
 
+def _import_plain(node, out):
+    """`import a.b.c` —— 首段与各级前缀全登记（否则解析不到 motion/__init__.py）。"""
+    for a in node.names:
+        out.add(a.name.split(".")[0])
+        seg = a.name.split(".")
+        for i in range(1, len(seg) + 1):
+            out.add(".".join(seg[:i]))
+
+
+def _import_from(node, path, out):
+    """`from X import Y` —— 相对层级与绝对名分开处理。"""
+    if node.level:  # 相对导入
+        pkg = mod_name(rel(path))
+        parts = pkg.split(".")
+        # level=1 表示当前包，level=2 上一级
+        base = parts[: len(parts) - (node.level - 1)]
+        if node.module:
+            out.add(".".join(base + [node.module]))
+        # from . import a, b —— 名字在 names 里，不在 module 里
+        for a in node.names:
+            out.add(".".join(base + [a.name]))
+    elif node.module:
+        out.add(node.module.split(".")[0])
+        out.add(node.module)
+        # from pkg import name —— name 可能是子模块
+        for a in node.names:
+            out.add(node.module + "." + a.name)
+
+
 def imports_of(path):
     """收集该文件 import 的目标（相对层级 + 绝对名）。"""
     out = set()
@@ -65,30 +94,9 @@ def imports_of(path):
         return out
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            for a in node.names:
-                out.add(a.name.split(".")[0])
-                # import a.b.c 形式：完整名与各级前缀都要登记，
-                # 否则 import motion.rigid 只会解析到 motion/__init__.py
-                seg = a.name.split(".")
-                for i in range(1, len(seg) + 1):
-                    out.add(".".join(seg[:i]))
+            _import_plain(node, out)
         elif isinstance(node, ast.ImportFrom):
-            if node.level:  # 相对导入
-                pkg = mod_name(rel(path))
-                parts = pkg.split(".")
-                # level=1 表示当前包，level=2 上一级
-                base = parts[: len(parts) - (node.level - 1)]
-                if node.module:
-                    out.add(".".join(base + [node.module]))
-                # from . import a, b —— 名字在 names 里，不在 module 里
-                for a in node.names:
-                    out.add(".".join(base + [a.name]))
-            elif node.module:
-                out.add(node.module.split(".")[0])
-                out.add(node.module)
-                # from pkg import name —— name 可能是子模块
-                for a in node.names:
-                    out.add(node.module + "." + a.name)
+            _import_from(node, path, out)
     return out
 
 

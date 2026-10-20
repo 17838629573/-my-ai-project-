@@ -31,6 +31,24 @@ import cv2
 W = 320
 
 
+def _downsample(g, w):
+    """灰度帧下采样 —— 独立成函数只为降 CCN，不改变任何像素值。"""
+    if w and g.shape[1] > w:
+        sc = w / float(g.shape[1])
+        return cv2.resize(g, (w, int(g.shape[0] * sc)), interpolation=cv2.INTER_AREA)
+    return g
+
+
+def _summarize(n, first, last, diffs):
+    """段内差数组 -> 统计字典（最大值/中位数/比值）。"""
+    d = np.array(diffs)
+    med = float(np.median(d)) if len(d) else 0.0
+    return {"n": n, "first": first, "last": last, "median": med,
+            "max": float(d.max()) if len(d) else 0.0,
+            "max_at": int(np.argmax(d)) if len(d) else -1,
+            "ratio": (float(d.max()) / med) if med > 1e-9 else float("inf")}
+
+
 def scan_file(path, w=W):
     """流式扫单文件: 返回 (首帧, 末帧, 段内差数组)。"""
     cap = cv2.VideoCapture(path)
@@ -45,10 +63,7 @@ def scan_file(path, w=W):
         ok, fr = cap.read()
         if not ok:
             break
-        g = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY).astype(np.float32)
-        if w and g.shape[1] > w:
-            sc = w / float(g.shape[1])
-            g = cv2.resize(g, (w, int(g.shape[0] * sc)), interpolation=cv2.INTER_AREA)
+        g = _downsample(cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY).astype(np.float32), w)
         if first is None:
             first = g
         if prev is not None:
@@ -59,32 +74,36 @@ def scan_file(path, w=W):
     cap.release()
     if n < 2:
         return None
-    d = np.array(diffs)
-    med = float(np.median(d)) if len(d) else 0.0
-    return {"n": n, "first": first, "last": last, "median": med,
-            "max": float(d.max()) if len(d) else 0.0,
-            "max_at": int(np.argmax(d)) if len(d) else -1,
-            "ratio": (float(d.max()) / med) if med > 1e-9 else float("inf")}
+    return _summarize(n, first, last, diffs)
 
 
-def main(argv):
-    here = os.path.dirname(os.path.abspath(__file__))
+def _parse_args(argv, here):
+    """解析 --dir/--w: 返回 (段目录, 下采样宽度)。
+
+    注: 原实现用 global W 改写全局，这里改为局部返回并显式传入 scan_file，
+    行为等价（打印用的 w 与传入的 w 始终同一个值）。
+    """
     d = os.path.join(here, "_seg")
-    global W
+    w = W
     for k, v in enumerate(argv[1:]):
         if v == "--dir":
             d = argv[1:][k + 1]
         elif v == "--w":
-            W = int(argv[1:][k + 1])
+            w = int(argv[1:][k + 1])
+    return d, w
+
+
+def _scan_all(d, w):
+    """扫全部段并打印段内跳帧: 返回 [(文件名, 统计)]。"""
     fns = sorted(f for f in os.listdir(d) if f.startswith("seg_") and f.endswith(".mp4"))
     if not fns:
         print("[err] no segs in", d)
-        return
+        return []
     res = []
-    print("=== 段内跳帧 (w=%d) ===" % W)
+    print("=== 段内跳帧 (w=%d) ===" % w)
     for f in fns:
         # 每段扫完立刻丢掉像素，只留首/末帧用于接缝
-        r = scan_file(os.path.join(d, f), W)
+        r = scan_file(os.path.join(d, f), w)
         if r is None:
             print("  %s  EMPTY/UNREADABLE" % f)
             continue
@@ -92,6 +111,11 @@ def main(argv):
         print("  %s  n=%3d  med=%.4f  max=%.4f@%d  ratio=%.2f  %s"
               % (f, r["n"], r["median"], r["max"], r["max_at"], r["ratio"], flag))
         res.append((f, r))
+    return res
+
+
+def _check_seams(res):
+    """比较相邻段接缝: 返回超标接缝列表。"""
     print("=== 接缝（前段末帧 vs 后段首帧）===")
     bad = []
     for i in range(len(res) - 1):
@@ -105,6 +129,14 @@ def main(argv):
             bad.append((f0, f1, ratio))
         print("  %s→%s  seam=%.4f  base=%.4f  ratio=%.2f  %s"
               % (f0, f1, seam, base, ratio, flag))
+    return bad
+
+
+def main(argv):
+    here = os.path.dirname(os.path.abspath(__file__))
+    d, w = _parse_args(argv, here)
+    res = _scan_all(d, w)
+    bad = _check_seams(res)
     print("=== 汇总: 段数 %d, 接缝 %d, FAIL %d ===" % (len(res), max(len(res) - 1, 0), len(bad)))
     for b in bad:
         print("   BAD SEAM %s → %s  ratio %.2f" % b)

@@ -108,6 +108,18 @@ def _audit_one(fn):
     return sig_ok, call_ok, fmt_ok, note
 
 
+def _why(r):
+    """不可用原因拼接: 签名 / 调用崩 / 格式（三者可并存）。"""
+    why = []
+    if not r[1]:
+        why.append("签名")
+    if not r[2]:
+        why.append("调用崩")
+    if not r[3]:
+        why.append("格式")
+    return "+".join(why) if why else "格式"
+
+
 def _report(rows):
     """打印审计结论；返回 (可驱动列表, 不可用列表)"""
     full = [r for r in rows if all(r[1:4])]
@@ -116,14 +128,7 @@ def _report(rows):
     print("  " + ", ".join(r[0] for r in full))
     print("不可用 %d 个:" % len(bad))
     for r in bad:
-        why = []
-        if not r[1]:
-            why.append("签名")
-        if not r[2]:
-            why.append("调用崩")
-        if not r[3]:
-            why.append("格式")
-        print("  %-14s %s  %s" % (r[0], "+".join(why) if why else "格式", r[4]))
+        print("  %-14s %s  %s" % (r[0], _why(r), r[4]))
     return [r[0] for r in full], [r[0] for r in bad]
 
 
