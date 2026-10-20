@@ -27,12 +27,15 @@ ROOT = Path(__file__).resolve().parent
 
 EXCLUDE_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v", ".flv",
                ".pyc", ".pyo", ".so", ".zip",
-               ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+               ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff",
+               ".pkl", ".npz"}
+# _phys 是 showreel/phys.py 的预跑轨迹输出目录, 属产物不入库
 # 运行缓存与工具状态文件: 属产物, 不入库
 # (.import_linter_cache 是 import-linter 的磁盘缓存, 内含 CACHEDIR.TAG)
+# 注: _phys 是 showreel/phys.py 的预跑轨迹输出目录, 属产物不入库
 EXCLUDE_PART = {"__pycache__", ".git", "_bak", ".venv", "node_modules",
                  ".refcache", ".refcache.json", ".import_linter_cache",
-                 ".import_linter_cache.json"}
+                 ".import_linter_cache.json", "_phys"}
 EXCLUDE_NAME = {".batchgate.json", ".bg_full.json", ".bg_self.json",
                 ".refcache.json", ".import_linter_cache.json",
                 "CACHEDIR.TAG", ".done"}

@@ -31,3 +31,8 @@ _archive_旧链路/
 
 # faultbench 临时 canary（异常退出会残留，不该入库）
 _canary_faultbench*
+
+# 物理预跑轨迹(showreel/phys.py 输出)
+_phys/
+*.pkl
+*.npz
