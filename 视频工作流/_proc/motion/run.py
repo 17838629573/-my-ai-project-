@@ -33,6 +33,7 @@ from motion import camera
 from shape import line as L
 from color import paint as P
 from scene import kit
+from base import codec as _CODEC   # 编码器选型（base 层，motion 依赖它不违反分层契约）
 
 
 class CV:
@@ -183,17 +184,24 @@ def frame(t, scene=None, geom=None, bg=None, yaw=90.0, lane=0.0,
     return cv.img
 
 
-def to_mp4(frames, path, fps=30):
+def to_mp4(frames, path, fps=30, codec=None):
     """短片用：frames 为已驻留内存的 PIL 图列表。
 
     警告：长视频不要用这个——先把全部帧攒进内存再写，
-    实测约 5MB/帧，60s@24fps(1440帧) 峰值 ~7GB，2GB 机器直接 OOM。
-    长视频改用 StreamWriter。
+    实测约 1.48MB/帧(PIL uint8)，60s@24fps(1440帧) 仅帧数据即 2.1GB，
+    2GB 机器直接 OOM。长视频改用 StreamWriter。
+
+    codec: 强制指定 fourcc；默认由 base.codec.pick_codec() 按实测压缩率选优
+           （本机实测 VP9 较 mp4v 省 18.1%）。全不可用则回落 mp4v。
     """
     if not frames:
         return False
     w, h = frames[0].size
-    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    tag = codec or _CODEC.pick_codec()
+    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*tag), fps, (w, h))
+    if not vw.isOpened():
+        # 选出的编码器打不开（环境差异），回落 mp4v，不得静默产出坏文件
+        vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     for f in frames:
         vw.write(cv2.cvtColor(np.asarray(f), cv2.COLOR_RGB2BGR))
     vw.release()
@@ -213,10 +221,11 @@ class StreamWriter(object):
         n = w.close()
     """
 
-    def __init__(self, path, fps=30, keep_every=0):
+    def __init__(self, path, fps=30, keep_every=0, codec=None):
         self.path = path
         self.fps = fps
         self.keep_every = int(keep_every)
+        self.codec = codec or _CODEC.pick_codec()
         self.vw = None
         self.n = 0
         self.kept = []
@@ -229,7 +238,10 @@ class StreamWriter(object):
         if self.vw is None:
             h, w = a.shape[:2]
             self.vw = cv2.VideoWriter(
-                self.path, cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (w, h))
+                self.path, cv2.VideoWriter_fourcc(*self.codec), self.fps, (w, h))
+            if not self.vw.isOpened():
+                self.vw = cv2.VideoWriter(
+                    self.path, cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (w, h))
         self.vw.write(cv2.cvtColor(a, cv2.COLOR_RGB2BGR))
         if self._prev is not None:
             d = float(np.abs(a.astype(np.float32) - self._prev).mean())

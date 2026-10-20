@@ -11,7 +11,7 @@
   mutate.py       R13 判据效力：注入必错坏输入，仍 PASS 即判据无牙齿
   consistency.py  R14 三表一致：注册/用例/桥接器互为闭包
   efps.py         R15 有效帧率：渲染 N 帧 ≠ 画面动了 N 帧
-  repro.py        R17 豁免验证：声称假阳性必须附可执行最小复现
+  attest/         自证类子包：repro(R17 豁免验证) / refcheck(出处核验) / provenance(阈值溯源) / anchors(外部锚点)
   capaudit.py     能力可驱动性审计（口径须走 capbridge.normalize）
   reach.py        可达性分析：从活跃入口出发判死代码
   presearch.py    前置检索：先查本地登记库，未命中才联网

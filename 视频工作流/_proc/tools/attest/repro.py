@@ -17,8 +17,10 @@
     做不到复现的，一律按真问题处理。
 
 用法：
-    python3 tools/repro.py            # 全量验证豁免登记册
-    python3 tools/repro.py --add ID   # 交互式登记一条（含复现脚本）
+    python3 tools/attest/repro.py            # 全量验证豁免登记册
+    python3 tools/attest/repro.py --self-check   # 自检（正反两面探针）
+
+（本文件已从 tools/repro.py 迁入 attest 子包，路径随之更新。）
 
 登记册格式 suppress.json：
     [{
@@ -41,7 +43,8 @@ import subprocess
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_PROC = os.path.dirname(_HERE)
+# 同上：attest 子包下 _PROC 须上溯两级；suppress.json 随本文件同迁。
+_PROC = os.path.dirname(os.path.dirname(_HERE))
 _SUPPRESS = os.path.join(_HERE, "suppress.json")
 
 
@@ -57,6 +60,38 @@ def _save(items):
         json.dump(items, f, ensure_ascii=False, indent=2)
 
 
+def _last_line(text):
+    """取文本最后一行；空文本返回空串。用于压缩崩溃原因。"""
+    lines = (text or "").strip().splitlines()
+    return lines[-1] if lines else ""
+
+
+def _run_repro(code, timeout=120):
+    """子进程执行复现脚本。
+
+    返回 (rc, out, err)：
+      rc 为 None 表示没跑起来（超时），此时 err 是原因、out 为空；
+      否则 rc 是退出码，out 是 stdout，err 是 stderr。
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = _PROC + os.pathsep + env.get("PYTHONPATH", "")
+    try:
+        r = subprocess.run([sys.executable, "-c", code],
+                           capture_output=True, text=True,
+                           timeout=timeout, cwd=_PROC, env=env)
+    except subprocess.TimeoutExpired:
+        return None, "", f"复现超时 {timeout}s"
+    return r.returncode, r.stdout or "", r.stderr or ""
+
+
+def _parse_observed(out):
+    """从 stdout 提取 OBSERVED=xxx；没有则返回 None。"""
+    for line in out.splitlines():
+        if line.startswith("OBSERVED="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+
 def verify(item, timeout=120):
     """跑一条豁免的复现脚本。
 
@@ -67,22 +102,12 @@ def verify(item, timeout=120):
     code = item.get("repro", "")
     if not code.strip():
         return False, "无复现脚本 —— 按铁律判定为真问题"
-    env = dict(os.environ)
-    env["PYTHONPATH"] = _PROC + os.pathsep + env.get("PYTHONPATH", "")
-    try:
-        r = subprocess.run([sys.executable, "-c", code],
-                           capture_output=True, text=True,
-                           timeout=timeout, cwd=_PROC, env=env)
-    except subprocess.TimeoutExpired:
-        return False, f"复现超时 {timeout}s"
-    if r.returncode != 0:
-        tail = (r.stderr or "").strip().splitlines()[-1:] or [""]
-        return False, "复现脚本崩溃: " + tail[0]
-    out = r.stdout or ""
-    obs = None
-    for line in out.splitlines():
-        if line.startswith("OBSERVED="):
-            obs = line.split("=", 1)[1].strip()
+    rc, out, err = _run_repro(code, timeout)
+    if rc is None:
+        return False, err
+    if rc != 0:
+        return False, "复现脚本崩溃: " + _last_line(err)
+    obs = _parse_observed(out)
     if obs is None:
         return False, "复现未输出 OBSERVED=absent|present"
     exp = item.get("expect", "absent")
@@ -118,7 +143,7 @@ def self_check():
     tot += 1
     r = verify({"repro": "raise RuntimeError('boom')", "expect": "absent"})
     ok += (not r[0])
-    print(f"  探针4 复现崩溃必须判 FAIL     {'PASS' if not r[0] else 'FAIL'}")
+    print(f"  探针4 复现崩溃必须判 FAIL    {'PASS' if not r[0] else 'FAIL'}  {r[1]}")
 
     print(f"\n  self_check: {ok}/{tot}")
     return ok == tot

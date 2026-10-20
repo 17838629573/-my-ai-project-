@@ -1,0 +1,58 @@
+{
+ "D21": {
+  "id": "D21",
+  "grp": "D",
+  "name": "两人击掌：手部接触不穿模",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nframe_jump_ratio              1     < 3          PASS\n总判定: PASS",
+  "sec": 0.32
+ },
+ "D24": {
+  "id": "D24",
+  "grp": "D",
+  "name": "人群碰撞：三人互阻不重叠",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m        7.9889e-05     < 0.005      PASS\njitter_px                     0     < 0.1        PASS\n总判定: PASS",
+  "sec": 0.68
+ },
+ "E28": {
+  "id": "E28",
+  "grp": "E",
+  "name": "爬梯子：手交替握杆，脚踩踏，不滑脱",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nskate_cm_frame         0.012654     < 1          PASS\nfloat_m              0.00012654     < 0.05       PASS\nframe_jump_ratio          1.313     < 3          PASS\n总判定: PASS",
+  "sec": 0.02
+ },
+ "G36": {
+  "id": "G36",
+  "grp": "G",
+  "name": "ADDITIVE 三能力接线：gaze/finger/page 叠加到 gait，下半身零污染",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nlower_pollution               0     < 1e-09      PASS\nframe_jump_ratio         1.0427     < 3          PASS\n总判定: PASS",
+  "sec": 0.02
+ },
+ "G37": {
+  "id": "G37",
+  "grp": "G",
+  "name": "攀岩：三点支撑 / 支撑相零滑移 / 不穿壁",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nsupport_min                   3    >= 3          PASS\nfoot_slip_m          9.6978e-05     < 0.001      PASS\nground_penetration_m            0     < 0.005      PASS\nframe_jump_ratio         2.2949     < 3          PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "G38": {
+  "id": "G38",
+  "grp": "G",
+  "name": "鱼游：脊椎段长守恒 / Strouhal 区间 / 帧间平滑",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nseg_len_err          3.9613e-08     < 1e-06      PASS\nstrouhal_lo                0.25     > 0.2        PASS\nstrouhal_hi                0.25     < 0.4        PASS\nframe_jump_ratio         1.1282     < 3          PASS\namp_ratio_lo            0.20833    >= 0.1        PASS\namp_ratio_hi            0.20833    <= 0.3        PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "G39": {
+  "id": "G39",
+  "grp": "G",
+  "name": "四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\ngait_contact_deficit            0    <= 0          PASS\nfoot_slip_m          1.1102e-16     < 0.001      PASS\nframe_jump_ratio         1.4236     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "A4": {
+  "id": "A4",
+  "grp": "A",
+  "name": "转身180：头-躯干-脚顺序自然，无瞬翻",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nframe_jump_ratio         1.7836     < 3          PASS\npeak_rate_dps            399.62     < 460        PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "A5": {
+  "id": "A5",
+  "grp": "A",
+  "name": "挥手：抬右臂，掌摆动，肩肘腕联动",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nframe_jump_ratio         1.6395     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ },
+ "A6": {
+  "id": "A6",
+  "grp": "A",
+  "name": "踢球：抬腿击中，球飞出，人保持平衡",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nmomentum_err                  0     < 0.02       PASS\nfloat_m                       0     < 0.05       PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "A7": {
+  "id": "A7",
+  "grp": "A",
+  "name": "下蹲捡物：蹲-手触地-拿-起",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nfloat_m                       0     < 0.05       PASS\npenetration_m        6.9389e-18     < 0.005      PASS\nskate_cm_frame                0     < 1          PASS\narm_reach               0.33019     < 0.377      PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "B8": {
+  "id": "B8",
+  "grp": "B",
+  "name": "拿杯子：伸-握-跟随-不掉落",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m        2.7756e-17     < 0.005      PASS\nframe_jump_ratio              1     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ },
+ "B9": {
+  "id": "B9",
+  "grp": "B",
+  "name": "放下杯子：移到桌面-张指-留桌-不穿透",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m        2.7756e-17     < 0.005      PASS\nframe_jump_ratio         1.5811     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ },
+ "C17": {
+  "id": "C17",
+  "grp": "C",
+  "name": "斜坡滚球：加速，底部平滑过渡",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m         0.0003998     < 0.005      PASS\nenergy_gain             -1.8096    <= 1e-09      PASS\n总判定: PASS",
+  "sec": 0.5
+ },
+ "C18": {
+  "id": "C18",
+  "grp": "C",
+  "name": "弹球：反弹高度逐次衰减",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nrestitution_err      2.1948e-15     < 0.05       PASS\nenergy_gain            -0.91603    <= 1e-09      PASS\npenetration_m                 0     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.61
+ },
+ "C19": {
+  "id": "C19",
+  "grp": "C",
+  "name": "摆锤碰撞：动量传递",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err          0.0070216     < 0.02       PASS\npenetration_m          0.002883     < 0.005      PASS\n总判定: PASS",
+  "sec": 2.98
+ },
+ "C20": {
+  "id": "C20",
+  "grp": "C",
+  "name": "两球对撞：等质量交换速度，异质量守恒",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err                  0     < 0.02       PASS\npenetration_m        2.7756e-17     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.44
+ }
+}

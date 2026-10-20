@@ -13,7 +13,7 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw
 import motion.rigid as RG
-from motion.run import to_mp4
+from motion.run import StreamWriter
 import tests.harness as H
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,6 @@ def _phys_frames(tracks, ground_y, span_m, W=640, HH=360):
     pad = 0.12 * span_m
     x0, x1 = -pad, span_m + pad
     s = min(W / (x1 - x0), HH / (span_m + pad))
-    out = []
     n = min(len(v) for v in tracks.values())
     for i in range(n):
         im = Image.new("RGB", (W, HH), (238, 238, 234))
@@ -38,8 +37,7 @@ def _phys_frames(tracks, ground_y, span_m, W=640, HH=360):
             d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
                       fill=(216, 96, 72), outline=(70, 60, 55), width=2)
             d.text((cx - 4, cy - 4), k[:1], fill=(40, 40, 40))
-        out.append(im)
-    return out
+        yield im
 
 
 def resample_tracks(tracks, sim_dt, fps, duration):
@@ -82,43 +80,85 @@ def _phys_frames_auto(tracks, W=640, HH=360, pad=0.12, ground=None):
     会被映射到画面之外（实测：整段视频纯背景，240 帧全同）。本函数改为
     自动取包围盒，任何坐标系都能正确出片。
     """
-    pts = []
-    for k, seq in tracks.items():
-        for row in seq:
-            r = row[2]
-            rr = r if isinstance(r, (int, float)) else max(r)
-            pts += [(row[0], row[1]),
-                    (row[0] - rr, row[1] - rr), (row[0] + rr, row[1] + rr)]
-    xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
-    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
-    w = max(x1 - x0, 1e-6); h = max(y1 - y0, 1e-6)
-    x0 -= pad * w; x1 += pad * w; y0 -= pad * h; y1 += pad * h
-    s = min(W / (x1 - x0), HH / (y1 - y0))
-    ox = (W - (x1 - x0) * s) / 2.0
-    oy = (HH - (y1 - y0) * s) / 2.0
-    out = []
+
+    pts = _collect_pts(tracks)
+    x0, y1, s, ox, oy = _view_box(pts, W, HH, pad)
     n = min(len(v) for v in tracks.values())
     for i in range(n):
         im = Image.new("RGB", (W, HH), (238, 238, 234))
         d = ImageDraw.Draw(im)
         if ground is not None:
-            gyy = oy + (y1 - ground) * s
-            if 0 <= gyy <= HH:
-                d.line([(0, gyy), (W, gyy)], fill=(120, 100, 80), width=2)
-        for k, seq in tracks.items():
-            x, y, r = seq[i][0], seq[i][1], seq[i][2]
-            rr = max((r if isinstance(r, (int, float)) else max(r)) * s, 2.0)
-            cx, cy = ox + (x - x0) * s, oy + (y1 - y) * s
-            d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
-                      fill=(216, 96, 72), outline=(70, 60, 55), width=2)
-            d.text((cx - 4, cy - 4), k[:1], fill=(40, 40, 40))
-        out.append(im)
-    return out
+            _draw_ground(d, W, HH, ground, y1, s, oy)
+        _draw_one(d, tracks, i, x0, y1, s, ox, oy)
+        yield im
+
+
+def _radius_of(r):
+    """半径归一：标量直接取，序列取最大值（兼容胶囊多半径写法）。"""
+    return r if isinstance(r, (int, float)) else max(r)
+
+
+def _collect_pts(tracks):
+    """收集全部轨迹点（含 ±r 的包围点），供包围盒定标使用。"""
+    pts = []
+    for seq in tracks.values():
+        for row in seq:
+            rr = _radius_of(row[2])
+            pts += [(row[0], row[1]),
+                    (row[0] - rr, row[1] - rr), (row[0] + rr, row[1] + rr)]
+    return pts
+
+
+def _view_box(pts, W, HH, pad=0.12):
+    """按轨迹包围盒自适应定标，返回 (x0, y1, s, ox, oy)。
+
+    与固定视野的区别：不假定 y>=0，负坐标（如摆锤锚点在原点上方）
+    也能正确落在画面内。
+    """
+    xs = [q[0] for q in pts]
+    ys = [q[1] for q in pts]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    w = max(x1 - x0, 1e-6)
+    h = max(y1 - y0, 1e-6)
+    x0 -= pad * w
+    x1 += pad * w
+    y0 -= pad * h
+    y1 += pad * h
+    s = min(W / (x1 - x0), HH / (y1 - y0))
+    ox = (W - (x1 - x0) * s) / 2.0
+    oy = (HH - (y1 - y0) * s) / 2.0
+    return x0, y1, s, ox, oy
+
+
+def _draw_ground(d, W, HH, ground, y1, s, oy):
+    """画地平线；落在画面外则不画（与拆分前同一判定，避免越界绘制）。"""
+    gyy = oy + (y1 - ground) * s
+    if 0 <= gyy <= HH:
+        d.line([(0, gyy), (W, gyy)], fill=(120, 100, 80), width=2)
+
+
+def _draw_one(d, tracks, i, x0, y1, s, ox, oy):
+    """画第 i 帧的全部物体（圆 + 首字母标签）。"""
+    for k, seq in tracks.items():
+        x, y, r = seq[i][0], seq[i][1], seq[i][2]
+        rr = max(_radius_of(r) * s, 2.0)
+        cx, cy = ox + (x - x0) * s, oy + (y1 - y) * s
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
+                  fill=(216, 96, 72), outline=(70, 60, 55), width=2)
+        d.text((cx - 4, cy - 4), k[:1], fill=(40, 40, 40))
 
 
 def _save_mp4(frames, prefix, fps=60):
+    """流式写出：frames 可为生成器（帧不驻留）或列表（兼容）。
+
+    渲染函数已改为 yield 生成器，帧渲染完立刻落盘，
+    不再攒满整个列表——长片内存不再随帧数线性增长。
+    """
     p = os.path.join(OUT, "%s.mp4" % prefix)
-    to_mp4(frames, p, fps)
+    sw = StreamWriter(p, fps=fps)
+    for f in frames:
+        sw.push(f)
+    sw.close()
     return p
 
 
@@ -194,7 +234,6 @@ def _phys_frames2(tracks, ground_y, span_m, W=640, HH=360):
     x0, x1 = -pad, span_m + pad
     s = min(W / (x1 - x0), HH / (span_m + pad))
     n = min(len(v) for v in tracks.values())
-    out = []
     for i in range(n):
         im = Image.new("RGB", (W, HH), (238, 238, 234))
         d = ImageDraw.Draw(im)
@@ -213,8 +252,7 @@ def _phys_frames2(tracks, ground_y, span_m, W=640, HH=360):
                 d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
                           fill=(216, 96, 72), outline=(70, 60, 55), width=2)
             d.text((cx - 3, cy - 4), k[:1], fill=(40, 40, 40))
-        out.append(im)
-    return out
+        yield im
 
 
 def case_C16():

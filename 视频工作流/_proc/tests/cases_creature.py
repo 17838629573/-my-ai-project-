@@ -24,7 +24,7 @@ from motion.creature.climb_rock import _effectors, ORDER
 
 from motion.creature.quadruped import (quadruped_sim, foot_slip,
                                           GAIT_TABLE, GAIT_NAMES)
-from tools.measure.motionqual import amp_ratio, foot_skate_ratio
+from base.metrics import amp_ratio, foot_skate_ratio
 import tests.harness as H
 
 

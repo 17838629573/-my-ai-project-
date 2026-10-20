@@ -30,7 +30,8 @@ import sys
 import urllib.request
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_PROC = os.path.dirname(_HERE)
+# 同上：attest 子包下 _PROC 须上溯两级。
+_PROC = os.path.dirname(os.path.dirname(_HERE))
 _ROOT = os.path.dirname(_PROC)
 
 sys.path.insert(0, _PROC)
@@ -393,7 +394,7 @@ def run(offline=False):
 
 def self_check():
     import base.assertrun as _ar
-    chk = _ar.Checker("tools/refcheck")
+    chk = _ar.Checker("tools/attest/refcheck")
     # 正则
     chk.eq("能抽 arXiv 号", _ARXIV_RE.findall("arXiv:2410.07296 and arXiv:2604.28025"),
            ["2410.07296", "2604.28025"])

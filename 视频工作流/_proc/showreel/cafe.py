@@ -184,10 +184,13 @@ def main():
                "sole": paint.hex2rgb("#2f3b57")}
     n = 12 * FPS
     _HOLD["p"] = None                            # 防 frame 复用
-    fr = [frame(i / float(FPS), bg, cam, palette) for i in range(n)]
-    run.to_mp4(fr, "咖啡馆_12秒.mp4", fps=FPS)
+    # 流式写出：keep_every=FPS 每秒留一帧供抽图，其余渲染完即落盘
+    wt = run.StreamWriter("咖啡馆_12秒.mp4", fps=FPS, keep_every=FPS)
+    for i in range(n):
+        wt.push(frame(i / float(FPS), bg, cam, palette))
+    wt.close()
     for i in (0, 3, 6, 9, 11):
-        fr[i * FPS].save("咖啡馆_t%02ds.png" % i)
+        wt.kept[i].save("咖啡馆_t%02ds.png" % i)
     print("相机:", cam.info())
     print("段位抽样:")
     for t in (1.5, 4.5, 6.5, 8.0, 8.7, 10.0, 11.6):

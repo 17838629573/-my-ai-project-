@@ -1,0 +1,50 @@
+{
+ "H40": {
+  "id": "H40",
+  "grp": "H",
+  "name": "混合场景：7 类实体同时间轴 / 无 NaN / 跨体穿透 / 时间轴对齐",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nnan_count                     0    <= 0          PASS\nframe_jump_ratio         1.6712     < 3          PASS\nxbody_penetration_m            0     < 0.005      PASS\nground_penetration_m            0     < 0.005      PASS\nmin_arc_m              0.034225     > 0.01       PASS\ntime_span_err_s               0    <= 0.041667   PASS\n总判定: PASS",
+  "sec": 2.23
+ },
+ "P41": {
+  "id": "P41",
+  "grp": "P",
+  "name": "树叶飘落：终端速度远低于自由落体 / 水平漂移 / flutter 涌现",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nleaf_v_term_mps         0.16446     < 3.13       PASS\nleaf_drift_m             3.5424     > 0.0001     PASS\nleaf_swings                   2    >= 2          PASS\n总判定: PASS",
+  "sec": 0.02
+ },
+ "P42": {
+  "id": "P42",
+  "grp": "P",
+  "name": "墙体开裂：断键 / 多碎块 / 碎块位移有界",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nfrac_max_disp_m         0.49607     < 1          PASS\nfrac_n_broken                28    >= 1          PASS\nfrac_n_frag                   2    >= 2          PASS\n总判定: PASS",
+  "sec": 1.2
+ },
+ "P43": {
+  "id": "P43",
+  "grp": "P",
+  "name": "水流冲击地面：不穿地 / 横向铺展 / 粒子不丢 / 密度收敛",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nwater_spread_ratio       9.3091     > 1          PASS\nwater_rho_rel          0.014455     < 0.1        PASS\nwater_n_alive               180     > 162        PASS\nground_penetration_m           -0     < 0.005      PASS\n总判定: PASS",
+  "sec": 4.71
+ },
+ "P44": {
+  "id": "P44",
+  "grp": "P",
+  "name": "牛顿摆：末球弹出 / 中间球窗口内静止 / 能量守恒",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\ncradle_th_mid_win_rad   0.00065351     < 0.03       PASS\ncradle_th_last_win_rad      0.52787     > 0.3        PASS\ncradle_energy_err      0.024091     < 0.05       PASS\n总判定: PASS",
+  "sec": 0.06
+ },
+ "P45": {
+  "id": "P45",
+  "grp": "P",
+  "name": "转台：离心滑移 / 被甩向外 / 科氏横向偏转",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nturntable_r_end_m       0.51472     > 0.1        PASS\nturntable_lateral_m       2.4041     > 1e-06      PASS\n总判定: PASS",
+  "sec": 0.0
+ }
+}

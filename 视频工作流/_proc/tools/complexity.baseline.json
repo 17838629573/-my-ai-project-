@@ -121,28 +121,6 @@
       "owner": "tests",
       "since": "2026-10-10"
     },
-    "tests/cases_base.py::case_B8": {
-      "ccn": 12,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-09",
-      "file": "tests/cases_base.py",
-      "func": "case_B8",
-      "length": 42,
-      "line": 373,
-      "owner": "tests",
-      "since": "2026-10-10"
-    },
-    "tests/cases_crowd.py::case_D24": {
-      "ccn": 14,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-09",
-      "file": "tests/cases_crowd.py",
-      "func": "case_D24",
-      "length": 45,
-      "line": 114,
-      "owner": "tests",
-      "since": "2026-10-10"
-    },
     "tests/cases_g36.py::_g36_jump_ratio": {
       "ccn": 11,
       "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
@@ -152,28 +130,6 @@
       "length": 9,
       "line": 38,
       "owner": "tests",
-      "since": "2026-10-10"
-    },
-    "tests/cases_phys.py::_phys_frames_auto": {
-      "ccn": 12,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-09",
-      "file": "tests/cases_phys.py",
-      "func": "_phys_frames_auto",
-      "length": 39,
-      "line": 78,
-      "owner": "tests",
-      "since": "2026-10-10"
-    },
-    "tools/capsrc.py::cap_source_of": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-09",
-      "file": "tools/capsrc.py",
-      "func": "cap_source_of",
-      "length": 20,
-      "line": 14,
-      "owner": "tools",
       "since": "2026-10-10"
     },
     "tools/layers.py::run": {
@@ -206,17 +162,6 @@
       "func": "imports_of",
       "length": 34,
       "line": 59,
-      "owner": "tools",
-      "since": "2026-10-10"
-    },
-    "tools/repro.py::verify": {
-      "ccn": 11,
-      "clear_when": "CCN 降到 <=10 后，棘轮自动收紧并从基线删除",
-      "due": "2026-11-09",
-      "file": "tools/repro.py",
-      "func": "verify",
-      "length": 32,
-      "line": 60,
       "owner": "tools",
       "since": "2026-10-10"
     }

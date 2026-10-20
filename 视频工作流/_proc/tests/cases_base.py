@@ -5,7 +5,7 @@
 # -*- coding: utf-8 -*-
 from .common import *          # noqa: F401,F403  常量
 from .common import _world, _align_n   # 下划线名不随 * 导出，必须显式
-from tools.measure.motionqual import foot_skate_ratio
+from base.metrics import foot_skate_ratio
 
 def _a1_leg_skates(W, N):
     """按腿分段量滑步峰值：跨换脚比较位移会把"换脚"误判成跳变
@@ -27,6 +27,33 @@ def _a1_leg_skates(W, N):
     return skates
 
 
+def _a1_skate_ratio(W, N):
+    """打滑帧占比：业界按 ratio 报告（Motion Toolbox good<0.40），与峰值互补。
+
+    左右腿支撑相不同，不能合成一个帧级接触序列——必须逐腿算再合并计数。
+    up_axis=1：_world 输出 (x=前进, h=高度, z=侧向)，竖直轴是 index 1
+    """
+    nc_t, ns_t = 0, 0
+    for side, lo, hi in (("l", 0.0, 0.5), ("r", 0.5, 1.0)):
+        cs = [(lo <= i / N < hi) for i in range(N)]
+        _r, _nc, _ns = foot_skate_ratio(
+            W, ["heel_" + side], contact_seq=cs, thresh_m=0.01, up_axis=1)
+        nc_t += _nc
+        ns_t += _ns
+    return ((ns_t / float(nc_t)) if nc_t else None), nc_t, ns_t
+
+
+def _a1_lowests(W):
+    """每帧最低关节高度序列（判浮空用）。"""
+    return [min(v[1] for v in w.values()) for w in W]
+
+
+def _a1_pelvis_disp(W):
+    """骨盆逐帧前向位移绝对值序列（判时间连续性用）。"""
+    return [abs(W[i + 1]["pelvis"][0] - W[i]["pelvis"][0])
+            for i in range(len(W) - 1)]
+
+
 def case_A1():
     """直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性"""
     from motion.character.body.gait import gait
@@ -38,41 +65,29 @@ def case_A1():
 
     # 按腿分段：左腿支撑 ph∈[0,0.5)，右腿 ph∈[0.5,1)
     # 跨换脚比较位移会把"换脚"误判成跳变
-    lows = []
-    skates = _a1_leg_skates(W, N)
-    for w in W:
-        lows.append(min(v[1] for v in w.values()))
-
-    skate_mean, skate_max = max(skates), max(skates)
-    disp = [abs(W[i + 1]["pelvis"][0] - W[i]["pelvis"][0])
-            for i in range(len(W) - 1)]
+    lows = _a1_lowests(W)
+    # 取最坏腿的峰值，不取均值：均值会被多数好帧稀释，掩盖最坏帧。
+    # 原写法 mean/max 两个变量都取 max，名不副实（mean 实为 peak）——统一命名。
+    skate_peak = max(_a1_leg_skates(W, N))
+    disp = _a1_pelvis_disp(W)
 
     # 双脚水平距离（x=前进, z=侧向），两维都要，不能只取一维
     fa = [(w["heel_l"][0], w["heel_l"][2]) for w in W]
     fb = [(w["heel_r"][0], w["heel_r"][2]) for w in W]
 
-    # 打滑帧占比：业界按 ratio 报告（Motion Toolbox good<0.40），与均值互补。
-    # 左右腿支撑相不同，不能合成一个帧级接触序列——必须逐腿算再合并计数。
-    # up_axis=1：_world 输出 (x=前进, h=高度, z=侧向)，竖直轴是 index 1
-    nc_t, ns_t = 0, 0
-    for side, lo, hi in (("l", 0.0, 0.5), ("r", 0.5, 1.0)):
-        cs = [(lo <= i / N < hi) for i in range(N)]
-        _r, _nc, _ns = foot_skate_ratio(
-            W, ["heel_" + side], contact_seq=cs, thresh_m=0.01, up_axis=1)
-        nc_t += _nc
-        ns_t += _ns
-    skate_ratio = (ns_t / float(nc_t)) if nc_t else None
+    skate_ratio, nc_t, ns_t = _a1_skate_ratio(W, N)
 
     return [
-        ("skate_cm_frame", skate_mean),
+        ("skate_cm_frame", skate_peak),
         ("foot_skate_ratio", 1.0 if skate_ratio is None else skate_ratio),
         ("float_m", H.float_m(lows)),
         ("feet_clip_m", H.feet_clip_m(fa, fb)),
         ("frame_jump_ratio", H.frame_jump_ratio(disp)),
-    ], {"帧数": N, "周期行程_m": CYCLE, "skate_max_cm": round(skate_max, 4),
+    ], {"帧数": N, "周期行程_m": CYCLE, "skate_max_cm": round(skate_peak, 4),
          "最坏帧最低关节_m": round(max(lows), 4),
          "打滑帧占比": (None if skate_ratio is None else round(skate_ratio, 4)),
          "接触帧数": nc_t, "打滑帧数": ns_t}
+
 
 
 def _A2_collect(RAW, BRAW, NR, SPS):
@@ -368,127 +383,6 @@ def case_A6():
         "最坏帧最低关节_m": round(float(max(lows)), 4)}
 
 
-from motion.character.prop import grab_point_world
 
 
 
-def _grip_hand(cup, Xc=0.0, Zc=0.0, yaw=0.0):
-    """手心应到的位置(米)：物体中心 + 抓握方向 × (物体半径 + 腕到抓握点)
-
-    出处 crouch.py：手心到物体中心 = 物体半径 + 腕到抓握点
-    """
-    from motion.character.crouch import WRIST_TO_GRIP
-    G = np.asarray(grab_point_world(cup, Xc, Zc, yaw), float)
-    c = np.asarray(cup.center(), float)
-    d = G - c
-    r = 0.5 * float(cup.size[0])
-    return c + d / np.linalg.norm(d) * (r + WRIST_TO_GRIP)
-
-
-
-def case_B8():
-    """拿杯子：手伸向杯子→手指闭合(attach)→杯固定在手中→移动时不掉落
-
-    依据: FrameSprite 四相位责任表，attach 在 u=SPANS[0]；
-    手心到杯心 = 杯半径 + 腕到抓握点 0.038m（出处 crouch.py）
-    """
-    from motion.character import prop as P
-    from motion.character.crouch import WRIST_TO_GRIP
-    FPS = 60.0
-    surf = 1.05
-    cup = P.Prop("cup", size=(0.08, 0.10, 0.08), grip="right", pivot=(0.0, surf, 1.20))
-    G = _grip_hand(cup)
-    rel = np.asarray(cup.pivot, float) - G          # 杯底中心相对手心的偏移(握持期恒定)
-    rest = np.array([0.24, 1.02, 0.0])
-    ho = P.Handoff(cup)
-    N = int(1.6 * FPS)
-    hands, cens, owners = [], [], []
-    for i in range(N):
-        u = min(i / (N - 1), 0.999)
-        ph = P.phase_of(u)
-        if ph == "pickup":
-            hand = np.asarray(P.ease_target(rest, G, u / P.SPANS[0]), float)
-        else:
-            hand = G + np.array([0.6 * (u - P.SPANS[0]) / (1 - P.SPANS[0]), 0.0, 0.0])
-        ho.advance(u)
-        if cup.owner.startswith("hand"):
-            cup.pivot = hand + rel
-        hands.append(np.asarray(hand, float))
-        cens.append(np.asarray(cup.center(), float).copy())
-        owners.append(cup.owner)
-    pen = [(float(np.linalg.norm(h - c)), WRIST_TO_GRIP, 0.5 * cup.size[0])
-           for h, c in zip(hands, cens)]
-    att = [i for i, o in enumerate(owners) if o.startswith("hand")]
-    ys = [cens[i][1] for i in att]
-    return [
-        ("penetration_m", H.penetration_m(pen)),
-        ("frame_jump_ratio", H.frame_jump_ratio(
-            [float(np.linalg.norm(cens[i + 1] - cens[i])) for i in range(len(cens) - 1)])),
-    ], {"attach帧": att[0] if att else None,
-        "杯心高度漂移_m": round(max(ys) - min(ys), 6) if ys else None,
-        "持杯随行_m": round(float(np.linalg.norm(cens[-1] - cens[att[0]])), 4) if att else 0.0,
-        "末帧owner": owners[-1]}
-
-
-def _b9_hand(u, G0, land_hand):
-    """B9 单帧手位：抬起→水平运到落点上方→垂直下放→收回。
-
-    从 case_B9 主循环抽出（原函数 54 行 > R3 上限 50）。
-    相位划分与插值口径逐条照搬，未改判据。
-    """
-    from motion.character import prop as P
-    over = land_hand + np.array([0.0, 0.25, 0.0])   # 落点正上方的提运高度
-    ph = P.phase_of(u)
-    if ph == "pickup":                              # 抬起
-        k = u / P.ATTACH_AT
-        return G0 + (over - G0) * float(np.clip(k, 0.0, 1.0))
-    if ph == "held":                                # 水平运到落点上方
-        k = (u - P.ATTACH_AT) / P.SPANS[1]
-        return over + (land_hand + np.array([0.0, 0.25, 0.0]) - over) * float(np.clip(k, 0, 1))
-    if ph == "release":                             # 垂直下放
-        k = (u - P.ATTACH_AT - P.SPANS[1]) / P.SPANS[2]
-        hi = land_hand + np.array([0.0, 0.25, 0.0])
-        return hi + (land_hand - hi) * float(np.clip(k, 0, 1))
-    k = (u - P.ATTACH_AT - P.SPANS[1] - P.SPANS[2]) / P.SPANS[3]
-    return land_hand + (np.array([0.24, 1.02, 0.0]) - land_hand) * float(np.clip(k, 0, 1))
-
-
-def case_B9():
-    """放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
-
-    依据: UE5 程序化拾取——放下补偿 pivot→bounds 偏移，底面中心贴台面(prop.py)
-    """
-    from motion.character import prop as P
-    from motion.character.crouch import WRIST_TO_GRIP
-    FPS = 60.0
-    surf = 1.05
-    cup = P.Prop("cup", size=(0.08, 0.10, 0.08), grip="right", pivot=(0.0, surf + 0.25, 1.20))
-    cup.attach()
-    G0 = _grip_hand(cup)
-    rel = np.asarray(cup.pivot, float) - G0
-    land = np.array([0.15, surf, 1.15])
-    land_hand = land - rel                           # 落点对应的手位（保证 detach 无跳变）
-    ho = P.Handoff(cup)
-    N = int(1.4 * FPS)
-    hands, cens, owners = [], [], []
-    for i in range(N):
-        u = i / (N - 1)
-        hand = np.asarray(_b9_hand(u, G0, land_hand), float)
-        ho.advance(u)
-        cup.pivot = (hand + rel) if cup.owner.startswith("hand") else land
-        hands.append(hand.copy())
-        cens.append(np.asarray(cup.center(), float).copy())
-        owners.append(cup.owner)
-    ys = [c[1] - 0.5 * cup.size[1] for c in cens]    # 杯底高度
-    below = max(0.0, surf - min(ys))
-    pen = [(float(np.linalg.norm(h - c)), WRIST_TO_GRIP, 0.5 * cup.size[0])
-           for h, c in zip(hands, cens)]
-    return [
-        ("penetration_m", H.penetration_m(pen)),
-        ("frame_jump_ratio", H.frame_jump_ratio(
-            [float(np.linalg.norm(cens[i + 1] - cens[i]))
-             for i in range(len(cens) - 1) if owners[i].startswith("hand")])),
-    ], {"穿透台面_m": round(below, 6),
-        "落定杯底高_m": round(ys[-1], 4),
-        "末帧手物距_m": round(float(np.linalg.norm(hands[-1] - cens[-1])), 4),
-        "末帧owner": owners[-1]}

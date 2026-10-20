@@ -74,21 +74,28 @@ def self_check():
     body_a = b"\x89PNG\r\n\x1a\nA" + b"0" * 40
     body_b = b"\x89PNG\r\n\x1a\nB" + b"1" * 40
     ps = []
-    for i in range(10):                 # 前 10 帧静止，后 10 帧交替
+    # 真实回归（2026-10-14）：原写法 range(10) 配 "i < 10"，后半段分支永远
+    # 走不到 —— 10 帧全同，只验了"完全静止"这一个退化情形，交替段从未被测。
+    # 自检覆盖的是替身不是本体，属"看似有自检实则没验"。改为 20 帧两段。
+    for i in range(20):                 # 前 10 帧静止，后 10 帧交替
         p = os.path.join(d, "f%03d.png" % i)
         with open(p, "wb") as f:
             f.write(body_a if i < 10 else (body_a if i % 2 else body_b))
         ps.append(p)
     n, u, dup, runs = scan(ps)
-    ok1 = dup > 0.5                     # 应抓到高重复率
+    ok1 = dup > 0.25                    # 20 帧中 15 帧重复 -> 0.75，应抓到高重复率
     ok2 = any(L >= 10 for _s, L in runs)  # 应抓到长度 10 的静止段
+    ok3 = u == 2                        # 交替段确实产生了第 2 个不同帧（证明非退化）
     print("eFPS 自检: n=%d unique=%d dup=%.2f 静止段=%s -> %s"
-          % (n, u, dup, runs, "PASS" if (ok1 and ok2) else "FAIL"))
-    return bool(ok1 and ok2)
+          % (n, u, dup, runs, "PASS" if (ok1 and ok2 and ok3) else "FAIL"))
+    return bool(ok1 and ok2 and ok3)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    # 统一入口约定：其它工具一律用 --self-check 触发自检，无参运行则是真扫描。
+    # 本工具此前只有"无参=自检"一种口径，gate.py 无参调用时把自检当成了
+    # 真扫描（paths 为空 -> dup=0 -> 退出 0），等于什么都没验。现补 --self-check。
+    if "--self-check" in sys.argv[1:] or len(sys.argv) < 2:
         sys.exit(0 if self_check() else 1)
     paths = []
     for a in sys.argv[1:]:

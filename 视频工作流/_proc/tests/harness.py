@@ -148,6 +148,47 @@ def jitter_px(frames):
     return float(np.mean([np.abs(g[i + 1] - g[i]).mean() for i in range(len(g) - 1)]))
 
 
+class JitterStream(object):
+    """jitter_px 的流式等价物：只驻留 1 帧灰度，不攒整段。
+
+    存在理由：导出改流式后，判据需要的「静止段」帧不再驻留内存，
+    但判据值必须逐位不变——不能因为省内存就把判据悄悄换口径
+    （ skate_cm_frame 与 foot_slip_m 差 10 倍就是前车之鉴）。
+
+    用法：
+        js = JitterStream(start=静止段起始帧号)
+        for i in range(n):
+            js.push(gray_i)        # gray_i 为 float 灰度数组
+        jit = js.value()           # == jitter_px(frames[start:])
+
+    start 之前的帧只更新 _prev，不累计；这样首个计入的差仍是
+    「start-1 → start」之外、段内的相邻对，与切片语义一致。
+    """
+
+    def __init__(self, start=0):
+        self.start = int(start)
+        self.i = 0
+        self._prev = None
+        self._sum = 0.0
+        self._cnt = 0
+
+    def push(self, gray):
+        g = np.asarray(gray, float)
+        # 严格用 >：i == start 是段首，它与段外前一帧的差不计入，
+        # 否则会多算一对，与 frames[start:] 的切片语义不一致（自检 10b 抓过）
+        if self.i > self.start and self._prev is not None:
+            self._sum += float(np.abs(g - self._prev).mean())
+            self._cnt += 1
+        self._prev = g
+        self.i += 1
+
+    def value(self):
+        """与 jitter_px(frames[start:]) 等价；样本不足 2 帧返回 0.0"""
+        if self._cnt < 1:
+            return 0.0
+        return float(self._sum / self._cnt)
+
+
 # ---------------------------------------------------------------- 物理守恒
 def restitution(h0, h1):
     """e = sqrt(h1/h0)"""
@@ -277,6 +318,32 @@ def report(checks):
     return "\n".join(lines), allok
 
 
+def _sc_jitter_stream():
+    """流式抖动必须与整段抖动逐位一致。
+
+    存在理由：导出改流式后整段帧不再驻留，判据值却不得漂移。
+    三条缺一不可——前两条证明等价，第三条是反向哨兵：
+    start 写错时必须真的不一致，否则前两条是恒真的假绿。
+    """
+    rnd = np.random.RandomState(7)
+    seq_g = [rnd.uniform(0, 255, (8, 8)) for _ in range(12)]
+
+    def _run(start):
+        js = JitterStream(start=start)
+        for g_ in seq_g:
+            js.push(g_)
+        return js.value()
+
+    base = jitter_px(seq_g)
+    d0 = abs(_run(0) - base)
+    d1 = abs(_run(5) - jitter_px(seq_g[5:]))
+    # 反向哨兵：故意把 start 写错 1 帧
+    d2 = abs(_run(4) - jitter_px(seq_g[5:]))
+    return [("流式抖动=整段抖动", d0 < 1e-12, d0),
+            ("流式偏移=切片结果", d1 < 1e-12, d1),
+            ("start写错应不一致", d2 > 1e-9, d2)]
+
+
 def self_check():
     """判据库自检：构造已知答案，确认公式没写反。"""
     out = []
@@ -323,6 +390,7 @@ def self_check():
     st2 = [(1.0, (0.0, 0.0), 1.0), (1.0, (0.0, -3.0), 0.95)]
     g2 = energy_gain(st2)
     out.append(("能量凭空增加应检出", g2 > 0, g2))
+    out.extend(_sc_jitter_stream())
     for name, ok, v in out:
         print("%-24s %-6s %g" % (name, "PASS" if ok else "FAIL", v))
     return all(ok for _, ok, _ in out)

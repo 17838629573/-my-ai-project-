@@ -83,20 +83,24 @@ def render_case(name, pose_fn, n, out_prefix, yaw=90.0, Zc=5.0,
     cam = _cam()
     bg = _bg()
     bg_arr = np.asarray(bg).astype(np.int16)
-    frames = []
     worst = {"silhouette_gap_px": 0.0, "silhouette_span_ratio": 9.9,
              "mask_iou": 1.0}
     kw = {"yaw": yaw, "Zc": Zc, "lane": lane, "palette": palette,
           "hand_lod": hand_lod, "extra": extra}
+    # 流式写出：帧渲染完立刻落盘，不再攒 frames 列表。
+    # 原实现全帧驻留，实测 1.48MB/帧 —— 60s@24fps 仅帧数据就 2.1GB，
+    # 2GB 机器必然 OOM，这才是「只能出 9 秒」的真凶。
+    # 索引图改用 StreamWriter 的抽样帧（keep_every），无需额外驻留。
+    mp4 = os.path.join(OUT, "%s.mp4" % out_prefix)
+    sw = R.StreamWriter(mp4, fps=int(FPS), keep_every=max(1, n // 6))
     for i in range(n):
         t = (t_end or (n / FPS)) * i / max(n - 1, 1)
         img, m, Jp2 = _render_frame(t, i, pose_fn, cam, bg_arr, kw)
         _silhouette_worst(m, Jp2, worst)
-        frames.append(img)
-    mp4 = os.path.join(OUT, "%s.mp4" % out_prefix)
-    R.to_mp4(frames, mp4, int(FPS))
+        sw.push(img)
+    sw.close()
     png = os.path.join(OUT, "%s_索引.png" % out_prefix)
-    _index(frames, png, 6)
+    _index(sw.kept, png, 6)
     checks = [(k, v) for k, v in worst.items()]
     txt, ok = HS.report(checks)
     return {"name": name, "mp4": mp4, "png": png, "ok": ok,

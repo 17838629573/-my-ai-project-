@@ -43,69 +43,10 @@ CANARY = os.path.join(_PROC, "_canary_faultbench.py")
 _LAST_ERR = {"baseline": ""}
 
 from tools.corpus import BASE, FAULTS
+from tools.faultlock import CANARY, LOCK, _acquire, _release, _write
 
 
 
-LOCK = os.path.join(_PROC, ".faultbench.lock")
-
-
-def _acquire():
-    """单实例锁：canary 是共享的单个文件，两个实例并发跑会互相覆盖。
-
-    历史事故：上一轮实例被沙箱中断后仍在后台活着，新实例的 baseline()
-    刚写完干净基线，就被旧实例的注入覆盖成带 os.sep 的版本，
-    于是报"基准不可信 / 动态 False"——看起来像工具有病，实际是自己踩自己。
-    """
-    stale = False
-    if os.path.exists(LOCK):
-        try:
-            with open(LOCK, "r", encoding="utf-8") as f:
-                pid = int((f.read().strip() or "0"))
-            if pid and pid != os.getpid():
-                # 只认"确实在跑 faultbench"的 pid：os.kill(pid,0) 对任意
-                # 存活进程都成功，pid 复用会把别的进程误判成并发实例，
-                # 于是工具拒绝启动（锁看着像活的，实际没人持锁）。
-                try:
-                    with open("/proc/%d/cmdline" % pid, "rb") as cf:
-                        cmd = cf.read().decode("utf-8", "replace")
-                except OSError:
-                    cmd = ""
-                if "faultbench" in cmd:
-                    return False, pid
-                stale = True
-        except (OSError, ValueError):
-            stale = True
-        if stale:
-            # 为什么用 suppress 而不是裸 except pass：
-            # 陈旧锁要么已被抢占者删掉（FileNotFoundError），要么无权限（PermissionError）。
-            # 两种情况都会在下方 os.open(O_EXCL) 处真实暴露并报错，
-            # 因此这里不掩盖并发冲突——它掩盖不了。
-            with contextlib.suppress(OSError):
-                os.remove(LOCK)
-    fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(str(os.getpid()))
-    return True, 0
-
-
-def _release():
-    # 同 _acquire：锁可能已被抢占者删除。真正的冲突在 _acquire 的 O_EXCL 暴露，
-    # 这里 suppress 不会掩盖它。
-    with contextlib.suppress(OSError):
-        os.remove(LOCK)
-
-
-def _write(src):
-    """写入 canary 源码。
-
-    必须显式 close + fsync：历史上写成 io.open(...).write(src)（无 close），
-    缓冲区未落盘时子进程读到的是上一轮的旧内容，导致基线被判"不可信"，
-    而单独重跑又通过 —— 典型的时隐时现假失败。
-    """
-    with io.open(CANARY, "w", encoding="utf-8") as fh:
-        fh.write(src)
-        fh.flush()
-        os.fsync(fh.fileno())
 
 
 def _run_check():
@@ -244,6 +185,24 @@ def _verdict_of(mutated, fid, cat, desc, base):
             "detail": dmsg}
 
 
+def _canary_paths():
+    """所有 canary 变体路径（含历史命名）。
+
+    为什么要 glob 而不是只认 CANARY 一个文件名：
+    本工具早期版本按缺陷编号生成 canary（_canary_F01.py … F14），
+    后来改成单文件共享（_canary_faultbench.py）。旧命名的残留
+    匹配不到新 glob，于是永远清不掉，被 smell/check 当普通模块扫，
+    报出一堆与项目无关的假信号（实测：S01/S03/S07 各一条）。
+    """
+    import glob
+    d = os.path.dirname(CANARY)
+    return sorted(
+        set(glob.glob(os.path.join(d, "_canary_*.py")))
+        | set(glob.glob(os.path.join(d, "__pycache__", "_canary_*.pyc")))
+        | (set([CANARY]) if os.path.exists(CANARY) else set())
+    )
+
+
 def residue():
     """磁盘残留：上一轮异常退出（超时/被杀）时 canary 没被回收。
 
@@ -252,15 +211,26 @@ def residue():
     历史事故：一次中断留下的残留带 F05，smell 报 S07 浮点相等，
     看起来像项目有新缺陷，实际是基准自己的垃圾没扫干净。
     """
-    if not os.path.exists(CANARY):
-        return {"exists": False, "bytes": 0, "injected": False}
-    try:
-        with open(CANARY, "r", encoding="utf-8") as f:
-            s = f.read()
-    except OSError:
-        return {"exists": True, "bytes": 0, "injected": False}
-    # 与 BASE 不同 = 带着未回滚的注入
-    return {"exists": True, "bytes": len(s), "injected": s != BASE}
+    paths = _canary_paths()
+    if not paths:
+        return {"exists": False, "bytes": 0, "injected": False,
+                "paths": []}
+    injected = False
+    total = 0
+    for p in paths:
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                s = f.read()
+        except OSError:
+            # 二进制 pyc 或读不到：算存在，但判不了是否带注入
+            injected = True
+            continue
+        total += len(s)
+        # 与 BASE 不同 = 带着未回滚的注入（canary 源码本应等于 BASE）
+        if s != BASE:
+            injected = True
+    return {"exists": True, "bytes": total, "injected": injected,
+            "paths": paths}
 
 
 def _clean_residue():
@@ -279,13 +249,14 @@ def _clean_residue():
     # 为什么 suppress：文件可能已被抢先删掉（FileNotFoundError）或无权限；
     # 残留没清掉会在下一轮继续污染扫描，而"清不掉"这件事本身会在
     # residue() 里作为 exists=True 重新报出来，不会被这里吞掉。
-    import glob
-    for path in [CANARY, CANARY + "c"] + glob.glob(
-            os.path.join(os.path.dirname(CANARY),
-                         "__pycache__", "_canary_faultbench*.pyc")):
+    for path in _canary_paths():
         with contextlib.suppress(OSError):
             os.remove(path)
             n += 1
+    # .pyc 可能在 __pycache__ 之外（单文件 canary 编译产物同目录）
+    with contextlib.suppress(OSError):
+        os.remove(CANARY + "c")
+        n += 1
     return n
 
 
@@ -332,6 +303,31 @@ def _recall_asserts(rows, k):
     ]
 
 
+def _clean_assert():
+    """清理能力自检：造一个历史命名残留，验证 _clean_residue 真能清掉。
+
+    为什么必须验能力而不只验状态：
+    '当前无残留' 是运气，'造出来能清掉' 才是能力。旧版 glob 只认
+    _canary_faultbench*，历史命名的 _canary_F01.py 永远清不掉，
+    而自检只看 CANARY 是否存在，于是绿了很多轮 —— 残留一直在污染扫描。
+    """
+    import glob
+    d = os.path.dirname(CANARY)
+    probe = os.path.join(d, "_canary_probe_clean.py")
+    try:
+        with open(probe, "w", encoding="utf-8") as f:
+            f.write("def f():\n    return 1\n")
+        found = probe in _canary_paths()
+        n = _clean_residue()
+        left = os.path.exists(probe)
+        return found and n > 0 and not left
+    except OSError:
+        return False
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(probe)
+
+
 def self_check():
     """自检：基准本身必须可信——干净基线全绿、且能抓到大多数人造缺陷。"""
     out = []
@@ -339,6 +335,8 @@ def self_check():
     rs = residue()
     out.append(("无残留 canary（上一轮异常退出）",
                 not rs["exists"] and not rs["injected"]))
+    out.append(("清理能力：历史命名残留也能清掉（不只看当前状态）",
+                _clean_assert()))
     rows, bh, bok = run()
     out.append(("基线干净无缺陷", rows is not None and bh == 0 and bok))
     if rows:

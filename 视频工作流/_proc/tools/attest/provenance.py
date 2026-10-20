@@ -28,12 +28,16 @@ import subprocess
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_PROC = os.path.dirname(_HERE)
+# 同上：attest 子包下 _PROC 须上溯两级，否则 _ROOT 整体错位。
+_PROC = os.path.dirname(os.path.dirname(_HERE))
 _ROOT = os.path.dirname(_PROC)
 
 sys.path.insert(0, _PROC)
 
-import anchors  # 外部锚点注册表（R22-A2），见 tools/anchors.py
+from tools.attest import anchors  # 外部锚点注册表（R22-A2），见 tools/attest/anchors.py
+# 为什么用绝对导入：写 `import anchors` 时只有把 tools/ 本身当 sys.path[0]
+# （即 python tools/attest/provenance.py）才成立；以包方式 tools.provenance 导入会
+# ModuleNotFoundError —— 同一个工具两种跑法结果不同，属于运行时序依赖。
 
 # 出处里"自己声明了某个上游常量数值"的可信锚点
 _ANCHOR = ("Box2D", "b2_", "linearSlop", "官方", "默认", "源码", "slop",
@@ -203,7 +207,7 @@ def run(crit=None):
 
 def self_check():
     import base.assertrun as _ar
-    chk = _ar.Checker("tools/provenance")
+    chk = _ar.Checker("tools/attest/provenance")
     # A: 造一个自相矛盾的条目，必须被抓到
     bad = [("penetration_m", 0.01, "Box2D 官方 b2_common.h: linearSlop = 0.005")]
     iss, _, _ = check_selfconsistency(bad)

@@ -1,0 +1,42 @@
+{
+ "F30": {
+  "id": "F30",
+  "grp": "F",
+  "name": "快速移动：高速跑，碰撞不丢失不穿墙",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nframe_jump_ratio              1     < 3          PASS\n总判定: PASS",
+  "sec": 0.12
+ },
+ "F31": {
+  "id": "F31",
+  "grp": "F",
+  "name": "多物体：50球同时落地互撞，不穿透不爆炸",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m         0.0030878     < 0.005      PASS\n总判定: PASS",
+  "sec": 9.97
+ },
+ "F32": {
+  "id": "F32",
+  "grp": "F",
+  "name": "零重力：漂浮，碰撞后匀速",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err                  0     < 0.02       PASS\npenetration_m            0.0025     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.03
+ },
+ "F33": {
+  "id": "F33",
+  "grp": "F",
+  "name": "高摩擦：滑动迅速停止",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err         4.7673e-13     < 0.02       PASS\npenetration_m         0.0019168     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.87
+ },
+ "F34": {
+  "id": "F34",
+  "grp": "F",
+  "name": "初始重叠：应分离或报错，不闪烁",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.65
+ }
+}

@@ -128,27 +128,29 @@
 | `turn` | **缺出处** | `motion/character/turn.py:359` |
 | `wave` | **缺出处** | `motion/character/gesture.py:168` |
 
-## 二、模块公开面（117 个模块）
+## 二、模块公开面（124 个模块）
 
 只列顶层公开函数（下划线开头为内部实现，不承诺稳定）。
-
-### `_canary_faultbench.py`
-
-缺陷注入基准的对照样本，注入前必须全绿
-
-- `area(r)`　`L14`　—　圆面积：S = pi * r^2。
-- `circumference(r)`　`L19`　—　圆周长：C = 2 * pi * r。
-- `ratio(a, b)`　`L24`　—　比值，b 为 0 时返回 None 而非抛异常。
-- `total(xs)`　`L31`　—　对序列求和。
-- `mean(xs)`　`L36`　—　算术平均，空列表返回 None。
-- `clamp(v, lo, hi)`　`L43`　—　把 v 限制在 [lo, hi] 区间内。
-- `self_check()`　`L52`　—　自检：返回 (名称, 是否通过) 列表。
 
 ### `base/assertrun.py`
 
 统一断言执行器——各模块 self_check 改写为"计算抽 helper + 数据表 chk"
 
 - `run(mod, fn=True, verbose)`　`L112`　—　跑一个模块的 self_check 并兜住异常（异常判 FAIL，不静默通过）。
+
+### `base/codec.py`
+
+（缺一句话职责）
+
+- `pick_codec(prefer)`　`L53`　—　按实测压缩率升序挑选「可用」的 fourcc，越小越省。
+- `ratio_of(tag)`　`L68`　—　返回该 fourcc 的实测体积比；无数据返回 None。
+
+### `base/metrics.py`
+
+判据测量公式库（最底层，任何层都可引用）
+
+- `foot_skate_ratio(frames, foot_joints, contact_seq, thresh_m, contact_thresh=None, up_axis=0.01)`　`L45`　—　打滑帧占比：业界按 ratio 报告，而不是只报均值。
+- `amp_ratio(amp_pp_m, body_len_m)`　`L90`　—　振幅比 A* = A / L。
 
 ### `check.py`
 
@@ -157,8 +159,8 @@
 - `walk_py()`　`L79`
 - `pkg_of(path)`　`L87`
 - `node_of(path)`　`L92`　—　节点名 pkg.module，用于传递依赖分析。
-- `edges(path)`　`L100`　—　返回该文件 import 到的 (pkg, module) 节点集合。
-- `main()`　`L426`　—　编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。
+- `edges(path)`　`L101`　—　返回该文件 import 到的 (pkg, module) 节点集合。
+- `main(files)`　`L466`　—　编排：建依赖图 → 逐文件扫描 → 包粒度汇总 → 出报告。
 
 ### `color/paint.py`
 
@@ -650,9 +652,9 @@ yaw 连续转身 + 原地换步 —— 让人物真的"转过去"而不是镜像
 
 时间线与出片：逐帧渲染并写 mp4
 
-- `draw_actor(cv, cam, J, Xc, Zc, yaw, body_h, template, hand_lod, palette, front, stroke=0.0, stroke_w=10.0, hand_curl=90.0)`　`L133`　—　画一个角色：线 + 色，全部挂在胶囊上。
-- `frame(t, scene, geom, bg, yaw, lane, Z0, speed, phase0, preset, body_h, template, palette, w, h, cam=None)`　`L163`　—　一帧 = 时间的纯函数。任意 t 可单独渲染，帧间不携带状态。
-- `to_mp4(frames, path=30, fps)`　`L186`　—　短片用：frames 为已驻留内存的 PIL 图列表。
+- `draw_actor(cv, cam, J, Xc, Zc, yaw, body_h, template, hand_lod, palette, front, stroke=0.0, stroke_w=10.0, hand_curl=90.0)`　`L134`　—　画一个角色：线 + 色，全部挂在胶囊上。
+- `frame(t, scene, geom, bg, yaw, lane, Z0, speed, phase0, preset, body_h, template, palette, w, h, cam=None)`　`L164`　—　一帧 = 时间的纯函数。任意 t 可单独渲染，帧间不携带状态。
+- `to_mp4(frames, path, fps=30, codec=None)`　`L187`　—　短片用：frames 为已驻留内存的 PIL 图列表。
 
 ### `motion/stage.py`
 
@@ -663,8 +665,8 @@ yaw 连续转身 + 原地换步 —— 让人物真的"转过去"而不是镜像
 - `render_seq(scene_name, n, fps, preset, depth, wind, phase0, preload)`　`L62`　—　渲染 n 帧，返回 (frames, geom)。
 - `step_len(preset, body_h)`　`L96`　—　一步的米数 —— 由骨架反推，并与文献公式交叉校验。
 - `walk_seq(scene_name, n, fps, preset, speed, stride_m, Z0, lane, yaw, body_h, wind, preload, phase0)`　`L204`　—　沿路真正走远：世界坐标驱动，透视相机投影（Composed Method）。
-- `to_mp4(frames, path=30, fps)`　`L240`
-- `sheet(frames, cols, pad, bg=6)`　`L250`　—　把帧排成一张索引图。
+- `to_mp4(frames, path, fps=30, codec=None)`　`L240`
+- `sheet(frames, cols, pad, bg=6)`　`L254`　—　把帧排成一张索引图。
 
 ### `motion/wind.py`
 
@@ -911,7 +913,7 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 - `rain(draw, t, rng)`　`L148`　—　雨丝：固定种子，随时间下落，避免逐帧随机闪烁。
 - `pose_woman(t)`　`L161`　—　女性姿态合成（0-24s 段）。
 - `render(start, end, w, h, out)`　`L188`　—　90秒长镜头主循环：物理轨迹查表 + 连续相机 + 分层合成。
-- `main(argv)`　`L238`
+- `main(argv)`　`L239`
 
 ### `tests/cases.py`
 
@@ -924,15 +926,13 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 （缺一句话职责）
 
-- `case_A1()`　`L29`　—　直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性
-- `case_A2()`　`L106`　—　跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
-- `case_A3()`　`L155`　—　原地跳跃：下蹲→蹬伸→腾空（严格抛物线）→落地缓冲→回升
-- `case_A7()`　`L229`　—　下蹲捡物：蹲下→伸手接触地面物体→拿起到手中→站起（物体随手上升）
-- `case_A4()`　`L266`　—　转身180：头-躯干-脚顺序自然，无瞬间翻转
-- `case_A5()`　`L298`　—　挥手：抬右臂 → 掌摆动，肩肘腕联动，肘不反折、臂不超伸
-- `case_A6()`　`L323`　—　踢球：抬腿踢中球 → 球飞出；接触为接触非穿透、动量守恒、支撑脚不浮空
-- `case_B8()`　`L373`　—　拿杯子：手伸向杯子→手指闭合(attach)→杯固定在手中→移动时不掉落
-- `case_B9()`　`L440`　—　放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
+- `case_A1()`　`L57`　—　直线行走：滑步 / 浮空 / 双脚互穿 / 时间连续性
+- `case_A2()`　`L137`　—　跑步急停：跑 2 个完整步周期 → 匀减速急停至 0
+- `case_A3()`　`L186`　—　原地跳跃：下蹲→蹬伸→腾空（严格抛物线）→落地缓冲→回升
+- `case_A7()`　`L260`　—　下蹲捡物：蹲下→伸手接触地面物体→拿起到手中→站起（物体随手上升）
+- `case_A4()`　`L297`　—　转身180：头-躯干-脚顺序自然，无瞬间翻转
+- `case_A5()`　`L329`　—　挥手：抬右臂 → 掌摆动，肩肘腕联动，肘不反折、臂不超伸
+- `case_A6()`　`L354`　—　踢球：抬腿踢中球 → 球飞出；接触为接触非穿透、动量守恒、支撑脚不浮空
 
 ### `tests/cases_carry.py`
 
@@ -944,16 +944,16 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 （缺一句话职责）
 
-- `case_G37()`　`L31`　—　G37 攀岩：三点支撑 / 支撑相零滑移 / 不穿壁 / 帧间平滑。
-- `case_G38()`　`L67`　—　G38 鱼游：脊椎段长守恒 / Strouhal 区间 / 帧间平滑。
-- `case_G39()`　`L96`　—　G39 四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑。
+- `case_G37()`　`L32`　—　G37 攀岩：三点支撑 / 支撑相零滑移 / 不穿壁 / 帧间平滑。
+- `case_G38()`　`L68`　—　G38 鱼游：脊椎段长守恒 / Strouhal 区间 / 帧间平滑。
+- `case_G39()`　`L103`　—　G39 四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑。
 
 ### `tests/cases_crowd.py`
 
 （缺一句话职责）
 
-- `case_D24()`　`L114`　—　D24 三角色互相碰撞：彼此阻挡/绕开，不重叠，不抖动
-- `case_D21()`　`L162`　—　D21 两人击掌：靠近 → 抬臂拍合 → 分开；不穿模、不跳变
+- `case_D24()`　`L142`　—　D24 三角色互相碰撞：彼此阻挡/绕开，不重叠，不抖动
+- `case_D21()`　`L179`　—　D21 两人击掌：靠近 → 抬臂拍合 → 分开；不穿模、不跳变
 
 ### `tests/cases_g36.py`
 
@@ -978,6 +978,13 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 - `case_F32()`　`L263`　—　F32 零重力：momentum_err + penetration_m。
 - `case_F33()`　`L273`　—　F33 摩擦：momentum_err（无摩擦工况）+ penetration_m。
 - `case_F34()`　`L287`　—　F34 初始重叠自动分离：penetration_m（判据改动见模块口径）。
+
+### `tests/cases_grasp.py`
+
+（缺一句话职责）
+
+- `case_B8()`　`L50`　—　拿杯子：手伸向杯子→手指闭合(attach)→杯固定在手中→移动时不掉落
+- `case_B9()`　`L108`　—　放下杯子：手移到桌面→张开手指(detach)→杯留在桌面→不穿透桌面
 
 ### `tests/cases_mixed.py`
 
@@ -1005,12 +1012,12 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 （缺一句话职责）
 
-- `resample_tracks(tracks, sim_dt, fps, duration)`　`L45`　—　把固定步长仿真轨迹重采样为视频帧序列，使物理时间 == 视频时间
-- `case_C18()`　`L125`　—　弹球：反弹高度逐次衰减 = 前一次 e^2，不穿地，不增能
-- `case_C20()`　`L155`　—　两球对撞：等质量交换速度、异质量动量守恒，不穿模
-- `case_C16()`　`L220`　—　堆叠方块：重力下稳定，不塌陷、不抖动、不穿模
-- `case_C17()`　`L243`　—　斜坡滚球：沿坡加速下滑，不穿斜面，不增能
-- `case_C19()`　`L263`　—　摆锤撞击：水平动量守恒（绳为外力，撞击角决定残差），绳长不变，不穿模
+- `resample_tracks(tracks, sim_dt, fps, duration)`　`L43`　—　把固定步长仿真轨迹重采样为视频帧序列，使物理时间 == 视频时间
+- `case_C18()`　`L129`　—　弹球：反弹高度逐次衰减 = 前一次 e^2，不穿地，不增能
+- `case_C20()`　`L159`　—　两球对撞：等质量交换速度、异质量动量守恒，不穿模
+- `case_C16()`　`L222`　—　堆叠方块：重力下稳定，不塌陷、不抖动、不穿模
+- `case_C17()`　`L245`　—　斜坡滚球：沿坡加速下滑，不穿斜面，不增能
+- `case_C19()`　`L265`　—　摆锤撞击：水平动量守恒（绳为外力，撞击角决定残差），绳长不变，不穿模
 
 ### `tests/cases_throw.py`
 
@@ -1024,7 +1031,7 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 （缺一句话职责）
 
 - `render_case(name, pose_fn, n, out_prefix, yaw, Zc, lane, t_end=90.0, palette=5.0, hand_lod=0.0, extra=None)`　`L79`　—　pose_fn(t) -> J（归一化身高单位）。逐帧渲染并量剪影。
-- `main()`　`L237`
+- `main()`　`L241`
 
 ### `tests/gen_doc.py`
 
@@ -1045,29 +1052,65 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 - `frame_jump_ratio(disp_seq)`　`L121`　—　disp_seq: 每帧位移（像素或米）。返回 max/中位；中位为 0 时给 inf。
 - `peak_rate_dps(rate_seq)`　`L132`　—　角速度序列(°/s) → 峰值。转身/摆臂等旋转动作的时序平滑度判据。
 - `jitter_px(frames)`　`L143`　—　帧图序列（灰度数组）→ 平均帧间绝对差（0~255）
-- `restitution(h0, h1)`　`L152`　—　e = sqrt(h1/h0)
-- `restitution_err(peaks, e)`　`L159`　—　peaks: 各次反弹最高点 [h0, h1, h2...]，检查 h_n = h0 * e^(2n)
-- `momentum_err(before, after)`　`L173`　—　before/after: [(m, (vx,vy))] → 总动量相对误差
-- `energy_gain(states)`　`L185`　—　states: [(m, v, h)] 每帧 → 若末态能量大于初态则正（能量凭空增加）
-- `knee_reflex(hip, knee=1.0, ankle, facing)`　`L198`　—　膝盖是否反折。facing=+1 表示人物朝 +u。
-- `elbow_reflex(shoulder, elbow=1.0, wrist, facing)`　`L217`
-- `silhouette_gap_px(mask)`　`L236`　—　剪影在 头顶→脚底 区间内的最长空行段（像素）。
-- `silhouette_span_ratio(mask, top_y, bot_y)`　`L249`　—　剪影纵向跨度 / 关节投影的头顶点—脚底点距离。
-- `mask_iou(a, b)`　`L259`　—　渲染掩膜 vs 胶囊几何真值掩膜的 IoU。
-- `report(checks)`　`L268`　—　checks: [(判据名, 实测值)] → 打印表
-- `self_check()`　`L280`　—　判据库自检：构造已知答案，确认公式没写反。
-- `contact_float_m(lows, contact_mask)`　`L332`　—　接触相浮空：只在标记为触地的帧上量最低关节离地高度，取最大值。
-- `ground_penetration_m(heights)`　`L342`　—　地面半空间穿透深度(m)：h<0 即穿地，取最大。
-- `flight_g_err(t_rel, h_m=9.80665, g)`　`L347`　—　抛体段二次拟合: h=a t²+b t+c, 弹道应满足 a=-g/2。返回 |(-2a)-g|/g
-- `flight_apex_err(apex_rise_m, flight_time_s=9.80665, g)`　`L359`　—　抛体顶点相对误差：实测升高 vs Δs=g·T_F²/8。
+- `restitution(h0, h1)`　`L193`　—　e = sqrt(h1/h0)
+- `restitution_err(peaks, e)`　`L200`　—　peaks: 各次反弹最高点 [h0, h1, h2...]，检查 h_n = h0 * e^(2n)
+- `momentum_err(before, after)`　`L214`　—　before/after: [(m, (vx,vy))] → 总动量相对误差
+- `energy_gain(states)`　`L226`　—　states: [(m, v, h)] 每帧 → 若末态能量大于初态则正（能量凭空增加）
+- `knee_reflex(hip, knee=1.0, ankle, facing)`　`L239`　—　膝盖是否反折。facing=+1 表示人物朝 +u。
+- `elbow_reflex(shoulder, elbow=1.0, wrist, facing)`　`L258`
+- `silhouette_gap_px(mask)`　`L277`　—　剪影在 头顶→脚底 区间内的最长空行段（像素）。
+- `silhouette_span_ratio(mask, top_y, bot_y)`　`L290`　—　剪影纵向跨度 / 关节投影的头顶点—脚底点距离。
+- `mask_iou(a, b)`　`L300`　—　渲染掩膜 vs 胶囊几何真值掩膜的 IoU。
+- `report(checks)`　`L309`　—　checks: [(判据名, 实测值)] → 打印表
+- `self_check()`　`L347`　—　判据库自检：构造已知答案，确认公式没写反。
+- `contact_float_m(lows, contact_mask)`　`L400`　—　接触相浮空：只在标记为触地的帧上量最低关节离地高度，取最大值。
+- `ground_penetration_m(heights)`　`L410`　—　地面半空间穿透深度(m)：h<0 即穿地，取最大。
+- `flight_g_err(t_rel, h_m=9.80665, g)`　`L415`　—　抛体段二次拟合: h=a t²+b t+c, 弹道应满足 a=-g/2。返回 |(-2a)-g|/g
+- `flight_apex_err(apex_rise_m, flight_time_s=9.80665, g)`　`L427`　—　抛体顶点相对误差：实测升高 vs Δs=g·T_F²/8。
 
 ### `tests/run_all.py`
 
 （缺一句话职责）
 
-- `case_F35()`　`L28`　—　超长视频 60s：累积误差漂移（RCS 相位漂移 + 里程累加漂移）
-- `case_E28()`　`L107`　—　爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
-- `main()`　`L172`
+- `case_F35()`　`L29`　—　超长视频 60s：累积误差漂移（RCS 相位漂移 + 里程累加漂移）
+- `case_E28()`　`L108`　—　爬梯（E28）：五效应器交替上行 + 抓握期不滑 + 脚踩实横杆
+- `main()`　`L173`
+
+### `tools/attest/anchors.py`
+
+判据阈值的外部锚点注册表 —— 只登记可复核的业界数值与口径，供 provenance 比对
+
+- `by_name()`　`L174`　—　返回 {判据名: 锚点}；重名取先登记的。
+- `compare(crit)`　`L235`　—　把 CRIT 与外部锚点比对。
+- `self_check()`　`L309`
+- `main()`　`L318`
+
+### `tools/attest/provenance.py`
+
+核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
+
+- `check_selfconsistency(crit)`　`L104`　—　crit: [(name, thr, src)]，默认从 harness.CRIT 读。返回 (issues, compared, uncompared)。
+- `check_harking(relpath)`　`L173`　—　返回 (issues, n_commits, note)。
+- `run(crit)`　`L194`
+- `self_check()`　`L208`
+- `main()`　`L230`
+
+### `tools/attest/refcheck.py`
+
+核验收工判据/文档里引用的 arXiv 与 DOI 是否真实存在、标题是否与判据语义相关，抓"贴牌引用"
+
+- `run(offline)`　`L373`　—　返回 (issues, unchecked, verified, skipped)。
+- `self_check()`　`L395`
+- `verdict_of(issues, verified, unchecked)`　`L428`　—　统一的通过判定。返回 (rc, 说明)。
+- `main()`　`L442`
+
+### `tools/attest/repro.py`
+
+假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
+
+- `verify(item, timeout=120)`　`L61`　—　跑一条豁免的复现脚本。
+- `self_check()`　`L95`　—　自检：内置三个探针，正反两面都要对。
+- `main()`　`L128`
 
 ### `tools/baseline.py`
 
@@ -1075,9 +1118,9 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 
 - `diff(current, baseline, today)`　`L122`　—　比对当前扫描结果与基线。
 - `run(today)`　`L148`　—　返回 {"ok":bool, "counts":{...}, "new":[...], ...}
-- `update(today, owner, clear_when)`　`L173`　—　重建基线。只应在人工确认后调用（--update）。
-- `self_check()`　`L206`　—　自检 7 项：新增FAIL/恶化FAIL/修复报陈旧/变好收紧/逾期升FAIL/移动非新增/依赖缺失必报错。
-- `main()`　`L318`
+- `update(today, owner, clear_when)`　`L175`　—　重建基线。只应在人工确认后调用（--update）。
+- `self_check()`　`L208`　—　自检 7 项：新增FAIL/恶化FAIL/修复报陈旧/变好收紧/逾期升FAIL/移动非新增/依赖缺失必报错。
+- `main()`　`L325`
 
 ### `tools/batchgate.py`
 
@@ -1086,29 +1129,14 @@ Canvas 画布 + 噪声基元（value noise / fBm / smoothstep）
 - `run(ids, out, timeout, resume, fresh)`　`L88`　—　执行一批用例，结果写 out。返回统计 dict。
 - `self_check()`　`L111`
 
-### `tools/capsrc.py`
-
-R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力。
-
-- `cap_source_of(d)`　`L14`　—　从 @capability(...) 调用节点取 (名字, 出处)；非该装饰器返回 None。
-- `caps_without_source(path, min_source)`　`L36`　—　返回 (问题列表, 语法错误串)。语法错误串为空表示解析正常。
-- `self_check()`　`L61`　—　自检：三种装饰器写法都要取到出处，缺失的必须报出。
-
-### `tools/clone.py`
-
-（缺一句话职责）
-
-- `scan(root, min_lines, min_tokens=MIN_LINES)`　`L76`
-- `main(argv)`　`L108`
-
 ### `tools/complexity.py`
 
 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
 
-- `scan(root, ccn_design, ccn_hard)`　`L79`
-- `run(root)`　`L108`　—　返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}
-- `self_check()`　`L178`　—　自检 4 项：CCN 判定准、高复杂度抓得到、低复杂度不误报、_bak 被排除。
-- `main()`　`L210`
+- `scan(root, ccn_design, ccn_hard, only)`　`L97`　—　扫描 .py，返回 (超设计值列表, 超硬闸列表, 超长度列表)。
+- `run(root, only)`　`L120`　—　返回 {"ok":bool, "design":[...], "hard":[...], "counts":{...}}
+- `self_check()`　`L196`　—　自检 4 项：CCN 判定准、高复杂度抓得到、低复杂度不误报、_bak 被排除。
+- `main()`　`L228`
 
 ### `tools/consistency.py`
 
@@ -1125,6 +1153,25 @@ R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力�
 - `run()`　`L406`　—　返回问题列表：注册/用例/桥接三表交叉不一致。
 - `self_check()`　`L420`
 
+### `tools/corpus/motionqual_selfcheck.py`
+
+motionqual 各指标的自检语料与驱动——证明每条指标能测出已知答案
+
+- `self_check()`　`L140`　—　自检: 每条指标都要能"测出已知答案"，否则等于没有牙齿。
+
+### `tools/corpus/probe_sample.py`
+
+smell 规则的探针样本源码——一段刻意写满异味的合规外形代码
+
+- `write_to(path)`　`L50`　—　把样本写到 path，返回路径。
+- `probe_path(root)`　`L61`　—　探针文件的落盘位置（默认 _proc 下）。
+
+### `tools/corpus/smell_selfcheck.py`
+
+smell 规则的自检语料与驱动——证明 8 条规则真有牙齿，不是写了没接线
+
+- `self_check()`　`L53`　—　自检：造一个含各类异味的样本，验证规则真能抓到。
+
 ### `tools/debtledger.py`
 
 （缺一句话职责）
@@ -1139,22 +1186,31 @@ R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力�
 
 - `run(skip_slow, verbose)`　`L197`
 - `self_check()`　`L208`　—　自检：造一个必然失配的文档，验证工具真能报警（不静默跳过）。
-- `main()`　`L249`
+- `main()`　`L257`
+
+### `tools/exportspec.py`
+
+（缺一句话职责）
+
+- `pick_codec(prefer)`　`L147`　—　选型委托 base.codec（同一实现，供 motion 与 tools 共用）。
+- `self_check()`　`L236`　—　自检：表自洽 + pick_codec 真能拿到可写编码器 + 流式不随帧数增长。
 
 ### `tools/faultbench.py`
 
 缺陷注入基准：注入已知代码缺陷，实测工具矩阵能否检出，量化召回率并暴露盲区
 
-- `baseline()`　`L229`　—　干净基线的表现：必须全绿，否则基准本身不可信。
-- `run()`　`L270`
-- `self_check()`　`L286`　—　自检：基准本身必须可信——干净基线全绿、且能抓到大多数人造缺陷。
-- `main(argv)`　`L340`
+- `baseline()`　`L131`　—　干净基线的表现：必须全绿，否则基准本身不可信。
+- `residue()`　`L206`　—　磁盘残留：上一轮异常退出（超时/被杀）时 canary 没被回收。
+- `run(ids)`　`L263`　—　ids: 只跑指定缺陷（分批用）。
+- `self_check()`　`L331`　—　自检：基准本身必须可信——干净基线全绿、且能抓到大多数人造缺陷。
+- `main(argv)`　`L432`
 
 ### `tools/gate.py`
 
 统一自检入口：一键跑全部长期工具，汇总退出码，支持 --json 机器可读输出
 
-- `main(argv)`　`L166`　—　统一入口：跑全部工具，机读 --json / 快跑 --quick。
+- `self_check()`　`L255`　—　自检：汇总器自己会不会把「没跑」当成「通过」。
+- `main(argv)`　`L280`　—　统一入口：跑全部工具，机读 --json / 快跑 --quick。
 
 ### `tools/layers.py`
 
@@ -1183,19 +1239,20 @@ R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力�
 
 补齐业界动作质量指标中我们缺失的那几项（稳定性/抖动/自穿透/接触/步态/游动）
 
-- `seg_seg_dist(p1, q1, p2, q2)`　`L51`　—　两条线段最短距离（3D）。用于 PeneBone 骨级穿透。
-- `com_2d(pose, joints, masses)`　`L92`　—　质心（水平 x、竖直 z），质量加权。
-- `zmp_series(frames, joints=9.80665, masses, g)`　`L105`　—　ZMP 水平位置序列。
-- `zmp_stability(frames, joints=0.02, masses, feet, contact_thresh)`　`L125`　—　动力学稳定性: ZMP 落在支撑多边形（2D 退化为支撑区间）外的帧占比。
-- `jitter_accel(frames, joints)`　`L157`　—　关节加速度抖动。
-- `pene_bone(frames, bones, radius=0.02, skip_adjacent=True)`　`L189`　—　骨级穿透深度 PeneBone。
-- `contact_f1(pred_contact, gt_contact=None, hand_obj_dist)`　`L219`　—　接触质量: 精确率 / 召回率 / F1 / 接触距离。
-- `duty_factor(contact_seq)`　`L264`　—　占空比 duty factor: 一个步幅周期内该足触地的时长占比。
-- `footfall_phases(contact_seq)`　`L275`　—　提取落脚相位（触地起始时刻 / 周期），用于算相对相位。
-- `relative_phase(ref_seq, other_seq)`　`L287`　—　相对相位: other 足相对参考足（如 LH）的触地相位滞后，归一到 [0,1)。
-- `wave_ratio(spine, body_len)`　`L301`　—　游动波长 / 体长比。
-- `strouhal(freq_hz, amp_m, speed_mps)`　`L325`　—　Strouhal 数 St = f * A / U。
-- `self_check()`　`L355`　—　自检: 每条指标都要能"测出已知答案"，否则等于没有牙齿。
+- `seg_seg_dist(p1, q1, p2, q2)`　`L66`　—　两条线段最短距离（3D）。用于 PeneBone 骨级穿透。
+- `com_2d(pose, joints, masses)`　`L107`　—　质心（水平 x、竖直 z），质量加权。
+- `zmp_series(frames, joints=9.80665, masses, g)`　`L120`　—　ZMP 水平位置序列。
+- `zmp_stability(frames, joints=0.02, masses, feet, contact_thresh)`　`L140`　—　动力学稳定性: ZMP 落在支撑多边形（2D 退化为支撑区间）外的帧占比。
+- `jitter_accel(frames, joints)`　`L172`　—　关节加速度抖动。
+- `pene_bone(frames, bones, radius=0.02, skip_adjacent=True)`　`L204`　—　骨级穿透深度 PeneBone。
+- `contact_f1(pred_contact, gt_contact=None, hand_obj_dist)`　`L234`　—　接触质量: 精确率 / 召回率 / F1 / 接触距离。
+- `duty_factor(contact_seq)`　`L279`　—　占空比 duty factor: 一个步幅周期内该足触地的时长占比。
+- `footfall_phases(contact_seq)`　`L290`　—　提取落脚相位（触地起始时刻 / 周期），用于算相对相位。
+- `relative_phase(ref_seq, other_seq)`　`L302`　—　相对相位: other 足相对参考足（如 LH）的触地相位滞后，归一到 [0,1)。
+- `wave_ratio(spine, body_len)`　`L316`　—　游动波长 / 体长比。
+- `strouhal(freq_hz, amp_m, speed_mps)`　`L340`　—　Strouhal 数 St = f * A / U。
+- `bos_margin(frames, joints, masses=0.02, feet=9.80665, contact_thresh, g)`　`L357`　—　稳定余量：ZMP 到支撑区间最近边的有符号距离（区间内为正，越界为负）。
+- `self_check()`　`L389`　—　转发到 tools.corpus.motionqual_selfcheck（样本与驱动已分文件）。
 
 ### `tools/mutate.py`
 
@@ -1218,16 +1275,6 @@ R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力�
 - `panel()`　`L338`　—　面板：前置库现有条目按组统计，缺口一目了然。
 - `main()`　`L358`　—　命令行入口：查询 / --panel / --json。
 
-### `tools/provenance.py`
-
-核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
-
-- `check_selfconsistency(crit)`　`L98`　—　crit: [(name, thr, src)]，默认从 harness.CRIT 读。返回 (issues, compared, uncompared)。
-- `check_harking(relpath)`　`L167`　—　返回 (issues, n_commits, note)。
-- `run(crit)`　`L188`
-- `self_check()`　`L196`
-- `main()`　`L218`
-
 ### `tools/reach.py`
 
 （缺一句话职责）
@@ -1238,28 +1285,26 @@ R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力�
 - `imports_of(path)`　`L59`　—　收集该文件 import 的目标（相对层级 + 绝对名）。
 - `main()`　`L133`
 
-### `tools/refcheck.py`
+### `tools/scan/capsrc.py`
 
-核验收工判据/文档里引用的 arXiv 与 DOI 是否真实存在、标题是否与判据语义相关，抓"贴牌引用"
+R11 用 AST 取 @capability 的名字与出处，检出「无出处」的能力。
 
-- `run(offline)`　`L372`　—　返回 (issues, unchecked, verified, skipped)。
-- `self_check()`　`L394`
-- `verdict_of(issues, verified, unchecked)`　`L427`　—　统一的通过判定。返回 (rc, 说明)。
-- `main()`　`L441`
+- `cap_source_of(d)`　`L32`　—　从 @capability(...) 调用节点取 (名字, 出处)；非该装饰器返回 None。
+- `caps_without_source(path, min_source)`　`L47`　—　返回 (问题列表, 语法错误串)。语法错误串为空表示解析正常。
+- `self_check()`　`L72`　—　自检：三种装饰器写法都要取到出处，缺失的必须报出。
 
-### `tools/repro.py`
+### `tools/scan/clone.py`
 
-假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
+（缺一句话职责）
 
-- `verify(item, timeout=120)`　`L60`　—　跑一条豁免的复现脚本。
-- `self_check()`　`L94`　—　自检：内置三个探针，正反两面都要对。
-- `main()`　`L127`
+- `scan(root, min_lines, min_tokens=MIN_LINES)`　`L76`
+- `main(argv)`　`L108`
 
-### `tools/smell.py`
+### `tools/scan/smell.py`
 
 代码异味检查：补 faultbench 实测暴露的 8 类静态盲区（静默异常/判据恒真/自检空转等）
 
-- `check_file(path)`　`L268`　—　对单个文件跑全部 S 规则，返回问题列表。
-- `collect(target)`　`L294`　—　扫全项目（或指定目录）的代码异味。
-- `self_check()`　`L307`　—　自检：造一个含各类异味的样本，验证规则真能抓到。
-- `main(argv)`　`L355`
+- `check_file(path)`　`L257`　—　对单个文件跑全部 S 规则，返回问题列表。
+- `collect(target)`　`L284`　—　扫全项目（或指定目录）的代码异味。
+- `self_check()`　`L297`　—　自检委托：语料与驱动在 tools/corpus/smell_selfcheck.py。
+- `main(argv)`　`L315`

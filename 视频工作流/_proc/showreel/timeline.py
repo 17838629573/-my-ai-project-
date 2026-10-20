@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 from motion import camera, run as mrun
 from scene import kit
 from motion.character.body import render as CRE
-from motion.run import to_mp4
+from motion.run import StreamWriter
 from showreel import scene as S
 from showreel import params as P
 
@@ -207,7 +207,8 @@ def render(start=0, end=NF, w=W, h=H, out=MP4):
     rig = CamRig(default_shots())
     st = S.Street(dt=1.0 / 240.0, iters=10)
     bodies = st.world.bodies
-    frames = []
+    # 流式写出：长片帧数可达数千，全帧驻留会 OOM（实测 1.48MB/帧）
+    wt = StreamWriter(out, fps=FPS)
     n = min(end, sum(a.shape[0] for a in segs))
     for i in range(start, n):
         t = i / float(FPS)
@@ -227,11 +228,11 @@ def render(start=0, end=NF, w=W, h=H, out=MP4):
             cam = rig.cam(t)
         props = props_from_world(bodies, snap=snap, i=i)
         actors = [(-1.0 + t * 0.16, 2.6, 0.0, pose_woman(t), dict(), 1.68)]
-        frames.append(compose(t, cam, bg, props=props, actors=actors, wind=wind))
+        wt.push(compose(t, cam, bg, props=props, actors=actors, wind=wind))
         if i % 60 == 0:
             print("[frame] %d t=%.2f" % (i, t))
-    to_mp4(frames, out, fps=FPS)
-    print("[ok] %s  frames=%d" % (out, len(frames)))
+    nf = wt.close()
+    print("[ok] %s  frames=%d" % (out, nf))
     return out
 
 

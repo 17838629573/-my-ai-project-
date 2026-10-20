@@ -11,6 +11,24 @@ import ast
 import os
 
 
+def _cap_name(d):
+    """取 @capability 第一个位置参数作为能力名。"""
+    if d.args and isinstance(d.args[0], ast.Constant):
+        return d.args[0].value
+    return "?"
+
+
+def _cap_source(d):
+    """取出处：位置参数与 source= 关键字都要认（项目内两种写法都存在）。"""
+    source = ""
+    if len(d.args) > 1 and isinstance(d.args[1], ast.Constant):
+        source = str(d.args[1].value)
+    for kw in d.keywords:
+        if kw.arg == "source" and isinstance(kw.value, ast.Constant):
+            source = str(kw.value.value)
+    return source
+
+
 def cap_source_of(d):
     """从 @capability(...) 调用节点取 (名字, 出处)；非该装饰器返回 None。
 
@@ -22,15 +40,8 @@ def cap_source_of(d):
     fn = d.func
     if not (isinstance(fn, ast.Name) and fn.id == "capability"):
         return None
-    name = d.args[0].value if d.args and isinstance(
-        d.args[0], ast.Constant) else "?"
-    source = ""
-    if len(d.args) > 1 and isinstance(d.args[1], ast.Constant):
-        source = str(d.args[1].value)
-    for kw in d.keywords:
-        if kw.arg == "source" and isinstance(kw.value, ast.Constant):
-            source = str(kw.value.value)
-    return name, source
+    return _cap_name(d), _cap_source(d)
+
 
 
 def caps_without_source(path, min_source):

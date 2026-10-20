@@ -1,0 +1,98 @@
+{
+ "D22": {
+  "id": "D22",
+  "grp": "D",
+  "name": "两人传球：A扔B接再扔回",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nsilhouette_gap_px             0     < 2          PASS\nsilhouette_span_ratio       1.0651     > 0.9        PASS\nmask_iou                 0.9323     > 0.75       PASS\npenetration_m        1.6012e-15     < 0.005      PASS\nmomentum_err         3.5535e-15     < 0.02       PASS\n总判定: PASS",
+  "sec": 31.26
+ },
+ "D23": {
+  "id": "D23",
+  "grp": "D",
+  "name": "人物与猫：猫穿腿间，不踩不穿模",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nfloat_m                       0     < 0.05       PASS\npenetration_m                 0     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.0
+ },
+ "E25": {
+  "id": "E25",
+  "grp": "E",
+  "name": "跑跳抓取：跑-跳-空中抓-落地翻滚",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nframe_jump_ratio         1.8669     < 3          PASS\nenergy_gain             -2.7995    <= 1e-09      PASS\n总判定: PASS",
+  "sec": 0.59
+ },
+ "E26": {
+  "id": "E26",
+  "grp": "E",
+  "name": "搬运箱子：抱起-走-放下，不穿手",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m             0.002     < 0.005      PASS\nskate_cm_frame       8.8818e-14     < 1          PASS\nbox_rest_m                    0     < 1e-09      PASS\n总判定: PASS",
+  "sec": 0.08
+ },
+ "E27": {
+  "id": "E27",
+  "grp": "E",
+  "name": "投掷命中：扔球击中移动目标，目标倒下",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err         4.1633e-16     < 0.02       PASS\npenetration_m         0.0028571     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.14
+ },
+ "E29": {
+  "id": "E29",
+  "grp": "E",
+  "name": "推倒墙壁：多方块墙散落",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nframe_jump_ratio         1.2896     < 3          PASS\n总判定: PASS",
+  "sec": 0.3
+ },
+ "F30": {
+  "id": "F30",
+  "grp": "F",
+  "name": "快速移动：高速跑，碰撞不丢失不穿墙",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nframe_jump_ratio              1     < 3          PASS\n总判定: PASS",
+  "sec": 0.12
+ },
+ "F31": {
+  "id": "F31",
+  "grp": "F",
+  "name": "多物体：50球同时落地互撞，不穿透不爆炸",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m         0.0030878     < 0.005      PASS\n总判定: PASS",
+  "sec": 9.52
+ },
+ "F32": {
+  "id": "F32",
+  "grp": "F",
+  "name": "零重力：漂浮，碰撞后匀速",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err                  0     < 0.02       PASS\npenetration_m            0.0025     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.03
+ },
+ "F33": {
+  "id": "F33",
+  "grp": "F",
+  "name": "高摩擦：滑动迅速停止",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err         4.7673e-13     < 0.02       PASS\npenetration_m         0.0019168     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.88
+ },
+ "F34": {
+  "id": "F34",
+  "grp": "F",
+  "name": "初始重叠：应分离或报错，不闪烁",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.66
+ },
+ "F35": {
+  "id": "F35",
+  "grp": "F",
+  "name": "超长视频：1分钟以上，检查累积误差漂移",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npos_drift_m          9.6634e-13     < 1e-06      PASS\nmileage_rel_err      2.8709e-14     < 1e-09      PASS\nframe_jump_ratio              1     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ }
+}

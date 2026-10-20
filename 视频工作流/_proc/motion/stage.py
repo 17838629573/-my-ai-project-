@@ -237,10 +237,14 @@ def walk_seq(scene_name="城墙关隘", n=90, fps=30, preset="natural",
     return frames, geom, cam
 
 
-def to_mp4(frames, path, fps=30):
+def to_mp4(frames, path, fps=30, codec=None):
     import cv2
+    from base import codec as _BC
     w, h = frames[0].size
-    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    tag = codec or _BC.pick_codec()
+    vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*tag), fps, (w, h))
+    if not vw.isOpened():
+        vw = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
     for im in frames:
         vw.write(np.asarray(im)[:, :, ::-1].copy())
     vw.release()

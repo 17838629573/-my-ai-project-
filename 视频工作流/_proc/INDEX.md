@@ -23,6 +23,7 @@
 
 ### base/
   - `base/assertrun.py` 142 行 — 统一断言执行器——各模块 self_check 改写为"计算抽 helper + 数据表 chk"
+  - `base/codec.py` 73 行 — 编码器选型：按实测压缩率选可用的 fourcc
   - `base/metrics.py` 108 行 — 判据测量公式库（最底层，任何层都可引用）
 
 ### color/
@@ -37,8 +38,8 @@
   - `motion/layer.py` 233 行 — 动作分层合成与声明式求解
   - `motion/physics_ext.py` 438 行 — 物理扩展五能力：ccd/broadphase/gravity_off/friction/overlap_resolve
   - `motion/rigid.py` 257 行 — 刚体物理：半隐式欧拉定步长积分 + 冲量法碰撞响应 + 恢复系数衰减
-  - `motion/run.py` 342 行 — 时间线与出片：逐帧渲染并写 mp4
-  - `motion/stage.py` 372 行 — 场景合成：烘焙背景 + 人物 + 出片
+  - `motion/run.py` 354 行 — 时间线与出片：逐帧渲染并写 mp4
+  - `motion/stage.py` 376 行 — 场景合成：烘焙背景 + 人物 + 出片
   - `motion/wind.py` 137 行 — 风场：主弯曲 + 细节弯曲，相位纳入世界坐标使异株不同步
 
 ### motion/character/
@@ -111,7 +112,7 @@
   - `shape/line.py` 213 行 — 骨架模板 → 胶囊形体(带 region) → SDF → 轮廓线与细节线
 
 ### showreel/
-  - `showreel/cafe.py` 200 行 — 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
+  - `showreel/cafe.py` 203 行 — 咖啡馆 12 秒时间线：四段动作（坐姿→抬头→起身走→落座沙发）
   - `showreel/camrig.py` 223 行 — 连续相机运镜（跟随/横移/推拉/低角度/俯拍/微距），全程 C1 连续不切镜
   - `showreel/params.py` 282 行 — 全局物理参数的连续扰动曲线（重力/摩擦/风/弹性/质量/时间缩放）
   - `showreel/phys.py` 184 行 — 90秒物理预跑，轨迹存 npz、状态 pickle 成 checkpoint 续跑
@@ -119,47 +120,50 @@
   - `showreel/scene.py` 403 行 — 90 秒场景世界——多米诺/方块堆/斜坡/摆锤/墙/梯子/移动靶/绳/铰链门
   - `showreel/seam.py` 114 行 — 段内跳帧与段间接缝的流式检测，不全帧入内存
   - `showreel/shard.py` 155 行 — 90秒长镜头分段渲染落盘再 concat，规避内存与时限
-  - `showreel/timeline.py` 249 行 — 按视频帧查表渲染，背景/物体/角色/雨丝，相机不切镜
+  - `showreel/timeline.py` 250 行 — 按视频帧查表渲染，背景/物体/角色/雨丝，相机不切镜
 
 ### tests/
   - `tests/cases.py` 151 行 — 45 项测试用例声明（测试第二步：声明）
   - `tests/cases_base.py` 388 行 — def _a1_leg_skates(W, N):
   - `tests/cases_carry.py` 144 行 — E 组搬运用例（E26 搬运箱子）
   - `tests/cases_creature.py` 125 行 — # 契约: tests.cases_creature
-  - `tests/cases_crowd.py` 207 行 — D 组多主体用例（人群碰撞 / 两人击掌）
+  - `tests/cases_crowd.py` 225 行 — D 组多主体用例（人群碰撞 / 两人击掌）
   - `tests/cases_g36.py` 77 行 — def _g36_series(name, kw, N, gait, gesture, layer):
   - `tests/cases_gap.py` 293 行 — # 契约: tests.cases_gap
   - `tests/cases_grasp.py` 146 行 — def _grip_hand(cup, Xc=0.0, Zc=0.0, yaw=0.0):
   - `tests/cases_mixed.py` 228 行 — # 契约: tests.cases_mixed
   - `tests/cases_pass.py` 97 行 — D22 两人传球 用例
   - `tests/cases_phenom.py` 86 行 — # 契约: tests.cases_phenom
-  - `tests/cases_phys.py` 281 行 — C 组物理用例（弹球 / 两球对撞）
+  - `tests/cases_phys.py` 283 行 — C 组物理用例（弹球 / 两球对撞）
   - `tests/cases_throw.py` 161 行 — B10 扔球 / B11 接球 用例
   - `tests/common.py` 79 行 — 35 项用例门检与执行（测试第三步：跑）
   - `tests/criteria.py` 224 行 — # 契约: tests.criteria
-  - `tests/gen.py` 251 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
+  - `tests/gen.py` 255 行 — 渲染与剪影校验（测试第二步：出片并量剪影）
   - `tests/gen_doc.py` 107 行 — 生成 35 项推进文档（xlsx）
-  - `tests/harness.py` 369 行 — 物理与动作判据库（测试第一步：判定）
+  - `tests/harness.py` 437 行 — 物理与动作判据库（测试第一步：判定）
   - `tests/run_all.py` 214 行 — if __package__ in (None, ""):
 
 ### tools/
-  - `tools/anchors.py` 333 行 — 判据阈值的外部锚点注册表 —— 只登记可复核的业界数值与口径，供 provenance 比对
   - `tools/baseline.py` 341 行 — 复杂度债务棘轮——基线入版本库，只降不升；新增/恶化即 FAIL，修复自动收紧
   - `tools/batchgate.py` 150 行 — 契约: tools/batchgate.py
   - `tools/complexity.py` 259 行 — 圈复杂度门禁——用 lizard 实测 CCN，替代自造的「函数>50行」行数规则
   - `tools/consistency.py` 434 行 — 三表一致性：能力注册表 / EXEC 用例表 / 桥接器互为闭包
   - `tools/debtledger.py` 218 行 — R19 已知债务台账：显式登记、有归属、带到期日、只减不增。
   - `tools/docsync.py` 275 行 — 检测 README / INDEX 里的数字声明是否与脚本实测一致，抓"文档说一套、代码是另一套"
+  - `tools/exportspec.py` 248 行 — 导出规范编码：视频体积/内存的问题清单、方案与判据
   - `tools/faultbench.py` 459 行 — 缺陷注入基准：注入已知代码缺陷，实测工具矩阵能否检出，量化召回率并暴露盲区
   - `tools/faultlock.py` 81 行 — 缺陷基准装置：单实例锁 + canary 源码落盘，保证注入实验互不踩踏
   - `tools/gate.py` 297 行 — 统一自检入口：一键跑全部长期工具，汇总退出码，支持 --json 机器可读输出
   - `tools/layers.py` 108 行 — 分层契约门禁——包装 import-linter，替代自造的 R1(逆向依赖)/R4(上帝包)
   - `tools/mutate.py` 139 行 — 判据效力变异测试：给判据注入必错的坏输入，仍判 PASS 即判据无牙齿
   - `tools/presearch.py` 371 行 — 本地前置检索：先查项目前置库，未达阈值才建议联网搜（不静默跳过）。
-  - `tools/provenance.py` 251 行 — 核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
   - `tools/reach.py` 152 行 — 从活跃入口出发的 import 可达性分析（SCARF 的 Survey 阶段）。
-  - `tools/refcheck.py` 472 行 — 核验收工判据/文档里引用的 arXiv 与 DOI 是否真实存在、标题是否与判据语义相关，抓"贴牌引用"
-  - `tools/repro.py` 151 行 — 假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
+
+### tools/attest/
+  - `tools/attest/anchors.py` 336 行 — 判据阈值的外部锚点注册表 —— 只登记可复核的业界数值与口径，供 provenance 比对
+  - `tools/attest/provenance.py` 252 行 — 核验判据阈值与其出处自洽、并探测"先调阈值让它过、后补出处"的 HARKing 行为
+  - `tools/attest/refcheck.py` 473 行 — 核验收工判据/文档里引用的 arXiv 与 DOI 是否真实存在、标题是否与判据语义相关，抓"贴牌引用"
+  - `tools/attest/repro.py` 152 行 — 假阳性豁免验证：声称假阳性必须附可执行最小复现，跑得通才算，跑不通按真问题处理
 
 ### tools/corpus/
   - `tools/corpus/faultcorpus.py` 122 行 — faultbench 的缺陷语料——干净基线样本 + 14 条注入器定义

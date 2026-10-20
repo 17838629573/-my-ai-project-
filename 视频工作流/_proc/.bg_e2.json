@@ -1,0 +1,42 @@
+{
+ "E25": {
+  "id": "E25",
+  "grp": "E",
+  "name": "跑跳抓取：跑-跳-空中抓-落地翻滚",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nframe_jump_ratio         1.8669     < 3          PASS\nenergy_gain             -2.7995    <= 1e-09      PASS\n总判定: PASS",
+  "sec": 0.67
+ },
+ "E26": {
+  "id": "E26",
+  "grp": "E",
+  "name": "搬运箱子：抱起-走-放下，不穿手",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m             0.002     < 0.005      PASS\nskate_cm_frame       8.8818e-14     < 1          PASS\nbox_rest_m                    0     < 1e-09      PASS\n总判定: PASS",
+  "sec": 0.1
+ },
+ "E27": {
+  "id": "E27",
+  "grp": "E",
+  "name": "投掷命中：扔球击中移动目标，目标倒下",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nmomentum_err         4.1633e-16     < 0.02       PASS\npenetration_m         0.0028571     < 0.005      PASS\n总判定: PASS",
+  "sec": 0.16
+ },
+ "E28": {
+  "id": "E28",
+  "grp": "E",
+  "name": "爬梯子：手交替握杆，脚踩踏，不滑脱",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nskate_cm_frame         0.012654     < 1          PASS\nfloat_m              0.00012654     < 0.05       PASS\nframe_jump_ratio          1.313     < 3          PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "E29": {
+  "id": "E29",
+  "grp": "E",
+  "name": "推倒墙壁：多方块墙散落",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\npenetration_m                 0     < 0.005      PASS\nframe_jump_ratio         1.2896     < 3          PASS\n总判定: PASS",
+  "sec": 0.31
+ }
+}

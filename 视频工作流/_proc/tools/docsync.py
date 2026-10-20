@@ -213,15 +213,23 @@ def self_check():
     d = tempfile.mkdtemp()
     f = os.path.join(d, "README.md")
     with open(f, "w", encoding="utf-8") as fh:
-        fh.write("活跃文件  999 个\n孤立文件  1 个\n")
+        fh.write(re.sub(r"\\s\+", "  ", PROBES[0]["pat"].replace(r"(\d+)", "999")) + "\n")
     old_root, old_probe = _ROOT, None
     # 直接验证正则提取 + 失配判定，不依赖真实项目
+    # 真实回归（2026-10-14）：README 措辞由「活跃文件 N 个」改为三口径
+    # 「入口/可达/孤立」后，探针 pat 同步更新，而自检夹具仍写旧措辞 ->
+    # findall 返回空 -> int(got[0]) 抛 IndexError，自检直接崩、连"探针失效"
+    # 都报不出来。夹具改为**由 pat 反推文本**，措辞再变也自动跟随。
+    def _fixture(pat, num):
+        return re.sub(r"\\s\+", "  ", pat.replace(r"(\d+)", str(num)))
+
+    _pat0 = PROBES[0]["pat"]
     src = open(f, encoding="utf-8").read()
-    got = re.findall(PROBES[0]["pat"], src)
+    got = re.findall(_pat0, _fixture(_pat0, 999))
     chk.eq("能提取到声明值", len(got), 1)
-    chk.eq("提取值正确", int(got[0]), 999)
-    bad = re.findall(PROBES[0]["pat"], "活跃文件  70 个")
-    chk.eq("正常文档可提取", int(bad[0]), 70)
+    chk.eq("提取值正确", int(got[0]) if got else -1, 999)
+    bad = re.findall(_pat0, _fixture(_pat0, 70))
+    chk.eq("正常文档可提取", int(bad[0]) if bad else -1, 70)
     # 探针失效必须可检出：措辞变了匹配不到
     chk.eq("措辞变化后匹配为空", len(re.findall(PROBES[0]["pat"], "活跃模块数量：70")), 0)
     # INDEX 正则

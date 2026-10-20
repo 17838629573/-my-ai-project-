@@ -31,7 +31,10 @@ import os
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_PROC = os.path.dirname(_HERE)
+# 路径层级：本文件在 _proc/tools/attest/ 下，故 _PROC 要上溯两级。
+# 写成 dirname(_HERE) 会让 _PROC 变成 _proc/tools —— 与 smell.py 曾踩过的
+# 同层级错误同源（扫描范围悄悄缩小），故此处显式两级并加注释。
+_PROC = os.path.dirname(os.path.dirname(_HERE))
 if _PROC not in sys.path:
     sys.path.insert(0, _PROC)
 
@@ -176,6 +179,59 @@ def by_name():
     return out
 
 
+def _load_crit(crit):
+    """取判据表 [(name, thr, src)]；失败或为空时返回 (None, 探针失效描述)。"""
+    if crit is not None:
+        return (crit, None) if crit else (None, "[R22-A2 探针失效] 判据表为空")
+    sys.path.insert(0, _PROC)
+    try:
+        from tests.harness import CRIT
+    except Exception as e:
+        return None, "[R22-A2 探针失效] 无法读取 harness.CRIT：%s" % e
+    rows = [(n, v[0], v[2] if len(v) > 2 else "")
+            for n, v in (CRIT or {}).items()]
+    if not rows:
+        return None, "[R22-A2 探针失效] harness.CRIT 为空"
+    return rows, None
+
+
+def _cmp_direct(name, thr, a):
+    """DIRECT 关系：阈值应等于锚点值。返回 (compared, issue_or_None, note)。"""
+    av = a.get("value")
+    if av is None:
+        return 0, None, (name, "DIRECT", "UNCERTAIN", "锚点缺数值")
+    compared = 1
+    if abs(thr - float(av)) > 1e-9:
+        return (compared,
+                "[R22-A2 外部锚点矛盾] 判据 %s 阈值=%s，外部锚点=%s（%s，%s）"
+                % (name, thr, av, a["source"], a["url"]),
+                (name, "DIRECT", "MISMATCH", "thr=%s vs anchor=%s" % (thr, av)))
+    return compared, None, (name, "DIRECT", "ALIGNED", "阈值=锚点 %s" % av)
+
+
+def _cmp_reference(name, thr, a):
+    """REFERENCE 关系：同量纲参照，差一个量级以上需说明。返回同上。"""
+    av = a.get("value")
+    if av is None:
+        return 0, None, (name, "REFERENCE", "UNCERTAIN", "锚点缺数值")
+    compared = 1
+    av_f = float(av)
+    # 用容差而非 == ：锚点值经 float() 转换，直接判等会在规则里报浮点相等异味，
+    # 且容差语义更贴合"锚点为零（理论目标值）"的本意。
+    if abs(av_f) < 1e-12:
+        return compared, None, (name, "REFERENCE", "REFERENCE",
+                                "锚点为理论目标 0，仅作方向参照")
+    ratio = thr / av_f
+    if ratio >= 10.0 or ratio <= 0.1:
+        return (compared,
+                "[R22-A2 与业界参照差一个量级以上] 判据 %s 阈值=%s，业界参照=%s（%.1f 倍）"
+                "—— 需说明为何偏离，出处：%s" % (name, thr, av, ratio, a["source"]),
+                (name, "REFERENCE", "LOOSE" if ratio > 1 else "TIGHT",
+                 "%.1fx 锚点" % ratio))
+    return compared, None, (name, "REFERENCE", "REFERENCE",
+                            "%.1fx 锚点，同量级" % ratio)
+
+
 def compare(crit=None):
     """把 CRIT 与外部锚点比对。
 
@@ -186,19 +242,13 @@ def compare(crit=None):
       uncompared 无锚点，未比对（不冒充通过）
       detail     [(name, relation, verdict, note)]
     """
-    if crit is None:
-        sys.path.insert(0, _PROC)
-        try:
-            from tests.harness import CRIT
-        except Exception as e:
-            return (["[R22-A2 探针失效] 无法读取 harness.CRIT：%s" % e], 0, [], [])
-        crit = [(n, v[0], v[2] if len(v) > 2 else "") for n, v in (CRIT or {}).items()]
-    if not crit:
-        return (["[R22-A2 探针失效] harness.CRIT 为空"], 0, [], [])
+    rows, err = _load_crit(crit)
+    if err:
+        return ([err], 0, [], [])
 
     tbl = by_name()
     issues, compared, uncompared, detail = [], 0, [], []
-    for name, thr, _src in crit:
+    for name, thr, _src in rows:
         a = tbl.get(name)
         if a is None:
             uncompared.append(name)
@@ -211,75 +261,58 @@ def compare(crit=None):
             detail.append((name, rel, "UNCERTAIN", "阈值非数值，无法比对"))
             continue
         if rel == "DIRECT":
-            av = a.get("value")
-            if av is None:
-                uncompared.append(name)
-                detail.append((name, rel, "UNCERTAIN", "锚点缺数值"))
-                continue
-            compared += 1
-            if abs(thr_f - float(av)) > 1e-9:
-                issues.append("[R22-A2 外部锚点矛盾] 判据 %s 阈值=%s，外部锚点=%s（%s，%s）"
-                              % (name, thr, av, a["source"], a["url"]))
-                detail.append((name, rel, "MISMATCH", "thr=%s vs anchor=%s" % (thr, av)))
-            else:
-                detail.append((name, rel, "ALIGNED", "阈值=锚点 %s" % av))
+            got, iss, note = _cmp_direct(name, thr_f, a)
         elif rel == "REFERENCE":
-            av = a.get("value")
-            if av is None:
-                uncompared.append(name)
-                detail.append((name, rel, "UNCERTAIN", "锚点缺数值"))
-                continue
-            compared += 1
-            av_f = float(av)
-            if av_f == 0.0:
-                detail.append((name, rel, "REFERENCE", "锚点为理论目标 0，仅作方向参照"))
-            else:
-                ratio = thr_f / av_f
-                if ratio >= 10.0 or ratio <= 0.1:
-                    issues.append(
-                        "[R22-A2 与业界参照差一个量级以上] 判据 %s 阈值=%s，业界参照=%s（%.1f 倍）"
-                        "—— 需说明为何偏离，出处：%s" % (name, thr, av, ratio, a["source"]))
-                    detail.append((name, rel, "LOOSE" if ratio > 1 else "TIGHT",
-                                   "%.1fx 锚点" % ratio))
-                else:
-                    detail.append((name, rel, "REFERENCE", "%.1fx 锚点，同量级" % ratio))
+            got, iss, note = _cmp_reference(name, thr_f, a)
         else:  # DIMENSION
             uncompared.append(name)
             detail.append((name, rel, "DIMENSION", a["note"]))
+            continue
+        compared += got
+        detail.append(note)
+        if iss:
+            issues.append(iss)
+        elif got == 0:
+            uncompared.append(name)
     return issues, compared, uncompared, detail
+
+
+
+def _sc_table(chk):
+    """表自身完整性 + 比对语义：错位必报 / 对齐不报 / 无锚点不计入已比对。"""
+    bad = [a["name"] for a in ANCHORS if not a.get("source") or not a.get("url")]
+    chk.eq("锚点必须带 source+url", bad, [])
+    rels = set(a["relation"] for a in ANCHORS)
+    chk.eq("relation 取值合法", (rels <= {"DIRECT", "REFERENCE", "DIMENSION"}), True)
+    nodir = [a["name"] for a in ANCHORS
+             if a["relation"] == "DIRECT" and a.get("value") is None]
+    chk.eq("DIRECT 锚点必须有数值", nodir, [])
+    iss, cmpd, unc, _d = compare([("penetration_m", 0.01, "")])
+    chk.eq("DIRECT 错位必须被抓到", len(iss), 1)
+    chk.eq("DIRECT 错位计入已比对", cmpd, 1)
+    iss2, cmp2, _u2, _d2 = compare([("penetration_m", 0.005, "")])
+    chk.eq("DIRECT 对齐不报", len(iss2), 0)
+    chk.eq("DIRECT 对齐计入已比对", cmp2, 1)
+    _i3, c3, u3, _d3 = compare([("jitter_px", 0.1, "工程经验值")])
+    chk.eq("无锚点计入未比对", ("jitter_px" in u3 and c3 == 0), True)
+
+
+def _sc_dimension(chk):
+    """量纲不可比不能冒充通过：不计入已比对，且必须有说明。"""
+    _i4, c4, u4, d4 = compare([("jitter_accel", 0.001, "")])
+    chk.eq("量纲不可比不计入已比对", c4, 0)
+    chk.eq("量纲不可比有说明", (d4[0][2] if d4 else ""), "DIMENSION")
+    iss5, _c5, _u5, _d5 = compare([("skate_cm_frame", 1.0, "")])
+    chk.eq("差一个量级必须报", len(iss5), 1)
 
 
 def self_check():
     import base.assertrun as _ar
-    chk = _ar.Checker("tools/anchors")
-    # 表自身完整性：每条必须有 source 与 url
-    bad = [a["name"] for a in ANCHORS if not a.get("source") or not a.get("url")]
-    chk.eq("锚点必须带 source+url", bad, [])
-    # relation 取值合法
-    rels = set(a["relation"] for a in ANCHORS)
-    chk.eq("relation 取值合法", (rels <= {"DIRECT", "REFERENCE", "DIMENSION"}), True)
-    # DIRECT 必须有数值
-    nodir = [a["name"] for a in ANCHORS if a["relation"] == "DIRECT" and a.get("value") is None]
-    chk.eq("DIRECT 锚点必须有数值", nodir, [])
-    # 比对：造一个错位必须被抓到
-    iss, cmpd, unc, _d = compare([("penetration_m", 0.01, "")])
-    chk.eq("DIRECT 错位必须被抓到", len(iss), 1)
-    chk.eq("DIRECT 错位计入已比对", cmpd, 1)
-    # 自洽不应报
-    iss2, cmp2, _u2, _d2 = compare([("penetration_m", 0.005, "")])
-    chk.eq("DIRECT 对齐不报", len(iss2), 0)
-    chk.eq("DIRECT 对齐计入已比对", cmp2, 1)
-    # 无锚点 -> 未比对
-    _i3, c3, u3, _d3 = compare([("jitter_px", 0.1, "工程经验值")])
-    chk.eq("无锚点计入未比对", ("jitter_px" in u3 and c3 == 0), True)
-    # DIMENSION 不计入已比对（量纲不可比不能冒充通过）
-    _i4, c4, u4, d4 = compare([("jitter_accel", 0.001, "")])
-    chk.eq("量纲不可比不计入已比对", c4, 0)
-    chk.eq("量纲不可比有说明", (d4[0][2] if d4 else ""), "DIMENSION")
-    # REFERENCE 差一个量级必须报
-    iss5, _c5, _u5, _d5 = compare([("skate_cm_frame", 1.0, "")])
-    chk.eq("差一个量级必须报", len(iss5), 1)
+    chk = _ar.Checker("tools/attest/anchors")
+    _sc_table(chk)
+    _sc_dimension(chk)
     return 0 if chk.report(verbose=True) else 1
+
 
 
 def main():

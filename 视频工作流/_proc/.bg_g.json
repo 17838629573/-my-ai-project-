@@ -1,0 +1,42 @@
+{
+ "G36": {
+  "id": "G36",
+  "grp": "G",
+  "name": "ADDITIVE 三能力接线：gaze/finger/page 叠加到 gait，下半身零污染",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nlower_pollution               0     < 1e-09      PASS\nframe_jump_ratio         1.0427     < 3          PASS\n总判定: PASS",
+  "sec": 0.03
+ },
+ "G37": {
+  "id": "G37",
+  "grp": "G",
+  "name": "攀岩：三点支撑 / 支撑相零滑移 / 不穿壁",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nsupport_min                   3    >= 3          PASS\nfoot_slip_m          9.6978e-05     < 0.001      PASS\nground_penetration_m            0     < 0.005      PASS\nframe_jump_ratio         2.2949     < 3          PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "G38": {
+  "id": "G38",
+  "grp": "G",
+  "name": "鱼游：脊椎段长守恒 / Strouhal 区间 / 帧间平滑",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nseg_len_err          3.9613e-08     < 1e-06      PASS\nstrouhal_lo                0.25     > 0.2        PASS\nstrouhal_hi                0.25     < 0.4        PASS\nframe_jump_ratio         1.1282     < 3          PASS\namp_ratio_lo            0.20833    >= 0.1        PASS\namp_ratio_hi            0.20833    <= 0.3        PASS\n总判定: PASS",
+  "sec": 0.01
+ },
+ "G39": {
+  "id": "G39",
+  "grp": "G",
+  "name": "四足六步态：支撑足缺口 / 足端滑移 / 帧间平滑",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\ngait_contact_deficit            0    <= 0          PASS\nfoot_slip_m          1.1102e-16     < 0.001      PASS\nframe_jump_ratio         1.4236     < 3          PASS\n总判定: PASS",
+  "sec": 0.0
+ },
+ "H40": {
+  "id": "H40",
+  "grp": "H",
+  "name": "混合场景：7 类实体同时间轴 / 无 NaN / 跨体穿透 / 时间轴对齐",
+  "status": "PASS",
+  "detail": "判据                           实测       阈值         结论\nnan_count                     0    <= 0          PASS\nframe_jump_ratio         1.6712     < 3          PASS\nxbody_penetration_m            0     < 0.005      PASS\nground_penetration_m            0     < 0.005      PASS\nmin_arc_m              0.034225     > 0.01       PASS\ntime_span_err_s               0    <= 0.041667   PASS\n总判定: PASS",
+  "sec": 2.36
+ }
+}

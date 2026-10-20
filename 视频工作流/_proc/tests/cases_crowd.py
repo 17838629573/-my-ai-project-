@@ -14,7 +14,7 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw
 import motion.crowd as CR
-from motion.run import to_mp4
+from motion.run import StreamWriter
 import tests.harness as H
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,8 +23,9 @@ FPS = 24
 DT = 1.0 / FPS
 
 
-def _gray(frames):
-    return [np.asarray(im.convert("L"), float) for im in frames]
+def _gray_one(im):
+    """单帧灰度——流式判据用，避免为了算抖动而驻留整段帧。"""
+    return np.asarray(im.convert("L"), float)
 
 
 def _top_view(ags, span=4.6, trails=None):
@@ -104,10 +105,37 @@ def _stick_side(ags, arms=None, Hh=1.70, span=3.2):
     return im
 
 
-def _save_mp4(frames, prefix, fps=FPS):
+def _open_stream(prefix, fps=FPS):
+    """流式写出：返回 (StreamWriter, 路径)。
+
+    渲染完一帧立刻落盘，帧不驻留——峰值内存与总帧数无关。
+    判据若需要帧序列（如静止段抖动），改用 H.JitterStream 流式累计，
+    不得为了算判据把整段帧攒回内存。
+    """
     p = os.path.join(OUT, "%s.mp4" % prefix)
-    to_mp4(frames, p, fps)
-    return p
+    return StreamWriter(p, fps=fps), p
+
+
+def _crowd_step(ags, goals, trails, pairs_all, disp, prev):
+    """推进一帧人群（ORCA + 分离）并采集判据数据，返回新的 prev。
+
+    抽出只为控制函数长度，逻辑与原先内联时逐位一致：
+    vpref 朝目标定速，接近则归零；两两距离与单帧位移各自入表。
+    """
+    for a, g in zip(ags, goals):
+        dv = g - a.p
+        nrm = float(np.linalg.norm(dv))
+        a.vpref = (dv / nrm * 1.30) if nrm > 0.05 else np.zeros(2)
+    CR.orca_step(ags, DT, vmax=1.4)
+    CR.separate_all(ags, iters=4)
+    for a in ags:
+        trails[a.name].append(a.p.copy())
+    for i in range(len(ags)):
+        for j in range(i + 1, len(ags)):
+            dist = float(np.linalg.norm(ags[j].p - ags[i].p))
+            pairs_all.append((dist, ags[i].r, ags[j].r))
+    disp.append(max(float(np.linalg.norm(a.p - b)) for a, b in zip(ags, prev)))
+    return [a.p.copy() for a in ags]
 
 
 # ------------------------------------------------------------------ D24
@@ -123,34 +151,23 @@ def case_D24():
     T = 8.0
     N_MOVE = int(round(6.0 / DT))
     n = int(round(T / DT))
-    frames, pairs_all, disp = [], [], []
+    pairs_all, disp = [], []
     prev = [a.p.copy() for a in ags]
+    wt, path = _open_stream("D24_人群碰撞")
+    js = H.JitterStream(start=N_MOVE)
     for _ in range(n):
-        for a, g in zip(ags, goals):
-            dv = g - a.p
-            nrm = float(np.linalg.norm(dv))
-            a.vpref = (dv / nrm * 1.30) if nrm > 0.05 else np.zeros(2)
-        CR.orca_step(ags, DT, vmax=1.4)
-        CR.separate_all(ags, iters=4)
-        for a in ags:
-            trails[a.name].append(a.p.copy())
-        for i in range(len(ags)):
-            for j in range(i + 1, len(ags)):
-                dist = float(np.linalg.norm(ags[j].p - ags[i].p))
-                pairs_all.append((dist, ags[i].r, ags[j].r))
-        step = max(float(np.linalg.norm(a.p - b)) for a, b in zip(ags, prev))
-        disp.append(step)
-        prev = [a.p.copy() for a in ags]
-        frames.append(_top_view(ags, trails=trails))
+        prev = _crowd_step(ags, goals, trails, pairs_all, disp, prev)
+        im = _top_view(ags, trails=trails)
+        wt.push(im)
+        js.push(_gray_one(im))
 
     pen = H.penetration_m(pairs_all)
-    still = frames[N_MOVE:]
-    jit = H.jitter_px(_gray(still)) if len(still) > 4 else 0.0
+    jit = js.value() if n - N_MOVE > 4 else 0.0
     # 静止段确实静止（否则 jitter 判据不成立）
     drift = max(float(np.linalg.norm(ags[k].p - prev[k])) for k in range(len(ags)))
-    path = _save_mp4(frames, "D24_人群碰撞")
+    wt.close()
     checks = [("penetration_m", pen), ("jitter_px", jit)]
-    extra = {"帧数": len(frames), "最大重叠(m)": round(pen, 5),
+    extra = {"帧数": wt.n, "最大重叠(m)": round(pen, 5),
              "静止段抖动(px)": round(jit, 5),
              "静止段残余位移(m)": round(drift, 6),
              "末位置(米)": [tuple(np.round(a.p, 3)) for a in ags],
@@ -176,8 +193,9 @@ def case_D21():
             return gap_final / 2
         return gap_final / 2 + 0.55 * (t - 2.40)
 
-    frames, pairs_all, disp = [], [], []
+    pairs_all, disp = [], []
     prev = None
+    wt, path = _open_stream("D21_击掌")
     for i in range(n):
         t = i * DT
         g = half_gap(t)
@@ -195,13 +213,13 @@ def case_D21():
         if prev is not None:
             disp.append(abs(g - prev))
         prev = g
-        frames.append(_stick_side(ags, arms=arms, Hh=Hh))
+        wt.push(_stick_side(ags, arms=arms, Hh=Hh))
 
     pen = H.penetration_m(pairs_all)
     fjr = H.frame_jump_ratio(disp) if len(disp) > 3 else 0.0
-    path = _save_mp4(frames, "D21_击掌")
+    wt.close()
     checks = [("penetration_m", pen), ("frame_jump_ratio", fjr)]
-    extra = {"帧数": len(frames), "最大穿透(m)": round(pen, 6),
+    extra = {"帧数": wt.n, "最大穿透(m)": round(pen, 6),
              "帧间跳变比": round(fjr, 4),
              "击掌间距(m)": gap_final, "视频": os.path.basename(path)}
     return checks, extra
