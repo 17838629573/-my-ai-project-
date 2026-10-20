@@ -33,35 +33,52 @@ KEPT_RE = re.compile(r"Contracts:\s*(\d+)\s+kept,\s*(\d+)\s+broken\.", re.I)
 CONTRACT_RE = re.compile(r"^(\S.*?)\s+(KEPT|BROKEN)\s*$", re.M)
 
 
-def run():
-    """跑 lint-imports，返回 {"ok":bool,"kept":n,"broken":m,"contracts":[...],"error":str|None}"""
-    if not os.path.exists(CONFIG):
-        return {"ok": False, "kept": 0, "broken": 0, "contracts": [],
-                "error": "配置文件缺失: %s" % CONFIG}
+def _lint_env():
+    """子进程环境: PYTHONPATH 必须含 _proc。
+
+    项目存在 _proc.motion 与 motion 两套包名(双包名)，缺 _proc 时 grimp
+    找不到扁平包，会直接报 "Could not find package 'tools' in your Python
+    path." —— 这不是契约通过，是工具压根没跑起来，必须避免被当成"绿"。
+    """
+    _env = dict(os.environ)
+    _pp = _env.get("PYTHONPATH", "")
+    _env["PYTHONPATH"] = (_PROC + os.pathsep + _ROOT + os.pathsep + _pp).strip(os.pathsep)
+    return _env
+
+
+def _exec_lint():
+    """执行 lint-imports: 返回 (stdout, error)。error 非 None 即工具未真正跑起来。"""
     try:
-        # PYTHONPATH 必须含 _proc: 项目存在 _proc.motion 与 motion 两套包名(双包名),
-        # 缺 _proc 时 grimp 找不到扁平包, 直接报
-        #   "Could not find package 'tools' in your Python path."
-        # —— 这不是契约通过, 是工具压根没跑起来, 必须避免被当成"绿"。
-        _env = dict(os.environ)
-        _pp = _env.get("PYTHONPATH", "")
-        _env["PYTHONPATH"] = (_PROC + os.pathsep + _ROOT + os.pathsep + _pp).strip(os.pathsep)
         p = subprocess.run(
-            ["lint-imports"], cwd=_ROOT, timeout=600, env=_env,
+            ["lint-imports"], cwd=_ROOT, timeout=600, env=_lint_env(),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
-        out = p.stdout.decode("utf-8", "replace")
+        return p.stdout.decode("utf-8", "replace"), None
     except FileNotFoundError:
-        return {"ok": False, "kept": 0, "broken": 0, "contracts": [],
-                "error": "lint-imports 未安装 (pip install import-linter)"}
+        return None, "lint-imports 未安装 (pip install import-linter)"
     except subprocess.TimeoutExpired:
-        return {"ok": False, "kept": 0, "broken": 0, "contracts": [], "error": "超时"}
+        return None, "超时"
 
+
+def _parse(out):
+    """解析契约行与 KEPT/BROKEN 计数: 返回 (contracts, kept, broken)。"""
     contracts = [{"name": m.group(1).strip(), "state": m.group(2)}
                  for m in CONTRACT_RE.finditer(out)]
     mk = KEPT_RE.search(out)
     kept = int(mk.group(1)) if mk else sum(1 for c in contracts if c["state"] == "KEPT")
     broken = int(mk.group(2)) if mk else sum(1 for c in contracts if c["state"] == "BROKEN")
+    return contracts, kept, broken
+
+
+def run():
+    """跑 lint-imports，返回 {"ok":bool,"kept":n,"broken":m,"contracts":[...],"error":str|None}"""
+    if not os.path.exists(CONFIG):
+        return {"ok": False, "kept": 0, "broken": 0, "contracts": [],
+                "error": "配置文件缺失: %s" % CONFIG}
+    out, err = _exec_lint()
+    if err is not None:
+        return {"ok": False, "kept": 0, "broken": 0, "contracts": [], "error": err}
+    contracts, kept, broken = _parse(out)
     if kept + broken == 0:
         # 一个契约都没解析到 = 工具没真正执行(未安装/路径错/配置空), 不能当成"零违规"。
         return {"ok": False, "kept": 0, "broken": 0, "contracts": [],

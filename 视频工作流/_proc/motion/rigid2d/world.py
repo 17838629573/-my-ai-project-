@@ -130,20 +130,8 @@ class World:
             c.Pn, c.Pt = old[idx]
         return c
 
-    def _pair_candidates(self, rad):
-        """宽相空间哈希：返回去重且排序后的候选对（出处：均匀网格 broadphase）。
-
-        81 体暴力 = 3240 对/步，压力段 131 体 = 8555 对/步。只做候选对筛选、
-        窄相一字不改，所以数值必须与暴力版逐位一致（自检已验）。
-        正确性：AABB 相交 ⟺ 存在公共格子，故不会漏接触。
-        返回前 sort() 是为了让候选对顺序与暴力版一致——顺序变会改浮点求和次序。
-        """
-        n = len(self.bodies)
-        cell = 1e-6
-        for b in self.bodies:
-            d = 2.0 * rad[id(b)]
-            if d > cell:
-                cell = d
+    def _grid_build(self, rad, cell):
+        """按均匀网格登记物体下标: 返回 {格子: [物体下标]}。"""
         grid = {}
         for i, b in enumerate(self.bodies):
             r = rad[id(b)]
@@ -154,6 +142,10 @@ class World:
             for ix in range(x0, x1 + 1):
                 for iy in range(y0, y1 + 1):
                     grid.setdefault((ix, iy), []).append(i)
+        return grid
+
+    def _grid_pairs(self, grid, n):
+        """从格子桶提取去重候选对（i<j 规范化 + seen 去重），顺序与暴力版一致。"""
         seen = set()
         cand = []
         for bucket in grid.values():
@@ -170,6 +162,23 @@ class World:
                         continue
                     seen.add(k)
                     cand.append((i0, j0))
+        return cand
+
+    def _pair_candidates(self, rad):
+        """宽相空间哈希：返回去重且排序后的候选对（出处：均匀网格 broadphase）。
+
+        81 体暴力 = 3240 对/步，压力段 131 体 = 8555 对/步。只做候选对筛选、
+        窄相一字不改，所以数值必须与暴力版逐位一致（自检已验）。
+        正确性：AABB 相交 ⟺ 存在公共格子，故不会漏接触。
+        返回前 sort() 是为了让候选对顺序与暴力版一致——顺序变会改浮点求和次序。
+        """
+        n = len(self.bodies)
+        cell = 1e-6
+        for b in self.bodies:
+            d = 2.0 * rad[id(b)]
+            if d > cell:
+                cell = d
+        cand = self._grid_pairs(self._grid_build(rad, cell), n)
         cand.sort()
         return cand
 
